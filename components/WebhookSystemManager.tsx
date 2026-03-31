@@ -1,0 +1,324 @@
+import React, { useState, useEffect } from 'react';
+import { Zap, Plus, Edit2, Trash2, CheckCircle, AlertCircle, Loader, Copy, Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
+
+interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  lastTriggered: string | null;
+  createdAt: string;
+}
+
+interface WebhookSystemManagerProps {
+  userId: string;
+}
+
+const AVAILABLE_EVENTS = [
+  { id: 'lead.created', label: 'Lead Created', category: 'Leads' },
+  { id: 'lead.updated', label: 'Lead Updated', category: 'Leads' },
+  { id: 'lead.deleted', label: 'Lead Deleted', category: 'Leads' },
+  { id: 'campaign.sent', label: 'Campaign Sent', category: 'Campaigns' },
+  { id: 'campaign.completed', label: 'Campaign Completed', category: 'Campaigns' },
+  { id: 'email.opened', label: 'Email Opened', category: 'Emails' },
+  { id: 'email.clicked', label: 'Email Clicked', category: 'Emails' },
+  { id: 'crm.synced', label: 'CRM Synced', category: 'CRM' },
+  { id: 'alert.hallucination', label: 'Hallucination Alert', category: 'Quality' },
+];
+
+export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
+  userId,
+}) => {
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadWebhooks();
+  }, [userId]);
+
+  const loadWebhooks = async () => {
+    try {
+      // In production, fetch from webhooks table
+      // For now, load from localStorage
+      const stored = localStorage.getItem(`webhooks_${userId}`);
+      if (stored) {
+        setWebhooks(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error('Error loading webhooks:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddWebhook = async () => {
+    if (!webhookUrl) {
+      setError('Please enter a webhook URL');
+      return;
+    }
+
+    if (!webhookUrl.startsWith('http')) {
+      setError('Invalid URL format');
+      return;
+    }
+
+    if (selectedEvents.length === 0) {
+      setError('Select at least one event');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const newWebhook: Webhook = {
+        id: Date.now().toString(),
+        url: webhookUrl,
+        events: selectedEvents,
+        active: true,
+        lastTriggered: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updated = [...webhooks, newWebhook];
+      setWebhooks(updated);
+      localStorage.setItem(`webhooks_${userId}`, JSON.stringify(updated));
+
+      setWebhookUrl('');
+      setSelectedEvents([]);
+      setShowForm(false);
+      setSuccess('Webhook added successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to add webhook');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteWebhook = (id: string) => {
+    const updated = webhooks.filter((w) => w.id !== id);
+    setWebhooks(updated);
+    localStorage.setItem(`webhooks_${userId}`, JSON.stringify(updated));
+  };
+
+  const testWebhook = async (webhook: Webhook) => {
+    try {
+      const payload = {
+        event: 'test.webhook',
+        timestamp: new Date().toISOString(),
+        data: {
+          message: 'This is a test webhook from CCE',
+        },
+      };
+
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        setSuccess(`✅ Test sent to ${webhook.url}`);
+      } else {
+        setError(`❌ Webhook returned ${response.status}`);
+      }
+    } catch (err: any) {
+      setError(`Failed to test: ${err.message}`);
+    }
+
+    setTimeout(() => {
+      setSuccess('');
+      setError('');
+    }, 3000);
+  };
+
+  if (loading) {
+    return <div className="bg-white rounded-lg p-6 text-center">Loading webhooks...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+        <Zap className="w-5 h-5 text-indigo-600" />
+        Webhook System
+      </h3>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <p className="text-sm text-green-600">{success}</p>
+        </div>
+      )}
+
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Webhook
+        </button>
+      )}
+
+      {showForm && (
+        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-1">
+              Webhook URL
+            </label>
+            <input
+              type="text"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://example.com/webhook"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+            />
+            <p className="text-xs text-slate-600 mt-1">
+              POST requests will be sent to this URL with event data
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Subscribe to Events
+            </label>
+            <div className="space-y-3 max-h-64 overflow-y-auto border border-slate-300 p-3 rounded bg-white">
+              {['Leads', 'Campaigns', 'Emails', 'CRM', 'Quality'].map((category) => (
+                <div key={category}>
+                  <p className="text-xs font-bold text-slate-600 mb-2">{category}</p>
+                  <div className="space-y-1">
+                    {AVAILABLE_EVENTS.filter((e) => e.category === category).map((event) => (
+                      <label
+                        key={event.id}
+                        className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedEvents.includes(event.id)}
+                          onChange={(e) =>
+                            setSelectedEvents(
+                              e.target.checked
+                                ? [...selectedEvents, event.id]
+                                : selectedEvents.filter((ev) => ev !== event.id)
+                            )
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm text-slate-700">{event.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 border-t border-slate-300 pt-4">
+            <button
+              onClick={handleAddWebhook}
+              disabled={saving}
+              className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Create Webhook
+            </button>
+            <button
+              onClick={() => {
+                setShowForm(false);
+                setWebhookUrl('');
+                setSelectedEvents([]);
+              }}
+              className="flex-1 py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Webhooks List */}
+      <div className="space-y-2">
+        {webhooks.length === 0 ? (
+          <p className="text-sm text-slate-600 text-center py-4">No webhooks configured</p>
+        ) : (
+          webhooks.map((webhook) => (
+            <div key={webhook.id} className="border border-slate-300 rounded-lg p-3 bg-white">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    {webhook.active ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                    )}
+                    <span className="text-xs font-mono text-slate-600">
+                      {webhook.url.substring(0, 50)}...
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Events: {webhook.events.join(', ')}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => testWebhook(webhook)}
+                    className="p-1 hover:bg-blue-50 rounded text-blue-600 text-xs font-medium"
+                  >
+                    Test
+                  </button>
+                  <button
+                    onClick={() => handleDeleteWebhook(webhook.id)}
+                    className="p-1 hover:bg-red-50 rounded"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
+                </div>
+              </div>
+              {webhook.lastTriggered && (
+                <p className="text-xs text-slate-500">
+                  Last triggered: {new Date(webhook.lastTriggered).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Documentation */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-900">
+          💡 <strong>Webhook Payload Example:</strong>
+        </p>
+        <code className="block bg-blue-900 text-green-400 p-2 rounded mt-2 text-xs overflow-x-auto">
+          {`{
+  "event": "campaign.completed",
+  "timestamp": "2026-03-31T10:00:00Z",
+  "data": {
+    "campaignId": "123",
+    "campaignName": "Q1 Outreach",
+    "opens": 25,
+    "clicks": 8
+  }
+}`}
+        </code>
+      </div>
+    </div>
+  );
+};
+
+export default WebhookSystemManager;

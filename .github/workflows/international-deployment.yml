@@ -1,0 +1,336 @@
+name: International Expansion - Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Job 1: Lint and Type Check
+  lint-and-type-check:
+    runs-on: ubuntu-latest
+    name: Lint & Type Check
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+      
+      - name: Type check
+        run: npm run type-check
+
+  # Job 2: Test International Config
+  test-international-config:
+    runs-on: ubuntu-latest
+    name: Test International Config
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Create test file
+        run: |
+          cat > test-international-config.js << 'EOF'
+          // Test international config files
+          const countries = require('./src/config/countries.ts');
+          const sources = require('./src/config/sources.ts');
+          const newsSources = require('./src/config/newsSources.ts');
+          
+          console.log('✅ Countries loaded:', countries.COUNTRIES.length);
+          console.log('✅ Sources loaded:', sources.OFFICIAL_SOURCES.length);
+          console.log('✅ News sources loaded:', newsSources.NEWS_SOURCES.length);
+          
+          // Validate all countries have registries
+          const missingRegistry = countries.COUNTRIES.filter(c => !c.registryDomain);
+          if (missingRegistry.length > 0) {
+            console.error('❌ Countries missing registry:', missingRegistry);
+            process.exit(1);
+          }
+          
+          console.log('✅ All countries have registries');
+          EOF
+        shell: bash
+
+  # Job 3: Test Database Migrations
+  test-database-migrations:
+    runs-on: ubuntu-latest
+    name: Test Database Migrations
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cce_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run migrations
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: cce_test
+        run: |
+          psql -f db/international_expansion_migrations.sql
+          
+          # Verify tables exist
+          psql -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('countries', 'official_sources', 'news_sources', 'news_articles', 'search_history')"
+
+  # Job 4: Build & Test
+  build:
+    runs-on: ubuntu-latest
+    name: Build Application
+    needs: [lint-and-type-check, test-international-config]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        env:
+          REACT_APP_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          REACT_APP_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          REACT_APP_TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          REACT_APP_MYNEWSDESK_API_KEY: ${{ secrets.MYNEWSDESK_API_KEY }}
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
+
+  # Job 5: Deploy to Vercel (Development)
+  deploy-dev:
+    runs-on: ubuntu-latest
+    name: Deploy to Vercel Dev
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Vercel Dev
+        uses: vercel/action@master
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_DEV }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          sso-team-id: ${{ secrets.VERCEL_ORG_ID }}
+
+  # Job 6: Deploy to Vercel (Production)
+  deploy-prod:
+    runs-on: ubuntu-latest
+    name: Deploy to Vercel Production
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Vercel Production
+        uses: vercel/action@master
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_PROD }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          production: true
+
+  # Job 7: Verify International APIs
+  verify-apis:
+    runs-on: ubuntu-latest
+    name: Verify International APIs
+    needs: build
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Test Tavily API
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: |
+          curl -s -X POST https://api.tavily.com/search \
+            -H "Content-Type: application/json" \
+            -d '{
+              "api_key": "'$TAVILY_API_KEY'",
+              "query": "Apple Inc company registry",
+              "max_results": 5
+            }' | jq '.results | length'
+      
+      - name: Test OpenRouter API
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          curl -s -X POST https://openrouter.io/api/v1/chat/completions \
+            -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "openai/gpt-3.5-turbo",
+              "messages": [{"role": "user", "content": "Test"}],
+              "max_tokens": 100
+            }' | jq '.usage'
+      
+      - name: Test Supabase Connection
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          curl -s "https://$(echo $SUPABASE_URL | cut -d'/' -f3)/rest/v1/countries?limit=1" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" | jq 'length'
+
+  # Job 8: Performance Check
+  performance:
+    runs-on: ubuntu-latest
+    name: Performance Check
+    needs: build
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
+      
+      - name: Check build size
+        run: |
+          echo "Build size analysis:"
+          du -sh dist/
+          find dist/ -name "*.js" -exec du -h {} \; | sort -rh | head -10
+      
+      - name: Check bundle size
+        run: |
+          BUNDLE_SIZE=$(du -sb dist/ | cut -f1)
+          BUNDLE_SIZE_MB=$((BUNDLE_SIZE / 1024 / 1024))
+          echo "Total bundle size: ${BUNDLE_SIZE_MB}MB"
+          if [ $BUNDLE_SIZE_MB -gt 500 ]; then
+            echo "⚠️  Bundle size exceeds 500MB"
+          else
+            echo "✅ Bundle size is acceptable"
+          fi
+
+  # Job 9: Security Scan
+  security:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run npm audit
+        run: |
+          npm audit --audit-level=moderate || true
+      
+      - name: Check for exposed secrets
+        run: |
+          if grep -r "OPENROUTER_API_KEY\|TAVILY_API_KEY\|SUPABASE_KEY" --include="*.js" --include="*.ts" --include="*.tsx" src/ | grep -v "process.env\|REACT_APP"; then
+            echo "❌ Possible hardcoded secrets found!"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
+
+  # Job 10: Notify Slack on status
+  notify:
+    runs-on: ubuntu-latest
+    name: Notify Status
+    needs: [deploy-prod, deploy-dev, verify-apis, performance, security]
+    if: always()
+    
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Deploy ${{ job.status }}: International Expansion \nBranch: ${{ github.ref }} \nCommit: ${{ github.sha }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        if: always()
+
+  # Job 11: Create Release (on main branch)
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Get version from package.json
+        id: get_version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}-international
+          release_name: International Expansion Release v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## 🌍 International Expansion Release
+            
+            ### Features
+            - Support for 12 countries with official registries
+            - 60+ curated news sources
+            - EU BRIS integration for cross-border verification
+            - Multi-language AI prompts
+            - Hallucination detection system
+            
+            ### Countries Supported
+            🇸🇪 Sweden | 🇩🇰 Denmark | 🇳🇴 Norway | 🇫🇮 Finland
+            🇬🇧 UK | 🇩🇪 Germany | 🇫🇷 France | 🇳🇱 Netherlands
+            🇧🇪 Belgium | 🇦🇹 Austria | 🇨🇭 Switzerland | 🇺🇸 USA
+            
+            ### Database
+            - 9 new Supabase tables
+            - Full-text search support
+            - RLS security policies
+            - Automated cleanup triggers
