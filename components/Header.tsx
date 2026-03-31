@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ShieldBan, Target, Database, Settings, ChevronDown, Radar, PlusCircle, 
   Check, Truck, Mail, Layers, Newspaper, Percent, Plus, Package, 
-  TrendingUp, History, Globe, Search, Download
+  TrendingUp, History, Globe, Search, Download, LogOut, User
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -32,6 +32,8 @@ interface HeaderProps {
   onOpenSlackManager?: () => void;
   onOpenWebhookManager?: () => void;
   onOpenPhase9Integration?: () => void;
+  onOpenUserProfile?: () => void;
+  onLogout?: () => void;
   inclusionCount: number;
   exclusionCount: number;
   cacheCount: number;
@@ -52,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCampaignPerformance, onOpenCostAnalysis, onOpenCRMManager, 
   onOpenEmailCampaignBuilder, onOpenEventTriggers, onOpenExportManager, 
   onOpenSlackManager, onOpenWebhookManager, onOpenPhase9Integration,
+  onOpenUserProfile, onLogout,
   inclusionCount, exclusionCount, cacheCount, 
   protocolMode, setProtocolMode, onAddNewLead, activeCarrier, setActiveCarrier, 
   availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier
@@ -328,6 +331,23 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               )}
            </div>
+
+           {/* User Actions */}
+           <div className="flex items-center gap-2">
+             {onOpenUserProfile && (
+               <button onClick={() => { onOpenUserProfile(); setIsToolsOpen(false); }} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-sm transition-all shadow-sm group">
+                 <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                 <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Profil</span>
+               </button>
+             )}
+             {onLogout && (
+               <button onClick={onLogout} className="flex items-center gap-2 bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 px-3 py-2 rounded-sm transition-all shadow-sm group">
+                 <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                 <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Logga ut</span>
+               </button>
+             )}
+           </div>
+
            <button onClick={onAddNewLead} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-sm transition-all shadow-lg active:scale-95 group">
              <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform" />
              <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Nytt Företag</span>

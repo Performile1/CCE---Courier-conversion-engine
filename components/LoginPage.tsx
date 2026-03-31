@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
-import { signUp, signIn } from '../services/supabaseClient';
+import { Mail, Lock, User, AlertCircle, Loader, Eye, EyeOff, Phone } from 'lucide-react';
+import { signUpWithProfile, signIn } from '../services/supabaseClient';
 
 interface LoginPageProps {
   onAuthSuccess?: () => void;
@@ -11,6 +11,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,11 +29,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
         if (!fullName.trim()) {
           throw new Error('Please enter your full name');
         }
-        await signUp(email, password, fullName);
+        await signUpWithProfile(email, password, fullName, phone || undefined, username || undefined);
         setSuccess('Account created! Check your email to confirm your account.');
         setEmail('');
         setPassword('');
         setFullName('');
+        setUsername('');
+        setPhone('');
         setTimeout(() => setMode('login'), 3000);
       } else {
         await signIn(email, password);
@@ -146,6 +150,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                 <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
               )}
             </div>
+
+            {/* Username (Sign Up only) */}
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-1">
+                  <User className="w-4 h-4 inline mr-2" />
+                  Username (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="your_username"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  disabled={loading}
+                />
+              </div>
+            )}
+
+            {/* Phone (Sign Up only) */}
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-1">
+                  <Phone className="w-4 h-4 inline mr-2" />
+                  Phone Number (Optional)
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555) 000-0000"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  disabled={loading}
+                />
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (

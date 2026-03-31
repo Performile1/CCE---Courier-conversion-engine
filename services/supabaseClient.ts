@@ -104,3 +104,109 @@ export function onAuthStateChange(callback: (user: any) => void) {
     callback(session?.user || null);
   });
 }
+
+/**
+ * Create user profile in users table
+ */
+export async function createUserProfile(
+  userId: string,
+  email: string,
+  fullName: string,
+  phone?: string,
+  username?: string
+) {
+  const { data, error } = await supabase
+    .from('users')
+    .insert([
+      {
+        id: userId,
+        email,
+        full_name: fullName,
+        phone: phone || null,
+        username: username || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    ])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Get user profile
+ */
+export async function getUserProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+  return data || null;
+}
+
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    username?: string;
+    phone?: string;
+    company_name?: string;
+    full_name?: string;
+  }
+) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Sign up with extended profile fields
+ */
+export async function signUpWithProfile(
+  email: string,
+  password: string,
+  fullName: string,
+  phone?: string,
+  username?: string
+) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+        phone: phone || null,
+        username: username || null
+      }
+    }
+  });
+
+  if (error) throw error;
+
+  // Create user profile if sign up succeeded
+  if (data.user) {
+    try {
+      await createUserProfile(data.user.id, email, fullName, phone, username);
+    } catch (profileError) {
+      console.error('Error creating user profile:', profileError);
+    }
+  }
+
+  return data;
+}

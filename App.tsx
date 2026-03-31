@@ -37,7 +37,11 @@ import { ROICalculator } from './components/ROICalculator';
 import { SlackManager } from './components/SlackManager';
 import { WebhookSystemManager } from './components/WebhookSystemManager';
 import Phase9IntegrationManager from './components/Phase9IntegrationManager';
+import { LoginPage } from './components/LoginPage';
+import { UserProfile } from './components/UserProfile';
+import { PasswordReset } from './components/PasswordReset';
 import { generateLeads, generateDeepDiveSequential } from './services/geminiService'; 
+import { signOut, supabase } from './services/supabaseClient';
 import { ShieldAlert } from 'lucide-react';
 import { 
   SearchFormData, 
@@ -59,6 +63,10 @@ const DEFAULT_MAIL_TEMPLATE_EN = `Hi {fornamn},<br/><br/>I have conducted an ana
 const DEFAULT_CARRIERS = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'];
 
 export const App: React.FC = () => {
+  // Authentication state - MUST BE BEFORE ALL OTHER STATE
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'session_only'>('loading');
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [activeCarrier, setActiveCarrier] = useState<string>(() => localStorage.getItem('dhl_active_carrier') || 'DHL');
@@ -91,7 +99,7 @@ export const App: React.FC = () => {
   const [isThreePLOpen, setIsThreePLOpen] = useState(false);
   const [isCarrierSettingsOpen, setIsCarrierSettingsOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
-  
+
   // Additional component states
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [isCustomAPIOpen, setIsCustomAPIOpen] = useState(false);
@@ -141,7 +149,7 @@ export const App: React.FC = () => {
       return saved ? JSON.parse(saved) : [];
     } catch (e) { return []; }
   });
-  
+
   const [mailTemplateSv, setMailTemplateSv] = useState(() => localStorage.getItem('dhl_mail_template_sv') || DEFAULT_MAIL_TEMPLATE_SV);
   const [mailTemplateEn, setMailTemplateEn] = useState(() => localStorage.getItem('dhl_mail_template_en') || DEFAULT_MAIL_TEMPLATE_EN);
   const [mailSignature, setMailSignature] = useState(() => localStorage.getItem('dhl_mail_signature') || 'Med vänlig hälsning,<br/>Account Manager, {active_carrier}');
@@ -158,6 +166,53 @@ export const App: React.FC = () => {
       return saved ? JSON.parse(saved) : ['Checkout-strategi', 'Paketskåp', 'Konverteringslyft', 'Last Mile'];
     } catch (e) { return ['Checkout-strategi', 'Paketskåp', 'Konverteringslyft', 'Last Mile']; }
   });
+
+  const [deepDiveLead, setDeepDiveLead] = useState<LeadData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [deepDiveLoading, setDeepDiveLoading] = useState(false);
+  const [analyzingCompany, setAnalyzingCompany] = useState<string | null>(null); 
+  const [analysisSubStatus, setAnalysisSubStatus] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
+  const abortControllerRef = useRef<boolean>(false);
+
+  const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
+  const [resetFormTrigger, setResetFormTrigger] = useState(0);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (err) {
+        console.error('Auth check failed:', err);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setUser(null);
+      setIsUserProfileOpen(false);
+    } catch (err: any) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   // Persistence for mail settings
   useEffect(() => { localStorage.setItem('dhl_mail_template_sv', mailTemplateSv); }, [mailTemplateSv]);
@@ -645,6 +700,19 @@ export const App: React.FC = () => {
   };
 
   return (
+    <>
+      {/* Show loading or login based on auth state */}
+      {authLoading && (
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-600 to-blue-600">
+          <div className="text-white text-center">
+            <div className="text-4xl font-bold mb-4">Loading...</div>
+          </div>
+        </div>
+      )}
+
+      {!authLoading && !user && <LoginPage onAuthSuccess={() => setAuthLoading(true)} />}
+
+      {!authLoading && user && (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Header 
         onOpenExclusions={() => setIsExclusionOpen(true)} 
@@ -672,6 +740,8 @@ export const App: React.FC = () => {
         onOpenSlackManager={() => setIsSlackManagerOpen(true)}
         onOpenWebhookManager={() => setIsWebhookManagerOpen(true)}
         onOpenPhase9Integration={() => setIsPhase9IntegrationOpen(true)}
+        onOpenUserProfile={() => setIsUserProfileOpen(true)}
+        onLogout={handleLogout}
         inclusionCount={includedKeywords.length} 
         exclusionCount={existingCustomers.length + downloadedLeads.length} 
         cacheCount={cacheData.length} 
@@ -1017,11 +1087,22 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* User Profile Modal */}
+      {isUserProfileOpen && user && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <UserProfile userId={user.id} onClose={() => setIsUserProfileOpen(false)} />
+          </div>
+        </div>
+      )}
+
       <OnboardingTour 
         isOpen={showTour} 
         onClose={() => setShowTour(false)} 
         onDemoFill={handleDemoFill}
       />
     </div>
+      )}
+    </>
   );
 };
