@@ -20,6 +20,23 @@ import { ProcessingStatusBanner } from './components/ProcessingStatusBanner';
 import { RateLimitOverlay } from './components/RateLimitOverlay';
 import { QuotaTimer } from './components/QuotaTimer';
 import { OnboardingTour } from './components/OnboardingTour';
+import { ModelSelector } from './components/ModelSelector';
+import { CustomAPIConnectorBuilder } from './components/CustomAPIConnectorBuilder';
+import { CustomIntegrationAdapter } from './components/CustomIntegrationAdapter';
+import { CustomReportBuilder } from './components/CustomReportBuilder';
+import { CampaignAnalytics } from './components/CampaignAnalytics';
+import { CampaignPerformanceDashboard } from './components/CampaignPerformanceDashboard';
+import { CostAnalysisDashboard } from './components/CostAnalysisDashboard';
+import { CRMManager } from './components/CRMManager';
+import { EmailCampaignBuilder } from './components/EmailCampaignBuilder';
+import { EventTriggersComponent } from './components/EventTriggersComponent';
+import { ExportManager } from './components/ExportManager';
+import { HallucinationIndicator } from './components/HallucinationIndicator';
+import { RemovalAnalysisModal } from './components/RemovalAnalysisModal';
+import { ROICalculator } from './components/ROICalculator';
+import { SlackManager } from './components/SlackManager';
+import { WebhookSystemManager } from './components/WebhookSystemManager';
+import { Phase9IntegrationManager } from './components/Phase9IntegrationManager';
 import { generateLeads, generateDeepDiveSequential } from './services/geminiService'; 
 import { ShieldAlert } from 'lucide-react';
 import { 
@@ -74,6 +91,25 @@ export const App: React.FC = () => {
   const [isThreePLOpen, setIsThreePLOpen] = useState(false);
   const [isCarrierSettingsOpen, setIsCarrierSettingsOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  
+  // Additional component states
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
+  const [isCustomAPIOpen, setIsCustomAPIOpen] = useState(false);
+  const [isCustomIntegrationOpen, setIsCustomIntegrationOpen] = useState(false);
+  const [isCustomReportOpen, setIsCustomReportOpen] = useState(false);
+  const [isCampaignAnalyticsOpen, setIsCampaignAnalyticsOpen] = useState(false);
+  const [isCampaignPerformanceOpen, setIsCampaignPerformanceOpen] = useState(false);
+  const [isCostAnalysisOpen, setIsCostAnalysisOpen] = useState(false);
+  const [isCRMManagerOpen, setIsCRMManagerOpen] = useState(false);
+  const [isEmailCampaignBuilderOpen, setIsEmailCampaignBuilderOpen] = useState(false);
+  const [isEventTriggersOpen, setIsEventTriggersOpen] = useState(false);
+  const [isExportManagerOpen, setIsExportManagerOpen] = useState(false);
+  const [isHallucinationIndicatorOpen, setIsHallucinationIndicatorOpen] = useState(false);
+  const [isRemovalAnalysisOpen, setIsRemovalAnalysisOpen] = useState(false);
+  const [isROICalculatorOpen, setIsROICalculatorOpen] = useState(false);
+  const [isSlackManagerOpen, setIsSlackManagerOpen] = useState(false);
+  const [isWebhookManagerOpen, setIsWebhookManagerOpen] = useState(false);
+  const [isPhase9IntegrationOpen, setIsPhase9IntegrationOpen] = useState(false);
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
@@ -622,6 +658,20 @@ export const App: React.FC = () => {
         onOpenSNISettings={() => setIsSNISettingsOpen(true)}
         onOpenThreePL={() => setIsThreePLOpen(true)}
         onOpenCarrierSettings={() => setIsCarrierSettingsOpen(true)}
+        onOpenModelSelector={() => setIsModelSelectorOpen(true)}
+        onOpenCustomAPI={() => setIsCustomAPIOpen(true)}
+        onOpenCustomIntegration={() => setIsCustomIntegrationOpen(true)}
+        onOpenCustomReport={() => setIsCustomReportOpen(true)}
+        onOpenCampaignAnalytics={() => setIsCampaignAnalyticsOpen(true)}
+        onOpenCampaignPerformance={() => setIsCampaignPerformanceOpen(true)}
+        onOpenCostAnalysis={() => setIsCostAnalysisOpen(true)}
+        onOpenCRMManager={() => setIsCRMManagerOpen(true)}
+        onOpenEmailCampaignBuilder={() => setIsEmailCampaignBuilderOpen(true)}
+        onOpenEventTriggers={() => setIsEventTriggersOpen(true)}
+        onOpenExportManager={() => setIsExportManagerOpen(true)}
+        onOpenSlackManager={() => setIsSlackManagerOpen(true)}
+        onOpenWebhookManager={() => setIsWebhookManagerOpen(true)}
+        onOpenPhase9Integration={() => setIsPhase9IntegrationOpen(true)}
         inclusionCount={includedKeywords.length} 
         exclusionCount={existingCustomers.length + downloadedLeads.length} 
         cacheCount={cacheData.length} 
@@ -755,6 +805,217 @@ export const App: React.FC = () => {
       />
       <DailyBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} cacheCount={cacheData.length} />
       <ManualAddModal isOpen={isManualAddOpen} onClose={() => setIsManualAddOpen(false)} onAdd={handleUpdateLead} />
+
+      {/* Additional Component Modals */}
+      {isModelSelectorOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">AI Model Selection</h2>
+            <ModelSelector showCostTracker={true} />
+            <button 
+              onClick={() => setIsModelSelectorOpen(false)}
+              className="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCustomAPIOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Custom API Connector Builder</h2>
+            <CustomAPIConnectorBuilder userId="current-user" />
+            <button 
+              onClick={() => setIsCustomAPIOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCustomIntegrationOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Custom Integration Adapter</h2>
+            <CustomIntegrationAdapter />
+            <button 
+              onClick={() => setIsCustomIntegrationOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCustomReportOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Custom Report Builder</h2>
+            <CustomReportBuilder leads={leads} />
+            <button 
+              onClick={() => setIsCustomReportOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCampaignAnalyticsOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Campaign Analytics</h2>
+            <CampaignAnalytics />
+            <button 
+              onClick={() => setIsCampaignAnalyticsOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCampaignPerformanceOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Campaign Performance Dashboard</h2>
+            <CampaignPerformanceDashboard />
+            <button 
+              onClick={() => setIsCampaignPerformanceOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCostAnalysisOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Cost Analysis Dashboard</h2>
+            <CostAnalysisDashboard />
+            <button 
+              onClick={() => setIsCostAnalysisOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCRMManagerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">CRM Manager</h2>
+            <CRMManager />
+            <button 
+              onClick={() => setIsCRMManagerOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isEmailCampaignBuilderOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Email Campaign Builder</h2>
+            <EmailCampaignBuilder />
+            <button 
+              onClick={() => setIsEmailCampaignBuilderOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isEventTriggersOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Event Triggers</h2>
+            <EventTriggersComponent />
+            <button 
+              onClick={() => setIsEventTriggersOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isExportManagerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Export Manager</h2>
+            <ExportManager leads={leads} />
+            <button 
+              onClick={() => setIsExportManagerOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isSlackManagerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Slack Manager</h2>
+            <SlackManager />
+            <button 
+              onClick={() => setIsSlackManagerOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isWebhookManagerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Webhook System Manager</h2>
+            <WebhookSystemManager />
+            <button 
+              onClick={() => setIsWebhookManagerOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isPhase9IntegrationOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Phase 9 Integration Manager</h2>
+            <Phase9IntegrationManager />
+            <button 
+              onClick={() => setIsPhase9IntegrationOpen(false)}
+              className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <OnboardingTour 
         isOpen={showTour} 

@@ -18,6 +18,20 @@ interface HeaderProps {
   onOpenSNISettings: () => void;
   onOpenThreePL: () => void;
   onOpenCarrierSettings: () => void;
+  onOpenModelSelector?: () => void;
+  onOpenCustomAPI?: () => void;
+  onOpenCustomIntegration?: () => void;
+  onOpenCustomReport?: () => void;
+  onOpenCampaignAnalytics?: () => void;
+  onOpenCampaignPerformance?: () => void;
+  onOpenCostAnalysis?: () => void;
+  onOpenCRMManager?: () => void;
+  onOpenEmailCampaignBuilder?: () => void;
+  onOpenEventTriggers?: () => void;
+  onOpenExportManager?: () => void;
+  onOpenSlackManager?: () => void;
+  onOpenWebhookManager?: () => void;
+  onOpenPhase9Integration?: () => void;
   inclusionCount: number;
   exclusionCount: number;
   cacheCount: number;
@@ -33,7 +47,12 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ 
   onOpenExclusions, onOpenInclusions, onOpenCache, onOpenBriefing, onOpenBackups, 
   onOpenMailTemplate, onOpenIntegrations, onOpenNewsSources, onOpenSNISettings, 
-  onOpenThreePL, onOpenCarrierSettings, inclusionCount, exclusionCount, cacheCount, 
+  onOpenThreePL, onOpenCarrierSettings, onOpenModelSelector, onOpenCustomAPI, 
+  onOpenCustomIntegration, onOpenCustomReport, onOpenCampaignAnalytics, 
+  onOpenCampaignPerformance, onOpenCostAnalysis, onOpenCRMManager, 
+  onOpenEmailCampaignBuilder, onOpenEventTriggers, onOpenExportManager, 
+  onOpenSlackManager, onOpenWebhookManager, onOpenPhase9Integration,
+  inclusionCount, exclusionCount, cacheCount, 
   protocolMode, setProtocolMode, onAddNewLead, activeCarrier, setActiveCarrier, 
   availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier
 }) => {
@@ -186,6 +205,124 @@ export const Header: React.FC<HeaderProps> = ({
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">3PL Manager</span>
                           <span className="text-[9px] text-slate-400 font-medium">Hantera 3PL-partners & adresser</span>
+                       </div>
+                    </button>
+
+                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Analytics & Rapporter</div>
+
+                    <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-indigo-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">AI Model Selection</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Välj LLM & spåra kostnad</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCampaignAnalytics?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-green-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Kampanj Analytics</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Detaljerade kampanjstatistik</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCampaignPerformance?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-blue-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Performance Dashboard</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Kampanjprestanda i realtid</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCostAnalysis?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-purple-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Kostnadsanalys</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Kostnad per kampanj & segment</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenExportManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Download className="w-4 h-4 text-slate-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Export Manager</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Exportera leads & rapporter</span>
+                       </div>
+                    </button>
+
+                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Integrations & Webhooks</div>
+
+                    <button onClick={() => { onOpenCustomAPI?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Settings className="w-4 h-4 text-cyan-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Custom API Builder</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Koppla egna API:er</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCustomIntegration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Layers className="w-4 h-4 text-teal-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Custom Integration</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Anpassade integrationsadaptrar</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenWebhookManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Layers className="w-4 h-4 text-orange-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Webhook System</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Hantera webhooks & events</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenSlackManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Layers className="w-4 h-4 text-slate-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Slack Integration</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Koppla Slack-notifieringar</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCRMManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Database className="w-4 h-4 text-yellow-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">CRM Manager</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Synka leads till CRM</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenPhase9Integration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Layers className="w-4 h-4 text-pink-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Phase 9 Integrations</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Avancerade integrations</span>
+                       </div>
+                    </button>
+
+                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Kampanjer & Mail</div>
+
+                    <button onClick={() => { onOpenEmailCampaignBuilder?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Mail className="w-4 h-4 text-red-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Email Campaign Builder</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Skapa avancerade emailkampanjer</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenEventTriggers?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Settings className="w-4 h-4 text-red-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Event Triggers</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Automatisk triggering baserat på event</span>
+                       </div>
+                    </button>
+
+                    <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                       <Download className="w-4 h-4 text-indigo-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Custom Report Builder</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Generera anpassade rapporter</span>
                        </div>
                     </button>
                 </div>
