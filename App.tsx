@@ -36,7 +36,7 @@ import { RemovalAnalysisModal } from './components/RemovalAnalysisModal';
 import { ROICalculator } from './components/ROICalculator';
 import { SlackManager } from './components/SlackManager';
 import { WebhookSystemManager } from './components/WebhookSystemManager';
-import { Phase9IntegrationManager } from './components/Phase9IntegrationManager';
+import Phase9IntegrationManager from './components/Phase9IntegrationManager';
 import { generateLeads, generateDeepDiveSequential } from './services/geminiService'; 
 import { ShieldAlert } from 'lucide-react';
 import { 
