@@ -243,17 +243,6 @@ export const App: React.FC = () => {
     } catch (e) {}
   }, [dbStatus]);
 
-  const [deepDiveLead, setDeepDiveLead] = useState<LeadData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [deepDiveLoading, setDeepDiveLoading] = useState(false);
-  const [analyzingCompany, setAnalyzingCompany] = useState<string | null>(null); 
-  const [analysisSubStatus, setAnalysisSubStatus] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
-  const abortControllerRef = useRef<boolean>(false);
-
-  const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
-  const [resetFormTrigger, setResetFormTrigger] = useState(0);
-
   useEffect(() => {
     const initDb = async () => {
       try {
