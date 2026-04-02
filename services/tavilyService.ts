@@ -262,16 +262,18 @@ async function performTavilySearch(
   apiKey: string
 ): Promise<string[]> {
   try {
+    // Call backend proxy instead of direct API
+    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
+    
     const response = await axios.post(
-      'https://api.tavily.com/search',
+      `${backendUrl}/api/tavily`,
       {
-        api_key: apiKey,
         query: query,
-        max_results: 5,
-        include_answer: false
+        action: 'search',
+        maxResults: 5
       },
       {
-        timeout: 10000
+        timeout: 15000
       }
     );
 
@@ -295,23 +297,19 @@ export async function getSourcesForClaim(
   context: string,
   apiKey?: string
 ): Promise<SearchResult[]> {
-  const key = apiKey || process.env.TAVILY_API_KEY;
-  
-  if (!key) {
-    return [];
-  }
-
   try {
+    // Call backend proxy instead of direct API
+    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
+    
     const response = await axios.post(
-      'https://api.tavily.com/search',
+      `${backendUrl}/api/tavily`,
       {
-        api_key: key,
         query: `${claim} ${context}`,
-        max_results: 10,
-        include_answer: true
+        action: 'search',
+        maxResults: 10
       },
       {
-        timeout: 10000
+        timeout: 15000
       }
     );
 
