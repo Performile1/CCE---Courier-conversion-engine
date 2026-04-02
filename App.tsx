@@ -84,7 +84,15 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   payment: ['klarna.com', 'stripe.com', 'adyen.com'],
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   news: ['ehandel.se', 'market.se', 'breakit.se'],
-  customCategories: {}
+  customCategories: {},
+  categoryFieldMappings: {
+    financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
+    addresses: ['address', 'visitingAddress', 'warehouseAddress'],
+    decisionMakers: ['decisionMakers'],
+    payment: ['paymentProvider', 'checkoutSolution'],
+    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence'],
+    news: ['latestNews']
+  }
 };
 
 export const App: React.FC = () => {
@@ -212,6 +220,33 @@ export const App: React.FC = () => {
   const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
   const [resetFormTrigger, setResetFormTrigger] = useState(0);
 
+  const persistExclusionList = useCallback(async (type: 'customer' | 'history', list: string[]) => {
+    const uniqueList = Array.from(new Set((list || []).map(v => String(v).trim()).filter(Boolean)));
+
+    if (type === 'customer') {
+      setExistingCustomers(uniqueList);
+      localStorage.setItem('dhl_existing_customers', JSON.stringify(uniqueList));
+    } else {
+      setDownloadedLeads(uniqueList);
+      localStorage.setItem('dhl_downloaded_leads', JSON.stringify(uniqueList));
+    }
+
+    if (dbStatus !== 'ready') return;
+
+    try {
+      await db.exclusions.where('type').equals(type).delete();
+      if (uniqueList.length > 0) {
+        await db.exclusions.bulkPut(uniqueList.map(value => ({
+          orgNumber: /\d{6}-?\d{4}|\d{10,12}|^SE\d+/i.test(value) ? value : '',
+          companyName: /\d{6}-?\d{4}|\d{10,12}|^SE\d+/i.test(value) ? '' : value,
+          type
+        })));
+      }
+    } catch (e) {
+      console.warn('Could not persist exclusions to DB:', e);
+    }
+  }, [dbStatus]);
+
   // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -288,14 +323,31 @@ export const App: React.FC = () => {
       try {
         const allLeads = await db.leads.toArray();
         setLeads(allLeads.sort((a, b) => (b.analysisDate || "").localeCompare(a.analysisDate || "")));
+
+        const allExclusions = await db.exclusions.toArray();
+        const existingFromDb = allExclusions
+          .filter(e => e.type === 'customer')
+          .map(e => e.orgNumber || e.companyName)
+          .filter(Boolean);
+        const historyFromDb = allExclusions
+          .filter(e => e.type === 'history')
+          .map(e => e.orgNumber || e.companyName)
+          .filter(Boolean);
+
+        setExistingCustomers(existingFromDb);
+        setDownloadedLeads(historyFromDb);
+        localStorage.setItem('dhl_existing_customers', JSON.stringify(existingFromDb));
+        localStorage.setItem('dhl_downloaded_leads', JSON.stringify(historyFromDb));
       } catch (e) { console.warn(e); }
     }
     
     try {
-        const savedCustomers = localStorage.getItem('dhl_existing_customers');
-        if (savedCustomers) setExistingCustomers(JSON.parse(savedCustomers));
-        const savedHistory = localStorage.getItem('dhl_downloaded_leads');
-        if (savedHistory) setDownloadedLeads(JSON.parse(savedHistory));
+        if (currentStatus !== 'ready') {
+          const savedCustomers = localStorage.getItem('dhl_existing_customers');
+          if (savedCustomers) setExistingCustomers(JSON.parse(savedCustomers));
+          const savedHistory = localStorage.getItem('dhl_downloaded_leads');
+          if (savedHistory) setDownloadedLeads(JSON.parse(savedHistory));
+        }
         const savedKeywords = localStorage.getItem('dhl_included_keywords');
         if (savedKeywords) setIncludedKeywords(JSON.parse(savedKeywords));
         const savedCache = localStorage.getItem('dhl_candidate_cache');
@@ -466,8 +518,7 @@ export const App: React.FC = () => {
 
     const newExclusions = leadsToDownload.map(l => l.companyName);
     const updatedDownloadedLeads = Array.from(new Set([...downloadedLeads, ...newExclusions]));
-    setDownloadedLeads(updatedDownloadedLeads);
-    localStorage.setItem('dhl_downloaded_leads', JSON.stringify(updatedDownloadedLeads));
+    void persistExclusionList('history', updatedDownloadedLeads);
 
     if (deepDiveLead && leadsToDownload.some(l => l.id === deepDiveLead.id)) {
       setDeepDiveLead(null);
@@ -490,12 +541,10 @@ export const App: React.FC = () => {
 
     if (reason === 'EXISTING_CUSTOMER') {
       const newList = Array.from(new Set([...existingCustomers, ...names, ...orgs]));
-      setExistingCustomers(newList);
-      localStorage.setItem('dhl_existing_customers', JSON.stringify(newList));
+      await persistExclusionList('customer', newList);
     } else if (reason === 'ALREADY_DOWNLOADED' || reason === 'NOT_RELEVANT' || reason === 'INCORRECT_DATA') {
       const newList = Array.from(new Set([...downloadedLeads, ...names, ...orgs]));
-      setDownloadedLeads(newList);
-      localStorage.setItem('dhl_downloaded_leads', JSON.stringify(newList));
+      await persistExclusionList('history', newList);
     }
 
     if (deepDiveLead && ids.includes(deepDiveLead.id)) setDeepDiveLead(null);
@@ -631,13 +680,14 @@ export const App: React.FC = () => {
       const text = await file.text();
       const d = JSON.parse(text);
       if (d.leads) setLeads(d.leads);
-      if (d.existingCustomers) setExistingCustomers(d.existingCustomers);
-      if (d.downloadedLeads) setDownloadedLeads(d.downloadedLeads);
+      if (d.existingCustomers) await persistExclusionList('customer', d.existingCustomers);
+      if (d.downloadedLeads) await persistExclusionList('history', d.downloadedLeads);
       if (d.includedKeywords) setIncludedKeywords(d.includedKeywords);
       if (d.integrations) setIntegrations(d.integrations);
       if (d.sniPercentages) setSNIPercentages(d.sniPercentages);
       if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
       if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
+      if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
       if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
       if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
       if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -665,6 +715,7 @@ export const App: React.FC = () => {
       sniPercentages,
       threePLProviders,
       newsSourceMappings,
+      sourcePolicies,
       mailTemplateSv,
       mailTemplateEn,
       mailSignature,
@@ -687,13 +738,14 @@ export const App: React.FC = () => {
   const handleRestoreBackup = async (backup: any) => {
     const d = backup.data;
     if (d.leads) setLeads(d.leads);
-    if (d.existingCustomers) setExistingCustomers(d.existingCustomers);
-    if (d.downloadedLeads) setDownloadedLeads(d.downloadedLeads);
+    if (d.existingCustomers) await persistExclusionList('customer', d.existingCustomers);
+    if (d.downloadedLeads) await persistExclusionList('history', d.downloadedLeads);
     if (d.includedKeywords) setIncludedKeywords(d.includedKeywords);
     if (d.integrations) setIntegrations(d.integrations);
     if (d.sniPercentages) setSNIPercentages(d.sniPercentages);
     if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
     if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
+    if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
     if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
     if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
     if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -892,7 +944,7 @@ export const App: React.FC = () => {
         </div>
       </main>
 
-      <ExclusionManager isOpen={isExclusionOpen} onClose={() => setIsExclusionOpen(false)} existingCustomers={existingCustomers} setExistingCustomers={setExistingCustomers} downloadedLeads={downloadedLeads} setDownloadedLeads={setDownloadedLeads} />
+      <ExclusionManager isOpen={isExclusionOpen} onClose={() => setIsExclusionOpen(false)} existingCustomers={existingCustomers} setExistingCustomers={(list) => { void persistExclusionList('customer', list); }} downloadedLeads={downloadedLeads} setDownloadedLeads={(list) => { void persistExclusionList('history', list); }} />
       <InclusionManager isOpen={isInclusionOpen} onClose={() => setIsInclusionOpen(false)} includedKeywords={includedKeywords} setIncludedKeywords={setIncludedKeywords} />
       <IntegrationManager isOpen={isIntegrationOpen} onClose={() => setIsIntegrationOpen(false)} selectedIntegrations={integrations} setIntegrations={setIntegrations} />
       <SNISettingsManager isOpen={isSNISettingsOpen} onClose={() => setIsSNISettingsOpen(false)} settings={sniPercentages} onSave={setSNIPercentages} />

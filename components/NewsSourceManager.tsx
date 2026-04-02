@@ -26,8 +26,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     news: ''
   });
   const [customCategoryInputs, setCustomCategoryInputs] = useState<Record<string, string>>({});
+  const [categoryFieldInputs, setCategoryFieldInputs] = useState<Record<string, string>>({});
   const [newCustomCategoryName, setNewCustomCategoryName] = useState('');
   const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
+
+  const baseCategories = ['financial', 'addresses', 'decisionMakers', 'payment', 'webSoftware', 'news'];
 
   useEffect(() => {
     if (isOpen) {
@@ -46,6 +49,14 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         mapped[name] = (sources || []).join(', ');
       });
       setCustomCategoryInputs(mapped);
+
+      const configuredFieldMappings = sourcePolicies?.categoryFieldMappings || {};
+      const allCategories = [...baseCategories, ...Object.keys(custom)];
+      const mappingInputs: Record<string, string> = {};
+      allCategories.forEach((category) => {
+        mappingInputs[category] = (configuredFieldMappings[category] || []).join(', ');
+      });
+      setCategoryFieldInputs(mappingInputs);
     }
   }, [mappings, isOpen, sourcePolicies]);
 
@@ -58,6 +69,10 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
       ...customCategoryInputs,
       [name]: newCustomCategorySources.trim()
     });
+    setCategoryFieldInputs({
+      ...categoryFieldInputs,
+      [name]: ''
+    });
     setNewCustomCategoryName('');
     setNewCustomCategorySources('');
   };
@@ -66,6 +81,10 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     const next = { ...customCategoryInputs };
     delete next[name];
     setCustomCategoryInputs(next);
+
+    const nextFieldMappings = { ...categoryFieldInputs };
+    delete nextFieldMappings[name];
+    setCategoryFieldInputs(nextFieldMappings);
   };
 
   if (!isOpen) return null;
@@ -130,6 +149,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
           .map(([name, value]) => [name.trim(), parse(value)])
           .filter(([name]) => Boolean(name))
       );
+      const categoryFieldMappings = Object.fromEntries(
+        Object.entries(categoryFieldInputs)
+          .map(([name, value]) => [name.trim(), parse(value)])
+          .filter(([name]) => Boolean(name))
+      );
       onSaveSourcePolicies({
         financial: parse(policyText.financial),
         addresses: parse(policyText.addresses),
@@ -137,7 +161,8 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         payment: parse(policyText.payment),
         webSoftware: parse(policyText.webSoftware),
         news: parse(policyText.news),
-        customCategories
+        customCategories,
+        categoryFieldMappings
       });
     }
     onClose();
@@ -310,6 +335,29 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500">Kategori till LeadCard-fält</label>
+              <p className="text-[10px] text-slate-500">Exempel: financial to revenue, profit, solidity</p>
+
+              {[...baseCategories, ...Object.keys(customCategoryInputs)].map((category) => (
+                <div key={`map-${category}`} className="grid grid-cols-[1fr_2fr] gap-2 items-center">
+                  <input
+                    type="text"
+                    readOnly
+                    value={category}
+                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2 bg-dhl-gray-light"
+                  />
+                  <input
+                    type="text"
+                    value={categoryFieldInputs[category] || ''}
+                    onChange={e => setCategoryFieldInputs({ ...categoryFieldInputs, [category]: e.target.value })}
+                    placeholder="field1, field2, field3"
+                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         </div>

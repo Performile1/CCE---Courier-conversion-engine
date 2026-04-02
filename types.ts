@@ -80,6 +80,7 @@ export interface SourcePolicyConfig {
   webSoftware: string[];
   news: string[];
   customCategories?: Record<string, string[]>;
+  categoryFieldMappings?: Record<string, string[]>;
 }
 
 export interface SNIPercentage {

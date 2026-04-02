@@ -68,6 +68,14 @@ const TECH_SOLUTION_KEYWORDS = {
   taSystems: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade', 'shipmondo', 'consignor'],
   logisticsSignals: ['instabox', 'budbee', 'bring', 'postnord', 'dhl', 'db schenker', 'airmee']
 };
+const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
+  financial: ['bokslut', 'omsättning', 'resultat', 'soliditet', 'likviditet', 'annual report'],
+  addresses: ['adress', 'besöksadress', 'postadress', 'kontakt', 'karta'],
+  decisionMakers: ['ledning', 'styrelse', 'ceo', 'vd', 'kontaktperson', 'linkedin'],
+  payment: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],
+  webSoftware: ['platform', 'tech stack', 'shopify', 'woocommerce', 'norce', 'scripts'],
+  news: ['nyheter', 'pressmeddelande', 'expansion', 'förvärv']
+};
 
 function resolveApiBaseUrl(): string {
   const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
@@ -209,6 +217,15 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
 }
 
 function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyConfig {
+  const defaultFieldMappings: Record<string, string[]> = {
+    financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
+    addresses: ['address', 'visitingAddress', 'warehouseAddress'],
+    decisionMakers: ['decisionMakers'],
+    payment: ['paymentProvider', 'checkoutSolution'],
+    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence'],
+    news: ['latestNews']
+  };
+
   return {
     financial: sourcePolicies?.financial?.length ? sourcePolicies.financial : FINANCIAL_SOURCE_DOMAINS,
     addresses: sourcePolicies?.addresses?.length ? sourcePolicies.addresses : ADDRESS_SOURCE_DOMAINS,
@@ -216,7 +233,8 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyC
     payment: sourcePolicies?.payment?.length ? sourcePolicies.payment : PAYMENT_SOURCE_DOMAINS,
     webSoftware: sourcePolicies?.webSoftware?.length ? sourcePolicies.webSoftware : WEBSOFTWARE_SOURCE_DOMAINS,
     news: sourcePolicies?.news?.length ? sourcePolicies.news : ['ehandel.se', 'market.se', 'breakit.se'],
-    customCategories: sourcePolicies?.customCategories || {}
+    customCategories: sourcePolicies?.customCategories || {},
+    categoryFieldMappings: sourcePolicies?.categoryFieldMappings || defaultFieldMappings
   };
 }
 
@@ -236,6 +254,96 @@ function getSourcePriorityByPartBlock(sourcePolicies?: SourcePolicyConfig): stri
     .map(([name, sources]) => `${name}: ${sources.join(', ')}`);
 
   return [...baseLines, ...customLines].join('\n');
+}
+
+function getCategoryFieldMappingBlock(sourcePolicies?: SourcePolicyConfig): string {
+  const effective = mergeSourcePolicies(sourcePolicies);
+  const mappings = effective.categoryFieldMappings || {};
+  const lines = Object.entries(mappings)
+    .filter(([category, fields]) => category && Array.isArray(fields) && fields.length > 0)
+    .map(([category, fields]) => `${category} -> ${fields.join(', ')}`);
+
+  return lines.join('\n');
+}
+
+function getCategoryDomains(sourcePolicies: SourcePolicyConfig): Record<string, string[]> {
+  const custom = sourcePolicies.customCategories || {};
+  return {
+    financial: sourcePolicies.financial,
+    addresses: sourcePolicies.addresses,
+    decisionMakers: sourcePolicies.decisionMakers,
+    payment: sourcePolicies.payment,
+    webSoftware: sourcePolicies.webSoftware,
+    news: sourcePolicies.news,
+    ...custom
+  };
+}
+
+async function fetchCategoryExactPageEvidence(companyName: string, sourcePolicies: SourcePolicyConfig): Promise<string> {
+  if (!companyName) return '';
+
+  const categoryDomains = getCategoryDomains(sourcePolicies);
+  const snippets: string[] = [];
+
+  const categories = Object.keys(categoryDomains).slice(0, 5);
+  for (const category of categories) {
+    const domains = (categoryDomains[category] || []).map(normalizeDomain).filter(Boolean).slice(0, 4);
+    if (!domains.length) continue;
+
+    const pageHints = CATEGORY_PAGE_HINTS[category] || ['about', 'kontakt', 'nyheter'];
+    const siteQuery = domains.map((d) => `site:${d}`).join(' OR ');
+    const hintQuery = pageHints.slice(0, 3).join(' OR ');
+    const query = `${companyName} (${siteQuery}) (${hintQuery})`;
+
+    try {
+      const tavilyResponse = await axios.post(
+        buildApiUrl('/api/tavily'),
+        {
+          query,
+          action: 'search',
+          maxResults: 3
+        },
+        {
+          timeout: 12000
+        }
+      );
+
+      const urls: string[] = (tavilyResponse.data?.results || [])
+        .map((r: any) => pickString(r?.url))
+        .filter(Boolean)
+        .slice(0, 2);
+
+      if (!urls.length) continue;
+
+      let crawlSnippet = '';
+      try {
+        const crawlResponse = await axios.post(
+          buildApiUrl('/api/crawl'),
+          {
+            url: urls[0],
+            actionType: 'crawl',
+            includeLinks: false,
+            includeImages: false,
+            maxDepth: 1
+          },
+          {
+            timeout: 15000
+          }
+        );
+
+        crawlSnippet = pickString(crawlResponse.data?.content).slice(0, 300);
+      } catch {
+        crawlSnippet = '';
+      }
+
+      const fields = (sourcePolicies.categoryFieldMappings?.[category] || []).join(', ');
+      snippets.push(`${category} [${fields || 'no-field-mapping'}]: ${urls.join(' | ')}${crawlSnippet ? ` | snippet: ${crawlSnippet}` : ''}`);
+    } catch {
+      continue;
+    }
+  }
+
+  return snippets.join('\n');
 }
 
 function getTechWatchlistText(): string {
@@ -496,6 +604,13 @@ Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
 ${getSourcePriorityBlock(preferredDomains)}
 ${getSourcePriorityByPartBlock(effectivePolicies)}
 
+### CATEGORY FIELD MAPPINGS
+${getCategoryFieldMappingBlock(effectivePolicies)}
+
+### EXACT PAGE TARGETING
+För varje kategori, använd Tavily med site:-filter på kategori-domäner och fokusera på exakta sidor för fält-mappningen.
+Vid osäkerhet, använd Crawl4ai på den mest relevanta URL:en för att extrahera verifierad text innan slutsats.
+
 ### TECH WATCHLIST (Tavily + Crawl4ai)
 ${getTechWatchlistText()}
 
@@ -547,6 +662,10 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean)))
     );
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
+    const exactPageEvidence = await fetchCategoryExactPageEvidence(
+      pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
+      effectivePolicies
+    );
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
@@ -581,13 +700,13 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       debtBalance: pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
       paymentRemarks: pickString(financials?.payment_remarks, financials?.paymentRemarks),
       isBankruptOrLiquidated: Boolean(financials?.is_bankrupt_or_liquidated || financials?.isBankruptOrLiquidated),
-      financialSource: pickString(financials?.financial_source, financials?.source) || 'Officiella källor',
+      financialSource: pickString(financials?.financial_source, financials?.source) || (exactPageEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
       
       ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
       paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
       checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
       taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: modelTechEvidence || crawlTechEvidence,
+      techEvidence: [modelTechEvidence, crawlTechEvidence, exactPageEvidence].filter(Boolean).join(' | ').slice(0, 2000),
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: latestNewsFromModel || latestNewsFallback, 
