@@ -13,21 +13,14 @@
 ## Step 2: Get Your Credentials
 
 After project creation, go to **Project Settings → API**:
-- Copy **Project URL** → `REACT_APP_SUPABASE_URL`
-- Copy **anon public** key → `REACT_APP_SUPABASE_ANON_KEY`
+- Copy **Project URL** → `VITE_SUPABASE_URL`
+- Copy **anon public** key → `VITE_SUPABASE_ANON_KEY`
 
-## Step 3: Set Up Environment Variables
+## Step 3: Set Up Environment Variables for Vercel
 
-Create `.env.local` in your project root:
+**Skip local `.env.local` - deploying directly to Vercel**
 
-```bash
-REACT_APP_SUPABASE_URL=https://[project-id].supabase.co
-REACT_APP_SUPABASE_ANON_KEY=eyJhbGc...
-REACT_APP_OPENROUTER_API_KEY=sk-or-...
-REACT_APP_TAVILY_API_KEY=tvly-...
-REACT_APP_SALESFORCE_CLIENT_ID=your_salesforce_client_id
-REACT_APP_SALESFORCE_CLIENT_SECRET=your_salesforce_client_secret
-```
+Will be set in Vercel dashboard (Step 7)
 
 ## Step 4: Initialize Database Schema
 
@@ -173,7 +166,6 @@ In Supabase Dashboard, go to **Authentication → Providers**:
 ### Configure Redirect URLs
 Go to **Authentication → URL Configuration**:
 - Site URL: `https://cce-carrier-conversion-engine.vercel.app` (production)
-- Additional: `http://localhost:5173` (local development)
 
 ## Step 6: Set Up Salesforce OAuth (Optional)
 
@@ -183,15 +175,30 @@ Go to **Authentication → URL Configuration**:
 3. Copy **Client ID** and **Client Secret**
 4. Save to `.env.local`
 
-## Step 7: Verify Connection
+## Step 7: Deploy to Vercel
 
-Run in your terminal:
-```bash
-npm run dev
-```
+### Add Environment Variables to Vercel
 
-The app should:
-1. Load without errors
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Import this project or go to project settings
+3. Go to **Settings → Environment Variables**
+4. Add these variables:
+   ```
+   VITE_SUPABASE_URL=https://[project-id].supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJhbGc...
+   VITE_OPENROUTER_API_KEY=sk-or-...
+   VITE_TAVILY_API_KEY=tvly-...
+   VITE_SALESFORCE_CLIENT_ID=your_salesforce_client_id
+   VITE_SALESFORCE_CLIENT_SECRET=your_salesforce_client_secret
+   VITE_BASE_URL=https://cce-carrier-conversion-engine.vercel.app
+   ```
+5. Click **Save**
+6. Vercel will automatically rebuild and deploy
+
+### Verify Deployment
+
+Once deployed, your app should:
+1. Load without errors at `https://cce-carrier-conversion-engine.vercel.app`
 2. Show LoginPage if not authenticated
 3. Show main dashboard if authenticated
 
@@ -199,15 +206,18 @@ The app should:
 
 | Issue | Solution |
 |-------|----------|
-| "Missing environment variables" | Check `.env.local` file exists and variables are set |
-| "Cannot connect to Supabase" | Verify URL format and check internet connection |
+| "Missing environment variables" | Check Vercel project settings → Environment Variables |
+| "Cannot connect to Supabase" | Verify VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set correctly in Vercel |
 | "Email already exists" | Use unique email for test account |
-| "Redirect URL mismatch" | Update Authentication → URL Configuration in Supabase |
+| "Redirect URL mismatch" | Update Authentication → URL Configuration in Supabase to include Vercel URL |
+| "Build failed" | Check Vercel build logs - may be missing packages (run `npm install` locally to test) |
 
 ## Next Steps
 
+- [x] Set up Supabase project
+- [x] Run SQL schema setup in Supabase
+- [ ] Set environment variables in Vercel
+- [ ] Deploy to Vercel
 - [ ] Create test user account
-- [ ] Configure email templates for password reset
+- [ ] Configure email templates for password reset (in Supabase)
 - [ ] Set up Salesforce integration (optional)
-- [ ] Configure Vercel environment variables
-- [ ] Enable custom domain (optional)
