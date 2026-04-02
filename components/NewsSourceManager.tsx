@@ -3,6 +3,26 @@ import React, { useState, useEffect } from 'react';
 import { Newspaper, X, Plus, Trash2, Save, Info, Globe } from 'lucide-react';
 import { NewsSourceMapping, SourcePolicyConfig } from '../types';
 
+const AVAILABLE_LEADCARD_FIELDS = [
+  'companyName',
+  'orgNumber',
+  'address',
+  'visitingAddress',
+  'warehouseAddress',
+  'revenue',
+  'profit',
+  'solidity',
+  'liquidityRatio',
+  'creditRatingLabel',
+  'decisionMakers',
+  'paymentProvider',
+  'checkoutSolution',
+  'ecommercePlatform',
+  'taSystem',
+  'techEvidence',
+  'latestNews'
+];
+
 interface NewsSourceManagerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,7 +46,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     news: ''
   });
   const [customCategoryInputs, setCustomCategoryInputs] = useState<Record<string, string>>({});
-  const [categoryFieldInputs, setCategoryFieldInputs] = useState<Record<string, string>>({});
+  const [categoryFieldSelections, setCategoryFieldSelections] = useState<Record<string, string[]>>({});
   const [newCustomCategoryName, setNewCustomCategoryName] = useState('');
   const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
 
@@ -52,11 +72,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
 
       const configuredFieldMappings = sourcePolicies?.categoryFieldMappings || {};
       const allCategories = [...baseCategories, ...Object.keys(custom)];
-      const mappingInputs: Record<string, string> = {};
+      const mappingInputs: Record<string, string[]> = {};
       allCategories.forEach((category) => {
-        mappingInputs[category] = (configuredFieldMappings[category] || []).join(', ');
+        mappingInputs[category] = configuredFieldMappings[category] || [];
       });
-      setCategoryFieldInputs(mappingInputs);
+      setCategoryFieldSelections(mappingInputs);
     }
   }, [mappings, isOpen, sourcePolicies]);
 
@@ -69,9 +89,9 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
       ...customCategoryInputs,
       [name]: newCustomCategorySources.trim()
     });
-    setCategoryFieldInputs({
-      ...categoryFieldInputs,
-      [name]: ''
+    setCategoryFieldSelections({
+      ...categoryFieldSelections,
+      [name]: []
     });
     setNewCustomCategoryName('');
     setNewCustomCategorySources('');
@@ -82,9 +102,21 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     delete next[name];
     setCustomCategoryInputs(next);
 
-    const nextFieldMappings = { ...categoryFieldInputs };
+    const nextFieldMappings = { ...categoryFieldSelections };
     delete nextFieldMappings[name];
-    setCategoryFieldInputs(nextFieldMappings);
+    setCategoryFieldSelections(nextFieldMappings);
+  };
+
+  const toggleFieldForCategory = (category: string, field: string) => {
+    const selected = categoryFieldSelections[category] || [];
+    const next = selected.includes(field)
+      ? selected.filter((f) => f !== field)
+      : [...selected, field];
+
+    setCategoryFieldSelections({
+      ...categoryFieldSelections,
+      [category]: next
+    });
   };
 
   if (!isOpen) return null;
@@ -150,8 +182,8 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
           .filter(([name]) => Boolean(name))
       );
       const categoryFieldMappings = Object.fromEntries(
-        Object.entries(categoryFieldInputs)
-          .map(([name, value]) => [name.trim(), parse(value)])
+        Object.entries(categoryFieldSelections)
+          .map(([name, value]) => [name.trim(), (value || []).filter(Boolean)])
           .filter(([name]) => Boolean(name))
       );
       onSaveSourcePolicies({
@@ -339,23 +371,26 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
 
             <div className="pt-2 border-t border-slate-100 space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-500">Kategori till LeadCard-fält</label>
-              <p className="text-[10px] text-slate-500">Exempel: financial to revenue, profit, solidity</p>
+              <p className="text-[10px] text-slate-500">Välj fält visuellt per kategori.</p>
 
               {[...baseCategories, ...Object.keys(customCategoryInputs)].map((category) => (
-                <div key={`map-${category}`} className="grid grid-cols-[1fr_2fr] gap-2 items-center">
-                  <input
-                    type="text"
-                    readOnly
-                    value={category}
-                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2 bg-dhl-gray-light"
-                  />
-                  <input
-                    type="text"
-                    value={categoryFieldInputs[category] || ''}
-                    onChange={e => setCategoryFieldInputs({ ...categoryFieldInputs, [category]: e.target.value })}
-                    placeholder="field1, field2, field3"
-                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2"
-                  />
+                <div key={`map-${category}`} className="border border-dhl-gray-medium rounded-sm p-2 bg-white">
+                  <div className="text-[10px] font-black uppercase text-slate-600 mb-2">{category}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AVAILABLE_LEADCARD_FIELDS.map((field) => {
+                      const selected = (categoryFieldSelections[category] || []).includes(field);
+                      return (
+                        <button
+                          key={`${category}-${field}`}
+                          type="button"
+                          onClick={() => toggleFieldForCategory(category, field)}
+                          className={`px-2 py-1 text-[9px] rounded-sm border font-bold transition-colors ${selected ? 'bg-red-600 text-white border-red-600' : 'bg-dhl-gray-light text-dhl-gray-dark border-dhl-gray-medium hover:border-red-300'}`}
+                        >
+                          {field}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>

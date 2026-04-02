@@ -127,19 +127,16 @@ export async function createUserProfile(
 ) {
   const { data, error } = await supabase
     .from('users')
-    .insert([
-      {
-        id: userId,
-        email,
-        full_name: fullName,
-        phone: phone || null,
-        username: username || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ])
+    .upsert({
+      id: userId,
+      email,
+      full_name: fullName,
+      phone: phone || null,
+      username: username || null,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -153,7 +150,8 @@ export async function getUserProfile(userId: string) {
     .from('users')
     .select('*')
     .eq('id', userId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
   return data || null;
@@ -179,9 +177,28 @@ export async function updateUserProfile(
     })
     .eq('id', userId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+
+  // If row does not exist yet, create it using auth user email as fallback.
+  if (!data) {
+    const { data: authData } = await supabase.auth.getUser();
+    const { data: inserted, error: insertError } = await supabase
+      .from('users')
+      .upsert({
+        id: userId,
+        email: authData.user?.email || '',
+        ...updates,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' })
+      .select()
+      .maybeSingle();
+
+    if (insertError) throw insertError;
+    return inserted;
+  }
+
   return data;
 }
 

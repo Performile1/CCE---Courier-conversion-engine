@@ -138,6 +138,24 @@ function repairJson(json: string): string {
   return repaired;
 }
 
+function parseJsonSafely(rawText: string): any {
+  const text = String(rawText || '').trim();
+  if (!text) throw new Error('Empty JSON response');
+
+  const withoutFences = text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  try {
+    return JSON.parse(withoutFences);
+  } catch {
+    const repaired = repairJson(withoutFences);
+    return JSON.parse(repaired);
+  }
+}
+
 /**
  * FINANCIAL FIREWALL PARSER (Same as Gemini)
  */
@@ -618,9 +636,22 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
 
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
+    onUpdate({}, 'Samlar källunderlag via Tavily/Google och Crawl4ai...');
+    const sourceGroundingEvidence = await fetchCategoryExactPageEvidence(
+      formData.companyNameOrOrg,
+      effectivePolicies
+    );
+
+    const groundedPrompt = `${prompt}
+
+### SOURCE EVIDENCE (TAVILY/GOOGLE + CRAWL4AI)
+${sourceGroundingEvidence || 'Ingen extern källa kunde hämtas i detta steg. Använd då source-priority-listan ovan.'}
+
+Använd source evidence ovan först när du fyller fälten. Om ett fält saknar evidens, skriv tom sträng eller 0 enligt schema.`;
+
     const responseText = await callOpenRouterWithRetry(
       activeModel, 
-      prompt, 
+      groundedPrompt, 
       {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -633,8 +664,7 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
 
     if (!responseText) throw new Error("Tomt svar från AI.");
     
-    let rawData;
-    try { rawData = JSON.parse(responseText); } catch (e) { rawData = JSON.parse(repairJson(responseText)); }
+    const rawData = parseJsonSafely(responseText);
 
     const root = (rawData?.lead && typeof rawData.lead === 'object') ? rawData.lead : rawData;
     const companyData = root?.company_data || root?.companyData || root?.company || {};
@@ -662,10 +692,6 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean)))
     );
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
-    const exactPageEvidence = await fetchCategoryExactPageEvidence(
-      pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
-      effectivePolicies
-    );
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
@@ -700,13 +726,13 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       debtBalance: pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
       paymentRemarks: pickString(financials?.payment_remarks, financials?.paymentRemarks),
       isBankruptOrLiquidated: Boolean(financials?.is_bankrupt_or_liquidated || financials?.isBankruptOrLiquidated),
-      financialSource: pickString(financials?.financial_source, financials?.source) || (exactPageEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
+      financialSource: pickString(financials?.financial_source, financials?.source) || (sourceGroundingEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
       
       ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
       paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
       checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
       taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: [modelTechEvidence, crawlTechEvidence, exactPageEvidence].filter(Boolean).join(' | ').slice(0, 2000),
+      techEvidence: [modelTechEvidence, crawlTechEvidence, sourceGroundingEvidence].filter(Boolean).join(' | ').slice(0, 2000),
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: latestNewsFromModel || latestNewsFallback, 
@@ -791,16 +817,10 @@ export async function generateLeads(
 
     let data;
     try {
-      data = JSON.parse(responseText);
+      data = parseJsonSafely(responseText);
     } catch (e) {
-      console.warn("JSON Parse Error (Batch), attempting repair...", e);
-      try {
-        const repaired = repairJson(responseText);
-        data = JSON.parse(repaired);
-      } catch (repairError) {
-        console.error("JSON Repair failed (Batch):", responseText);
-        return [];
-      }
+      console.error("JSON Parse failed (Batch):", responseText);
+      return [];
     }
 
     const leadsArray = Array.isArray(data) ? data : (data.leads || data.results || []);
