@@ -58,33 +58,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="bg-[#ffcc00] rounded-lg p-4 mb-4 shadow-lg inline-block">
-            <h1 className="text-3xl font-black text-red-700 uppercase tracking-widest">CCE</h1>
-            <p className="text-xs font-bold text-red-600 uppercase tracking-wider mt-1">Courier Conversion Engine</p>
+          <div className="bg-dhl-yellow rounded-sm p-4 mb-4 shadow-md inline-block border-b-2 border-dhl-red">
+            <h1 className="text-3xl font-black text-dhl-red uppercase tracking-widest">CCE</h1>
+            <p className="text-xs font-bold text-dhl-red uppercase tracking-wider mt-1">Courier Conversion Engine</p>
           </div>
-          <p className="text-yellow-100 text-lg font-semibold">Strategic Lead Intelligence Platform</p>
+          <p className="text-dhl-black text-lg font-semibold">Strategic Lead Intelligence Platform</p>
         </div>
 
         {/* Auth Card */}
-        <div className="bg-white rounded-lg shadow-2xl p-8">
+        <div className="bg-white rounded-sm shadow-2xl p-8 border-t-4 border-dhl-red">
           {/* Mode Toggle */}
           <div className="flex gap-2 mb-6">
             <button
               onClick={() => { setMode('login'); setError(''); }}
-              className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-2 px-4 rounded-sm font-semibold transition-all ${
                 mode === 'login'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-yellow-50 text-red-700 hover:bg-yellow-100 border border-yellow-300'
+                  ? 'bg-dhl-red text-white'
+                  : 'bg-dhl-gray-light text-dhl-red hover:bg-dhl-gray-medium border border-dhl-gray-medium'
               }`}
             >
               Sign In
             </button>
             <button
               onClick={() => { setMode('signup'); setError(''); }}
-              className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-2 px-4 rounded-sm font-semibold transition-all ${
                 mode === 'signup'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-yellow-50 text-red-700 hover:bg-yellow-100 border border-yellow-300'
+                  ? 'bg-dhl-red text-white'
+                  : 'bg-dhl-gray-light text-dhl-red hover:bg-dhl-gray-medium border border-dhl-gray-medium'
               }`}
             >
               Sign Up
@@ -104,7 +104,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
+                  className="w-full px-4 py-2 border-2 border-dhl-gray-medium rounded-sm focus:ring-2 focus:ring-dhl-red focus:border-dhl-red outline-none transition bg-dhl-gray-light"
                   disabled={loading}
                 />
               </div>
@@ -121,7 +121,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
+                className="w-full px-4 py-2 border-2 border-dhl-gray-medium rounded-sm focus:ring-2 focus:ring-dhl-red focus:border-dhl-red outline-none transition bg-dhl-gray-light"
                 disabled={loading}
               />
             </div>
@@ -138,13 +138,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
+                  className="w-full px-4 py-2 border-2 border-dhl-gray-medium rounded-sm focus:ring-2 focus:ring-dhl-red focus:border-dhl-red outline-none transition bg-dhl-gray-light"
                   disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dhl-red hover:text-red-800"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -166,7 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="your_username"
-                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
+                  className="w-full px-4 py-2 border-2 border-dhl-gray-medium rounded-sm focus:ring-2 focus:ring-dhl-red focus:border-dhl-red outline-none transition bg-dhl-gray-light"
                   disabled={loading}
                 />
               </div>
@@ -184,7 +184,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
+                  className="w-full px-4 py-2 border-2 border-dhl-gray-medium rounded-sm focus:ring-2 focus:ring-dhl-red focus:border-dhl-red outline-none transition bg-dhl-gray-light"
                   disabled={loading}
                 />
               </div>
@@ -192,17 +192,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
 
             {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-50 border-2 border-red-600 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-red-700 flex-shrink-0 font-bold" />
-                <p className="text-sm text-red-700 font-medium">{error}</p>
+              <div className="p-3 bg-dhl-gray-light border-2 border-dhl-red rounded-sm flex gap-2">
+                <AlertCircle className="w-5 h-5 text-dhl-red flex-shrink-0 font-bold" />
+                <p className="text-sm text-dhl-red font-medium">{error}</p>
               </div>
             )}
 
             {/* Success Message */}
             {success && (
-              <div className="p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-yellow-700 flex-shrink-0 font-bold" />
-                <p className="text-sm text-yellow-700 font-medium">{success}</p>
+              <div className="p-3 bg-dhl-gray-light border-2 border-dhl-yellow rounded-sm flex gap-2">
+                <AlertCircle className="w-5 h-5 text-dhl-yellow flex-shrink-0 font-bold" />
+                <p className="text-sm text-dhl-black font-medium">{success}</p>
               </div>
             )}
 
@@ -210,7 +210,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             <button
               type="submit"
               disabled={!isFormValid || loading}
-              className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 disabled:bg-yellow-300 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
+              className="w-full py-3 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-bold rounded-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
             >
               {loading ? (
                 <>
@@ -226,13 +226,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
           </form>
 
           {/* Footer */}
-          <p className="text-center text-sm text-red-700 font-medium mt-6">
+          <p className="text-center text-sm text-dhl-red font-medium mt-6">
             {mode === 'login' ? (
               <>
                 Don't have an account?{' '}
                 <button
                   onClick={() => setMode('signup')}
-                  className="text-red-600 hover:text-red-800 font-bold underline"
+                  className="text-dhl-black hover:text-dhl-gray-dark font-bold underline"
                 >
                   Sign up
                 </button>
@@ -242,7 +242,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                 Already have an account?{' '}
                 <button
                   onClick={() => setMode('login')}
-                  className="text-red-600 hover:text-red-800 font-bold underline"
+                  className="text-dhl-black hover:text-dhl-gray-dark font-bold underline"
                 >
                   Sign in
               </button>

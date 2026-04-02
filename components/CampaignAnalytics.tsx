@@ -56,16 +56,16 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 flex items-center justify-center h-64">
-        <p className="text-slate-600">Loading analytics...</p>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6 flex items-center justify-center h-64">
+        <p className="text-dhl-gray-dark">Laddar analytics...</p>
       </div>
     );
   }
 
   if (!analytics) {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <p className="text-slate-600">No data available yet</p>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+        <p className="text-dhl-gray-dark">Ingen data tillgänglig ännu</p>
       </div>
     );
   }
