@@ -6,7 +6,8 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+// Support both VITE_ and non-VITE_ naming conventions
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY || process.env.VITE_TAVILY_API_KEY;
 
 interface TavilyRequest {
   query?: string;

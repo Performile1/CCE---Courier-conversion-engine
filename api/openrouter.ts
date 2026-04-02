@@ -6,8 +6,8 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Secure API key from environment variables
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+// Secure API key from environment variables (support both VITE_ and non-VITE_ names)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
 
 interface OpenRouterRequest {
   model: string;
