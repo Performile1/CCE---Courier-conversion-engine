@@ -1087,7 +1087,6 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
                 </div>
               </div>
-              )}
             </motion.div>
           )}
 
