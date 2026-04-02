@@ -117,6 +117,25 @@ function parseRevenueToTKR(val: any): number {
   return Math.round(isNegative ? -num : num);
 }
 
+function pickString(...values: any[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim() !== '') return value.trim();
+    if (typeof value === 'number' && !Number.isNaN(value)) return String(value);
+  }
+  return '';
+}
+
+function pickNumber(...values: any[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && !Number.isNaN(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value.replace(',', '.'));
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
 /**
  * OPENROUTER API CALL WITH RETRY
  * Calls backend proxy to keep API key secure
@@ -281,52 +300,61 @@ export async function generateDeepDiveSequential(
     let rawData;
     try { rawData = JSON.parse(responseText); } catch (e) { rawData = JSON.parse(repairJson(responseText)); }
 
-    const revenueTKR = parseRevenueToTKR(rawData.company_data?.revenue_tkr || 0);
-    const marketCount = rawData.company_data?.market_count || 1;
-    const metrics = calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount);
+    const root = (rawData?.lead && typeof rawData.lead === 'object') ? rawData.lead : rawData;
+    const companyData = root?.company_data || root?.companyData || root?.company || {};
+    const financials = root?.financials || root?.financialData || root?.financial_data || {};
+    const logistics = root?.logistics || root?.logisticsData || root?.logistics_data || {};
+    const contactsRaw = root?.contacts || root?.decisionMakers || root?.decision_makers || [];
+
+    const revenueTKR = parseRevenueToTKR(
+      pickNumber(companyData?.revenue_tkr, companyData?.revenueTKR, companyData?.revenue) || 0
+    );
+    const marketCount = pickNumber(companyData?.market_count, companyData?.marketCount) || 1;
+    const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
+    const metrics = calculateRickardMetrics(revenueTKR, sniCode, sniPercentages, marketCount);
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
-      companyName: rawData.company_data?.name || formData.companyNameOrOrg,
-      orgNumber: rawData.company_data?.org_nr || '',
-      domain: rawData.company_data?.domain || '',
-      sniCode: rawData.company_data?.sni_code || '',
-      address: rawData.company_data?.visiting_address || '',
-      visitingAddress: rawData.company_data?.visiting_address || '',
-      warehouseAddress: rawData.company_data?.warehouse_address || '',
+      companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
+      orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number),
+      domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
+      sniCode,
+      address: pickString(companyData?.visiting_address, companyData?.address, companyData?.street_address),
+      visitingAddress: pickString(companyData?.visiting_address, companyData?.address, companyData?.street_address),
+      warehouseAddress: pickString(companyData?.warehouse_address, companyData?.warehouseAddress),
       revenue: `${revenueTKR.toLocaleString('sv-SE')} tkr`,
-      revenueYear: rawData.company_data?.revenue_year || '',
-      profit: `${parseRevenueToTKR(rawData.financials?.history?.[0]?.profit || 0).toLocaleString('sv-SE')} tkr`,
-      activeMarkets: rawData.company_data?.active_markets || [],
+      revenueYear: pickString(companyData?.revenue_year, companyData?.revenueYear),
+      profit: `${parseRevenueToTKR(financials?.history?.[0]?.profit || 0).toLocaleString('sv-SE')} tkr`,
+      activeMarkets: companyData?.active_markets || companyData?.activeMarkets || [],
       marketCount: marketCount,
       estimatedAOV: metrics.estimatedAOV,
-      b2bPercentage: rawData.company_data?.b2b_percentage || 0,
-      b2cPercentage: rawData.company_data?.b2c_percentage || 0,
+      b2bPercentage: pickNumber(companyData?.b2b_percentage, companyData?.b2bPercentage) || 0,
+      b2cPercentage: pickNumber(companyData?.b2c_percentage, companyData?.b2cPercentage) || 0,
       
-      financialHistory: (rawData.financials?.history || []).map((h: any) => ({
+      financialHistory: (financials?.history || []).map((h: any) => ({
         year: h.year,
         revenue: `${parseRevenueToTKR(h.revenue).toLocaleString('sv-SE')} tkr`,
         profit: `${parseRevenueToTKR(h.profit).toLocaleString('sv-SE')} tkr`
       })),
-      solidity: rawData.financials?.solidity || '0%',
-      liquidityRatio: rawData.financials?.liquidity_ratio || '0%',
-      profitMargin: rawData.financials?.profit_margin || '0%',
-      debtEquityRatio: rawData.financials?.debt_equity_ratio || '',
-      debtBalance: rawData.financials?.debt_balance_tkr || '0',
-      paymentRemarks: rawData.financials?.payment_remarks || '',
-      isBankruptOrLiquidated: rawData.financials?.is_bankrupt_or_liquidated || false,
-      financialSource: rawData.financials?.financial_source || 'Officiella källor',
+      solidity: pickString(financials?.solidity, financials?.equity_ratio) || '0%',
+      liquidityRatio: pickString(financials?.liquidity_ratio, financials?.liquidityRatio) || '0%',
+      profitMargin: pickString(financials?.profit_margin, financials?.profitMargin) || '0%',
+      debtEquityRatio: pickString(financials?.debt_equity_ratio, financials?.debtEquityRatio),
+      debtBalance: pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
+      paymentRemarks: pickString(financials?.payment_remarks, financials?.paymentRemarks),
+      isBankruptOrLiquidated: Boolean(financials?.is_bankrupt_or_liquidated || financials?.isBankruptOrLiquidated),
+      financialSource: pickString(financials?.financial_source, financials?.source) || 'Officiella källor',
       
-      ecommercePlatform: rawData.logistics?.ecommerce_platform || 'Okänd',
-      paymentProvider: rawData.logistics?.payment_provider || 'Okänd', 
-      checkoutSolution: rawData.logistics?.checkout_solution || '',
-      taSystem: rawData.logistics?.ta_system || '',
-      techEvidence: rawData.logistics?.tech_evidence || '',
-      carriers: (rawData.logistics?.carriers || []).join(', '),
-      strategicPitch: rawData.logistics?.strategic_pitch || '',
+      ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
+      paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
+      checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
+      taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
+      techEvidence: pickString(logistics?.tech_evidence, logistics?.techEvidence),
+      carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
+      strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: '', 
       
-      decisionMakers: (rawData.contacts || []).map((c: any) => ({
+      decisionMakers: (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
         name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || ''
       })),
       
@@ -338,26 +366,28 @@ export async function generateDeepDiveSequential(
       segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
       analysisDate: new Date().toISOString(),
       source: 'ai',
-      legalStatus: rawData.company_data?.legal_status || 'Aktiv',
-      vatRegistered: rawData.company_data?.vat_registered || false,
-      creditRatingLabel: rawData.company_data?.credit_rating || 'N/A',
-      creditRatingMotivation: rawData.company_data?.credit_rating_motivation || '',
-      riskProfile: rawData.company_data?.risk_profile || '',
-      financialTrend: rawData.company_data?.financial_trend || '',
-      industry: rawData.company_data?.industry || '',
-      industryDescription: rawData.company_data?.industry_description || '',
-      websiteUrl: rawData.company_data?.domain ? `https://${rawData.company_data.domain}` : '',
+      legalStatus: pickString(companyData?.legal_status, companyData?.legalStatus) || 'Aktiv',
+      vatRegistered: Boolean(companyData?.vat_registered || companyData?.vatRegistered),
+      creditRatingLabel: pickString(companyData?.credit_rating, companyData?.creditRating) || 'N/A',
+      creditRatingMotivation: pickString(companyData?.credit_rating_motivation, companyData?.creditRatingMotivation),
+      riskProfile: pickString(companyData?.risk_profile, companyData?.riskProfile),
+      financialTrend: pickString(companyData?.financial_trend, companyData?.financialTrend),
+      industry: pickString(companyData?.industry, companyData?.industry_name),
+      industryDescription: pickString(companyData?.industry_description, companyData?.industryDescription),
+      websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url)
+        ? `https://${pickString(companyData?.domain, companyData?.website, companyData?.url).replace(/^https?:\/\//, '')}`
+        : '',
       
-      businessModel: rawData.company_data?.business_model || '',
-      storeCount: rawData.logistics?.store_count || 0,
-      checkoutOptions: (rawData.logistics?.checkout_positions || []).map((cp: any) => ({
+      businessModel: pickString(companyData?.business_model, companyData?.businessModel),
+      storeCount: pickNumber(logistics?.store_count, logistics?.storeCount) || 0,
+      checkoutOptions: (logistics?.checkout_positions || logistics?.checkoutPositions || []).map((cp: any) => ({
         position: cp.pos || 0,
         carrier: cp.carrier || '',
         service: cp.service || '',
         price: cp.price || 'N/A'
       })),
 
-      conversionScore: rawData.logistics?.conversion_score || 0,
+      conversionScore: pickNumber(logistics?.conversion_score, logistics?.conversionScore) || 0,
       deepScanPerformed: false,
       aiModel: activeModel,
       halluccinationScore: 0 // Will be updated by Tavily
@@ -416,28 +446,54 @@ export async function generateLeads(
       }
     }
 
-    const leadsArray = Array.isArray(data) ? data : (data.leads || []);
+    const leadsArray = Array.isArray(data) ? data : (data.leads || data.results || []);
     return leadsArray.filter((l: any) => l && typeof l === 'object').map((l: any) => {
-      const rev = parseRevenueToTKR(l.revenue);
-      const marketCount = l.marketCount || 1;
-      const metrics = calculateRickardMetrics(rev, l.sniCode || '', sniPercentages, marketCount);
+      const logisticsMetrics = l.logisticsMetrics || l.logistics_metrics || {};
+      const revenueRaw = pickString(l.revenue, l.revenue_tkr, l.revenueTKR);
+      const rev = parseRevenueToTKR(revenueRaw);
+      const marketCount = pickNumber(l.marketCount, l.market_count) || 1;
+      const sniCode = pickString(l.sniCode, l.sni_code, l.sni);
+      const metrics = calculateRickardMetrics(rev, sniCode, sniPercentages, marketCount);
       
-      const annualPackages = l.logisticsMetrics?.estimatedAnnualPackages || metrics.annualPackages;
-      const pos1Volume = l.logisticsMetrics?.pos1_volume || metrics.pos1Volume;
-      const pos2Volume = l.logisticsMetrics?.pos2_volume || metrics.pos2Volume;
-      const strategicPitch = l.logisticsMetrics?.strategic_pitch || '';
+      const annualPackages = pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages) || metrics.annualPackages;
+      const pos1Volume = pickNumber(logisticsMetrics?.pos1_volume, logisticsMetrics?.pos1Volume) || metrics.pos1Volume;
+      const pos2Volume = pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume) || metrics.pos2Volume;
+      const strategicPitch = pickString(logisticsMetrics?.strategic_pitch, logisticsMetrics?.strategicPitch);
+
+      const domainRaw = pickString(l.domain, l.website, l.websiteUrl, l.url);
+      const domain = domainRaw.replace(/^https?:\/\//, '');
+      const websiteUrl = domain ? `https://${domain}` : '';
+      const decisionMakers = (l.decisionMakers || l.decision_makers || l.contacts || []).map((c: any) => ({
+        name: pickString(c?.name),
+        title: pickString(c?.title),
+        email: pickString(c?.email),
+        linkedin: pickString(c?.linkedin)
+      }));
 
       return {
         ...l,
         id: crypto.randomUUID(),
+        companyName: pickString(l.companyName, l.company_name, l.name),
+        orgNumber: pickString(l.orgNumber, l.org_number, l.organizationNumber),
+        phoneNumber: pickString(l.phoneNumber, l.phone_number),
+        sniCode,
         revenue: `${rev.toLocaleString('sv-SE')} tkr`,
-        visitingAddress: l.visitingAddress || l.address || '',
-        warehouseAddress: l.warehouseAddress || '',
+        address: pickString(l.address, l.visitingAddress, l.visiting_address),
+        visitingAddress: pickString(l.visitingAddress, l.visiting_address, l.address),
+        warehouseAddress: pickString(l.warehouseAddress, l.warehouse_address),
+        domain,
+        websiteUrl,
+        decisionMakers,
+        carriers: Array.isArray(l.carriers) ? l.carriers.join(', ') : pickString(l.carriers),
         marketCount,
         annualPackages,
         pos1Volume,
         pos2Volume,
         strategicPitch,
+        freightBudget: `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr`,
+        potentialSek: metrics.shippingBudgetSEK,
+        legalStatus: pickString(l.legalStatus, l.legal_status) || 'Aktiv',
+        creditRatingLabel: pickString(l.creditRatingLabel, l.credit_rating) || 'N/A',
         segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
         source: 'ai',
         analysisDate: '',
