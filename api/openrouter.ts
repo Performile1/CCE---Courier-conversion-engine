@@ -9,10 +9,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Secure API key from environment variables
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-if (!OPENROUTER_API_KEY) {
-  throw new Error('OPENROUTER_API_KEY not configured in Vercel environment variables');
-}
-
 interface OpenRouterRequest {
   model: string;
   prompt?: string;
@@ -24,11 +20,6 @@ interface OpenRouterRequest {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   // Enable CORS for frontend
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
@@ -40,7 +31,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({
+        error: 'OPENROUTER_API_KEY not configured in Vercel environment variables'
+      });
+    }
+
     const { model, prompt, userMessage, systemInstruction, temperature = 0.1, maxTokens = 2048, responseMimeType } = req.body as OpenRouterRequest;
 
     // Support both 'prompt' and 'userMessage' field names
@@ -90,8 +92,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      return res.status(response.status).json({ error: error.message || 'OpenRouter API error' });
+      const upstream = await response.json().catch(() => ({}));
+      const upstreamMessage = upstream?.error?.message || upstream?.message || 'OpenRouter API error';
+      return res.status(response.status).json({ error: upstreamMessage, upstream });
     }
 
     const data = await response.json();

@@ -353,7 +353,7 @@ Return as JSON with fields: name, registryId, foundedYear, industry, status, add
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`Backend API error: ${error.error?.message || response.statusText}`);
+        throw new Error(`Backend API error: ${error.error || error.message || response.statusText}`);
       }
 
       const data = await response.json();
