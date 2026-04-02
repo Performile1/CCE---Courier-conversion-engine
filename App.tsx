@@ -64,6 +64,18 @@ const DEFAULT_MAIL_TEMPLATE_SV = `Hej {fornamn},<br/><br/>Jag har gjort en analy
 const DEFAULT_MAIL_TEMPLATE_EN = `Hi {fornamn},<br/><br/>I have conducted an analysis of <strong>{foretag}</strong> and your current delivery potential via our Strategic Analysis engine. Based on industry standards, we estimate your annual shipping budget to be approximately <strong>{potential}</strong>. With that volume, I see a significant upside in optimizing your checkout strategy together with us at {active_carrier}.<br/><br/>Our statistics show that a strategic move to <strong>Position 1</strong> in the checkout yields an average <strong>conversion lift of 27%</strong>. This is because up to 60% of customers prefer the store to guide them to the right choice; they feel secure knowing you have selected the best partner for them.<br/><br/><strong>Smart value management via plugins:</strong><br/>We have built advanced logic directly into our plugins for major platforms (Shopify, WooCommerce, Magento) that adapts delivery choices based on cart value. For premium orders, extended cargo insurance and strict ID verification are automatically activated to protect your margins.<br/><br/><strong>Flexibility and reach:</strong><br/>{pitch}<br/><br/><strong>{active_carrier} value-adds for {foretag}:</strong><br/>- <strong>Parcel Lockers:</strong> Access to Sweden's most eco-smart locker network (iBoxen).<br/>- <strong>Seamless Customer Journey:</strong> Full transparency and easy returns via QR code.<br/>- <strong>Total Control:</strong> A partner that handles everything from individual parcels to global Freight shipments.<br/><br/>I would love to present my full analysis and discuss how we can increase your Customer Lifetime Value.<br/><br/><div style="text-align: center; margin: 30px 0;"><a href="{kalender_lank}" style="background-color: #cc0000; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block;">Book a meeting in my calendar here</a></div>`;
 
 const DEFAULT_CARRIERS = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'];
+const DEFAULT_NEWS_SOURCE_MAPPINGS: NewsSourceMapping[] = [
+  {
+    id: 'default-registry-sources',
+    sniPrefix: '*',
+    sources: ['allabolag.se', 'kreditrapporten.se', 'boolag.se', 'ratsit.se']
+  },
+  {
+    id: 'default-commerce-news',
+    sniPrefix: '47',
+    sources: ['ehandel.se', 'market.se', 'breakit.se']
+  }
+];
 
 export const App: React.FC = () => {
   // Authentication state - MUST BE BEFORE ALL OTHER STATE
@@ -152,8 +164,8 @@ export const App: React.FC = () => {
   const [newsSourceMappings, setNewsSourceMappings] = useState<NewsSourceMapping[]>(() => {
     try {
       const saved = localStorage.getItem('dhl_news_sources');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
+      return saved ? JSON.parse(saved) : DEFAULT_NEWS_SOURCE_MAPPINGS;
+    } catch (e) { return DEFAULT_NEWS_SOURCE_MAPPINGS; }
   });
 
   const [mailTemplateSv, setMailTemplateSv] = useState(() => localStorage.getItem('dhl_mail_template_sv') || DEFAULT_MAIL_TEMPLATE_SV);
@@ -251,6 +263,7 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_user_calendar', calendarUrl); }, [calendarUrl]);
   useEffect(() => { localStorage.setItem('dhl_mail_attachments', JSON.stringify(mailAttachments)); }, [mailAttachments]);
   useEffect(() => { localStorage.setItem('dhl_mail_focus_words', JSON.stringify(mailFocusWords)); }, [mailFocusWords]);
+  useEffect(() => { localStorage.setItem('dhl_news_sources', JSON.stringify(newsSourceMappings)); }, [newsSourceMappings]);
 
   const refreshData = useCallback(async (statusOverride?: string) => {
     const currentStatus = statusOverride || dbStatus;

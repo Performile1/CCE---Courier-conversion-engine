@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Newspaper, X, Plus, Trash2, Save, Info, Globe } from 'lucide-react';
 import { NewsSourceMapping } from '../types';
 
@@ -15,6 +15,12 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
   const [newSni, setNewSni] = useState('');
   const [newSources, setNewSources] = useState('');
   const [inlineInputs, setInlineInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalMappings(mappings);
+    }
+  }, [mappings, isOpen]);
 
   if (!isOpen) return null;
 

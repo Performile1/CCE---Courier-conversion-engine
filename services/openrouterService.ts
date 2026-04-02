@@ -47,6 +47,25 @@ export function resetCostTracker(): void {
 
 const MIN_INTERVAL = 200; // Rate limit spacing (200ms between requests)
 let lastCallTime = 0;
+const DEFAULT_TRUSTED_DOMAINS = [
+  'allabolag.se',
+  'kreditrapporten.se',
+  'boolag.se',
+  'ratsit.se',
+  'ehandel.se',
+  'market.se',
+  'breakit.se'
+];
+
+function resolveApiBaseUrl(): string {
+  const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
+  return configuredBaseUrl.replace(/\/$/, '');
+}
+
+function buildApiUrl(path: string): string {
+  const baseUrl = resolveApiBaseUrl();
+  return baseUrl ? `${baseUrl}${path}` : path;
+}
 
 async function throttle() {
   const now = Date.now();
@@ -134,6 +153,66 @@ function pickNumber(...values: any[]): number | undefined {
     }
   }
   return undefined;
+}
+
+function normalizeDomain(domain: string): string {
+  return domain
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*/, '')
+    .trim();
+}
+
+function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sniCode?: string): string[] {
+  const normalizedSni = (sniCode || '').trim();
+  const fromMappings = newsSourceMappings
+    .filter((m) => {
+      const prefix = (m.sniPrefix || '').trim();
+      if (!prefix || prefix === '*') return true;
+      return normalizedSni.startsWith(prefix);
+    })
+    .flatMap((m) => m.sources || []);
+
+  const merged = [...DEFAULT_TRUSTED_DOMAINS, ...fromMappings]
+    .map((d) => normalizeDomain(d))
+    .filter(Boolean);
+
+  return Array.from(new Set(merged));
+}
+
+async function fetchLatestNews(companyName: string, domains: string[]): Promise<string> {
+  if (!companyName) return '';
+
+  const siteQuery = domains.slice(0, 8).map((d) => `site:${d}`).join(' OR ');
+  const query = `${companyName} (${siteQuery}) nyheter OR pressmeddelande OR expansion`;
+
+  try {
+    const response = await axios.post(
+      buildApiUrl('/api/tavily'),
+      {
+        query,
+        action: 'search',
+        maxResults: 6
+      },
+      {
+        timeout: 15000
+      }
+    );
+
+    const results = response.data?.results || [];
+    if (!Array.isArray(results) || results.length === 0) return '';
+
+    const topEntries = results.slice(0, 3).map((item: any) => {
+      const title = pickString(item?.title, item?.content, 'Nyhet');
+      const url = pickString(item?.url);
+      return url ? `${title} (${url})` : title;
+    });
+
+    return topEntries.join(' | ');
+  } catch (error) {
+    return '';
+  }
 }
 
 /**
@@ -277,8 +356,13 @@ export async function generateDeepDiveSequential(
   const activeModel = model || selectedModel;
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
-  const searchQuery = `${formData.companyNameOrOrg} (Allabolag, Ratsit, Kreditkollen, LinkedIn)`;
-  const prompt = MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery);
+  const preferredDomains = getPreferredDomains(newsSourceMappings);
+  const searchQuery = `${formData.companyNameOrOrg} (${preferredDomains.join(', ')}, LinkedIn)`;
+  const prompt = `${MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery)}
+
+### SOURCE PRIORITY
+Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
+Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med kort sammanfattning och URL.`;
 
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
@@ -312,6 +396,19 @@ export async function generateDeepDiveSequential(
     const marketCount = pickNumber(companyData?.market_count, companyData?.marketCount) || 1;
     const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
     const metrics = calculateRickardMetrics(revenueTKR, sniCode, sniPercentages, marketCount);
+
+    const latestNewsFromModel = pickString(
+      root?.latest_news,
+      root?.latestNews,
+      companyData?.latest_news,
+      companyData?.latestNews,
+      root?.news_summary,
+      root?.newsSummary
+    );
+    const latestNewsFallback = await fetchLatestNews(
+      pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
+      getPreferredDomains(newsSourceMappings, sniCode)
+    );
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
@@ -352,7 +449,7 @@ export async function generateDeepDiveSequential(
       techEvidence: pickString(logistics?.tech_evidence, logistics?.techEvidence),
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
-      latestNews: '', 
+      latestNews: latestNewsFromModel || latestNewsFallback, 
       
       decisionMakers: (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
         name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || ''

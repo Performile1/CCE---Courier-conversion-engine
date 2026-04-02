@@ -88,6 +88,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
     freightBudget: data?.freightBudget ?? "1 250 tkr",
     ecommercePlatform: data?.ecommercePlatform ?? "Shopify",
     paymentProvider: data?.paymentProvider ?? "Klarna",
+    latestNews: data?.latestNews ?? "",
     taSystem: data?.taSystem ?? "nShift",
     techEvidence: data?.techEvidence ?? "Detekterade Shopify-scripts och Klarna Checkout v3.",
     marketCount: data?.marketCount ?? 3,
@@ -928,6 +929,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Strategisk Pitch</p>
                     <p className="text-xs text-dhl-gray-dark leading-relaxed italic">
                       {editData.strategicPitch ? `"${editData.strategicPitch}"` : ''}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nyheter & Källor</p>
+                    <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
+                      {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
                     </p>
                   </div>
 
