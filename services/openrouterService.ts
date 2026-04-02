@@ -129,14 +129,16 @@ async function callOpenRouterWithRetry(
   handleWait?: (s: number, type: 'rate' | 'quota') => void,
   retries = 2
 ): Promise<string> {
-  const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
+  const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
+  const normalizedBaseUrl = configuredBaseUrl.replace(/\/$/, '');
+  const apiEndpoint = normalizedBaseUrl ? `${normalizedBaseUrl}/api/openrouter` : '/api/openrouter';
   
   for (let i = 0; i < retries; i++) {
     try {
       await throttle();
 
       const response = await axios.post(
-        `${backendUrl}/api/openrouter`,
+        apiEndpoint,
         {
           model: model === 'google-gemini-free' ? 'google/gemini-flash-1.5' : model,
           prompt: prompt,
