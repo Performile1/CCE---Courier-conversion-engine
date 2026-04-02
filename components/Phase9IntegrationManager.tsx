@@ -22,14 +22,14 @@ const INTEGRATION_TYPES = [
     label: 'Webhooks',
     description: 'Send real-time data to external URLs',
     icon: '🔗',
-    color: 'indigo',
+    color: 'dhl-red',
   },
   {
     id: 'adapter',
     label: 'Custom Adapters',
     description: 'Transform and process data with custom logic',
     icon: '⚙️',
-    color: 'purple',
+    color: 'dhl-red',
   },
   {
     id: 'event-trigger',

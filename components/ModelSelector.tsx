@@ -71,7 +71,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       </div>
 
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-indigo-200 space-y-2">
+        <div className="mt-3 pt-3 border-t border-dhl-gray-medium space-y-2">
           <p className="text-xs font-bold text-dhl-black mb-2">Choose AI Model:</p>
           
           {Object.entries(MODEL_CONFIG).map(([modelId, config]) => (
@@ -90,7 +90,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     {config.displayName}
                     {config.recommended && <span className="ml-2 text-dhl-yellow text-xs">✓ Recommended</span>}
                   </p>
-                  <p className={`text-xs ${selectedModel === modelId ? 'text-indigo-100' : 'text-dhl-gray-dark'}`}>
+                  <p className={`text-xs ${selectedModel === modelId ? 'text-white' : 'text-dhl-gray-dark'}`}>
                     {config.speed} • ${config.costPer1k.toFixed(4)}/1k tokens
                   </p>
                 </div>

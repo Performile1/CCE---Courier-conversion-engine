@@ -187,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Analytics & Rapporter</div>
 
                     <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
-                       <TrendingUp className="w-4 h-4 text-indigo-600" />
+                       <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">AI Model Selection</span>
                           <span className="text-[9px] text-slate-400 font-medium">Välj LLM & spåra kostnad</span>
@@ -295,7 +295,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
 
                     <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
-                       <Download className="w-4 h-4 text-indigo-600" />
+                       <Download className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom Report Builder</span>
                           <span className="text-[9px] text-slate-400 font-medium">Generera anpassade rapporter</span>
@@ -305,12 +305,17 @@ export const Header: React.FC<HeaderProps> = ({
               )}
            </div>
 
-           {/* User Actions - Icons Only */}
+           <button onClick={onAddNewLead} className="flex items-center gap-2 bg-dhl-red hover:bg-red-800 text-white px-3 py-2 rounded-sm transition-all shadow-lg active:scale-95 group">
+             <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+             <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Nytt Företag</span>
+           </button>
+
+           {/* User Actions - Icons Only - Moved to right of Nytt Företag */}
            <div className="flex items-center gap-1">
              {onOpenUserProfile && (
                <button 
                  onClick={() => { onOpenUserProfile(); setIsToolsOpen(false); }} 
-                 className="p-2 hover:bg-dhl-gray-medium text-slate-700 rounded-sm transition-all shadow-sm group" 
+                 className="p-2 hover:bg-dhl-gray-medium text-dhl-black rounded-sm transition-all shadow-sm group" 
                  title="Profil"
                >
                  <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -319,18 +324,13 @@ export const Header: React.FC<HeaderProps> = ({
              {onLogout && (
                <button 
                  onClick={onLogout} 
-                 className="p-2 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded-sm transition-all shadow-sm group" 
+                 className="p-2 hover:bg-dhl-gray-light text-dhl-black hover:text-dhl-red rounded-sm transition-all shadow-sm group" 
                  title="Logga ut"
                >
                  <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
                </button>
              )}
            </div>
-
-           <button onClick={onAddNewLead} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-sm transition-all shadow-lg active:scale-95 group">
-             <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-             <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Nytt Företag</span>
-           </button>
         </div>
       </div>
     </header>

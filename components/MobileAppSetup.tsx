@@ -85,7 +85,7 @@ export const MobileAppSetup: React.FC = () => {
               </div>
               <button
                 onClick={() => copyToClipboard(cmd.command, cmd.id)}
-                className="text-dhl-red hover:text-indigo-700"
+                className="text-dhl-red hover:text-red-800"
               >
                 {copied === cmd.id ? (
                   <CheckCircle className="w-5 h-5" />

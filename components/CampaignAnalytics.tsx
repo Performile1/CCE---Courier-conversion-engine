@@ -209,7 +209,7 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
                 const statusColors = {
                   sent: 'bg-dhl-gray-light text-dhl-red',
                   opened: 'bg-dhl-gray-light text-dhl-yellow',
-                  clicked: 'bg-dhl-gray-light text-purple-700',
+                  clicked: 'bg-dhl-gray-light text-dhl-red',
                   bounced: 'bg-dhl-gray-light text-red-700',
                 };
 

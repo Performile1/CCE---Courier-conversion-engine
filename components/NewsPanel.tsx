@@ -9,12 +9,12 @@ interface NewsPanelProps {
 
 const CATEGORY_COLORS: Record<string, string> = {
   business: 'bg-sky-100 text-sky-800',
-  startup: 'bg-purple-100 text-purple-800',
+  startup: 'bg-dhl-gray-light text-dhl-red',
   logistics: 'bg-amber-100 text-amber-800',
   finance: 'bg-green-100 text-green-800',
   tech: 'bg-dhl-gray-light text-blue-800',
   general: 'bg-dhl-gray-light text-dhl-black',
-  industry: 'bg-indigo-100 text-indigo-800'
+  industry: 'bg-dhl-gray-light text-dhl-red'
 };
 
 const FEED_TYPE_ICONS: Record<string, string> = {
@@ -218,7 +218,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                 )}
 
                 {source.apiEndpoint && (
-                  <div className="bg-dhl-gray-light border border-purple-200 rounded p-2">
+                  <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-2">
                     <p className="text-xs text-dhl-red font-semibold mb-1 flex items-center gap-1">
                       <Zap className="w-3 h-3" />
                       API Endpoint

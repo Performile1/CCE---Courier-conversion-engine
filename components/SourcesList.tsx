@@ -16,7 +16,7 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  registry: 'bg-purple-100 text-purple-800',
+  registry: 'bg-dhl-gray-light text-dhl-red',
   news: 'bg-dhl-gray-light text-blue-800',
   financial: 'bg-green-100 text-green-800',
   directory: 'bg-orange-100 text-orange-800'

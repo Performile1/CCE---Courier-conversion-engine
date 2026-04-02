@@ -309,9 +309,9 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
       </div>
 
       {/* Event Documentation */}
-      <div className="bg-dhl-gray-light border border-indigo-200 rounded-sm p-4">
-        <p className="text-sm text-indigo-900 font-semibold mb-2">💡 Event Trigger Info</p>
-        <ul className="text-xs text-indigo-900 space-y-1">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
+        <p className="text-sm text-dhl-black font-semibold mb-2">💡 Event Trigger Info</p>
+        <ul className="text-xs text-dhl-gray-dark space-y-1">
           <li>• Each event can trigger multiple webhooks simultaneously</li>
           <li>• Custom logic executes if defined, in addition to webhook triggers</li>
           <li>• Events fire in real-time as activities occur in the system</li>

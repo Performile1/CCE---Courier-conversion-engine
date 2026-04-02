@@ -216,7 +216,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 <p className="text-xs text-slate-500 mb-3">
                   Metrics: {template.metrics.length}
                 </p>
-                <button className="w-full py-2 px-3 bg-indigo-100 hover:bg-indigo-200 text-dhl-red font-medium rounded transition-all">
+                <button className="w-full py-2 px-3 bg-dhl-gray-light hover:bg-dhl-gray-medium text-dhl-red font-medium rounded-sm transition-all">
                   Use Template
                 </button>
               </div>
@@ -234,7 +234,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 setReportName('');
                 setSelectedMetrics([]);
               }}
-              className="text-dhl-red hover:text-indigo-700 font-medium text-sm"
+              className="text-dhl-red hover:text-red-800 font-medium text-sm"
             >
               ← Back to Templates
             </button>

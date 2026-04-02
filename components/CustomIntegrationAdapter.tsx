@@ -138,7 +138,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full py-2 px-4 bg-dhl-red hover:bg-purple-700 text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
+          className="w-full py-2 px-4 bg-dhl-red hover:bg-red-800 text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Create Adapter
@@ -162,8 +162,8 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                   }}
                   className={`p-3 rounded-sm border-2 text-left transition-all ${
                     selectedType === key
-                      ? 'border-purple-600 bg-dhl-gray-light'
-                      : 'border-dhl-gray-medium bg-white hover:border-purple-400'
+                      ? 'border-dhl-red bg-dhl-gray-light'
+                      : 'border-dhl-gray-medium bg-white hover:border-dhl-red'
                   }`}
                 >
                   <p className="font-medium text-sm text-dhl-black">{template.name}</p>
@@ -291,7 +291,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
             <button
               onClick={handleAddAdapter}
               disabled={saving}
-              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-purple-700 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm"
+              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm"
             >
               {saving ? 'Creating...' : 'Create Adapter'}
             </button>
@@ -331,7 +331,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                       <AlertCircle className="w-4 h-4 text-red-600" />
                     )}
                     <h4 className="font-semibold text-dhl-black">{adapter.name}</h4>
-                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-dhl-gray-light text-dhl-red px-2 py-0.5 rounded-sm">
                       {adapter.type}
                     </span>
                   </div>

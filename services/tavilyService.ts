@@ -338,3 +338,137 @@ export async function quickHallucinationCheck(
     console.error('Quick hallucination check failed:', error);
   });
 }
+
+/**
+ * Fetch content with Tavily primary + Crawl4ai fallback
+ * Useful for complex sites, JavaScript-heavy content, or when Tavily fails
+ */
+export async function fetchWithCrawl4aiFallback(
+  url: string,
+  options?: { useCrawl4aiPrimary?: boolean }
+): Promise<{ content: string; source: 'tavily' | 'crawl4ai'; metadata?: Record<string, any> }> {
+  try {
+    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
+
+    // Try Tavily first (unless explicitly requesting Crawl4ai)
+    if (!options?.useCrawl4aiPrimary) {
+      try {
+        const response = await axios.post(
+          `${backendUrl}/api/tavily`,
+          {
+            url: url,
+            action: 'fetch',
+            maxResults: 1
+          },
+          { timeout: 10000 }
+        );
+
+        if (response.data?.results?.[0]?.content) {
+          return {
+            content: response.data.results[0].content,
+            source: 'tavily',
+            metadata: response.data.results[0]
+          };
+        }
+      } catch (tavilyError) {
+        console.warn('Tavily fetch failed, falling back to Crawl4ai:', tavilyError);
+      }
+    }
+
+    // Fallback to Crawl4ai for complex sites
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/crawl`,
+        {
+          url: url,
+          includeLinks: true,
+          includeImages: false,
+          ignoreCookieConsent: true
+        },
+        { timeout: 15000 }
+      );
+
+      if (response.data?.success && response.data?.content) {
+        return {
+          content: response.data.content,
+          source: 'crawl4ai',
+          metadata: {
+            links: response.data.links || [],
+            url: response.data.url
+          }
+        };
+      }
+    } catch (crawlError) {
+      console.error('Crawl4ai fetch also failed:', crawlError);
+    }
+
+    // If both fail, return empty content
+    return {
+      content: '',
+      source: 'tavily',
+      metadata: { error: 'Both Tavily and Crawl4ai failed to fetch content' }
+    };
+  } catch (error) {
+    console.error('Fetch with fallback error:', error);
+    return {
+      content: '',
+      source: 'tavily',
+      metadata: { error: String(error) }
+    };
+  }
+}
+
+/**
+ * Scrape complex sites with Crawl4ai (JavaScript rendering, PDFs, etc)
+ * Use this for sites that Tavily can't handle
+ */
+export async function scrapeWithCrawl4ai(
+  url: string,
+  options?: {
+    maxDepth?: number;
+    includeLinks?: boolean;
+    includeImages?: boolean;
+    ignoreCookieConsent?: boolean;
+  }
+): Promise<{
+  success: boolean;
+  content: string;
+  links?: string[];
+  images?: string[];
+  metadata?: Record<string, any>;
+  error?: string;
+}> {
+  try {
+    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
+
+    const response = await axios.post(
+      `${backendUrl}/api/crawl`,
+      {
+        url: url,
+        maxDepth: options?.maxDepth || 1,
+        includeLinks: options?.includeLinks !== false,
+        includeImages: options?.includeImages !== false,
+        ignoreCookieConsent: options?.ignoreCookieConsent !== false
+      },
+      { timeout: 20000 }
+    );
+
+    return {
+      success: response.data?.success === true,
+      content: response.data?.content || '',
+      links: response.data?.links || [],
+      images: response.data?.images || [],
+      metadata: {
+        url: response.data?.url,
+        actionType: response.data?.actionType
+      }
+    };
+  } catch (error: any) {
+    console.error('Crawl4ai scraping error:', error.message);
+    return {
+      success: false,
+      content: '',
+      error: error.message || 'Failed to scrape with Crawl4ai'
+    };
+  }
+}
