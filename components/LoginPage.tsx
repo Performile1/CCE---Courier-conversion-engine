@@ -250,22 +250,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             )}
           </p>
         </div>
-
-        {/* Features */}
-        <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-          <div className="text-white">
-            <div className="text-2xl font-bold text-indigo-400">5</div>
-            <div className="text-sm text-slate-300">AI Models</div>
-          </div>
-          <div className="text-white">
-            <div className="text-2xl font-bold text-indigo-400">30%</div>
-            <div className="text-sm text-slate-300">Cost Savings</div>
-          </div>
-          <div className="text-white">
-            <div className="text-2xl font-bold text-indigo-400">100%</div>
-            <div className="text-sm text-slate-300">Verified</div>
-          </div>
-        </div>
       </div>
     </div>
   );
