@@ -95,6 +95,35 @@ export async function resetPassword(email: string) {
 }
 
 /**
+ * Send magic link for sign-in/invite.
+ * If shouldCreateUser=true, Supabase can create user on first link use.
+ */
+export async function sendMagicLink(email: string, shouldCreateUser: boolean = true) {
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser,
+      emailRedirectTo: window.location.origin
+    }
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Admin helper for sending password reset email.
+ */
+export async function sendPasswordResetEmail(email: string) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback`
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Update password
  */
 export async function updatePassword(newPassword: string) {

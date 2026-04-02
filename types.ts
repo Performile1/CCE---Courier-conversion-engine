@@ -81,6 +81,16 @@ export interface SourcePolicyConfig {
   news: string[];
   customCategories?: Record<string, string[]>;
   categoryFieldMappings?: Record<string, string[]>;
+  countrySourcePolicies?: Record<string, {
+    financial?: string[];
+    addresses?: string[];
+    decisionMakers?: string[];
+    payment?: string[];
+    webSoftware?: string[];
+    news?: string[];
+    customCategories?: Record<string, string[]>;
+    categoryFieldMappings?: Record<string, string[]>;
+  }>;
 }
 
 export type UserRole = 'admin' | 'user' | 'viewer';

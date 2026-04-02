@@ -30,9 +30,20 @@ interface NewsSourceManagerProps {
   onSave: (mappings: NewsSourceMapping[]) => void;
   sourcePolicies?: SourcePolicyConfig;
   onSaveSourcePolicies?: (policies: SourcePolicyConfig) => void;
+  selectedCountry?: string;
+  onSelectCountry?: (country: string) => void;
 }
 
-export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, onClose, mappings, onSave, sourcePolicies, onSaveSourcePolicies }) => {
+export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
+  isOpen,
+  onClose,
+  mappings,
+  onSave,
+  sourcePolicies,
+  onSaveSourcePolicies,
+  selectedCountry = 'global',
+  onSelectCountry
+}) => {
   const [localMappings, setLocalMappings] = useState<NewsSourceMapping[]>(mappings);
   const [newSni, setNewSni] = useState('');
   const [newSources, setNewSources] = useState('');
@@ -53,26 +64,58 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
   const [sourceSuggestions, setSourceSuggestions] = useState<SourcePerformanceEntry[]>([]);
 
   const baseCategories = ['financial', 'addresses', 'decisionMakers', 'payment', 'webSoftware', 'news'];
+  const countryOptions = ['global', 'se', 'no', 'dk', 'fi', ...Object.keys(sourcePolicies?.countrySourcePolicies || {})]
+    .map(c => c.toLowerCase())
+    .filter((value, index, arr) => arr.indexOf(value) === index);
+
+  const getActivePolicyScope = () => {
+    const countryKey = (selectedCountry || 'global').toLowerCase();
+    if (countryKey === 'global') {
+      return {
+        financial: sourcePolicies?.financial || [],
+        addresses: sourcePolicies?.addresses || [],
+        decisionMakers: sourcePolicies?.decisionMakers || [],
+        payment: sourcePolicies?.payment || [],
+        webSoftware: sourcePolicies?.webSoftware || [],
+        news: sourcePolicies?.news || [],
+        customCategories: sourcePolicies?.customCategories || {},
+        categoryFieldMappings: sourcePolicies?.categoryFieldMappings || {}
+      };
+    }
+
+    const overrides = sourcePolicies?.countrySourcePolicies?.[countryKey] || {};
+    return {
+      financial: overrides.financial || sourcePolicies?.financial || [],
+      addresses: overrides.addresses || sourcePolicies?.addresses || [],
+      decisionMakers: overrides.decisionMakers || sourcePolicies?.decisionMakers || [],
+      payment: overrides.payment || sourcePolicies?.payment || [],
+      webSoftware: overrides.webSoftware || sourcePolicies?.webSoftware || [],
+      news: overrides.news || sourcePolicies?.news || [],
+      customCategories: overrides.customCategories || sourcePolicies?.customCategories || {},
+      categoryFieldMappings: overrides.categoryFieldMappings || sourcePolicies?.categoryFieldMappings || {}
+    };
+  };
 
   useEffect(() => {
     if (isOpen) {
       setLocalMappings(mappings);
+      const activePolicies = getActivePolicyScope();
       setPolicyText({
-        financial: (sourcePolicies?.financial || []).join(', '),
-        addresses: (sourcePolicies?.addresses || []).join(', '),
-        decisionMakers: (sourcePolicies?.decisionMakers || []).join(', '),
-        payment: (sourcePolicies?.payment || []).join(', '),
-        webSoftware: (sourcePolicies?.webSoftware || []).join(', '),
-        news: (sourcePolicies?.news || []).join(', ')
+        financial: (activePolicies.financial || []).join(', '),
+        addresses: (activePolicies.addresses || []).join(', '),
+        decisionMakers: (activePolicies.decisionMakers || []).join(', '),
+        payment: (activePolicies.payment || []).join(', '),
+        webSoftware: (activePolicies.webSoftware || []).join(', '),
+        news: (activePolicies.news || []).join(', ')
       });
-      const custom = sourcePolicies?.customCategories || {};
+      const custom = activePolicies.customCategories || {};
       const mapped: Record<string, string> = {};
       Object.entries(custom).forEach(([name, sources]) => {
         mapped[name] = (sources || []).join(', ');
       });
       setCustomCategoryInputs(mapped);
 
-      const configuredFieldMappings = sourcePolicies?.categoryFieldMappings || {};
+      const configuredFieldMappings = activePolicies.categoryFieldMappings || {};
       const allCategories = [...baseCategories, ...Object.keys(custom)];
       const mappingInputs: Record<string, string[]> = {};
       allCategories.forEach((category) => {
@@ -86,12 +129,12 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         const allConfiguredSources = new Set(
           [
             ...Object.values(custom).flat(),
-            ...(sourcePolicies?.financial || []),
-            ...(sourcePolicies?.addresses || []),
-            ...(sourcePolicies?.decisionMakers || []),
-            ...(sourcePolicies?.payment || []),
-            ...(sourcePolicies?.webSoftware || []),
-            ...(sourcePolicies?.news || [])
+            ...(activePolicies.financial || []),
+            ...(activePolicies.addresses || []),
+            ...(activePolicies.decisionMakers || []),
+            ...(activePolicies.payment || []),
+            ...(activePolicies.webSoftware || []),
+            ...(activePolicies.news || [])
           ].map(s => s.toLowerCase().trim())
         );
 
@@ -106,7 +149,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         setSourceSuggestions([]);
       }
     }
-  }, [mappings, isOpen, sourcePolicies]);
+  }, [mappings, isOpen, sourcePolicies, selectedCountry]);
 
   const addCustomCategory = () => {
     const name = newCustomCategoryName.trim();
@@ -240,7 +283,8 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
           .map(([name, value]) => [name.trim(), (value || []).filter(Boolean)])
           .filter(([name]) => Boolean(name))
       );
-      onSaveSourcePolicies({
+
+      const parsedScope = {
         financial: parse(policyText.financial),
         addresses: parse(policyText.addresses),
         decisionMakers: parse(policyText.decisionMakers),
@@ -249,7 +293,24 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         news: parse(policyText.news),
         customCategories,
         categoryFieldMappings
-      });
+      };
+
+      const countryKey = (selectedCountry || 'global').toLowerCase();
+      if (countryKey === 'global') {
+        onSaveSourcePolicies({
+          ...sourcePolicies,
+          ...parsedScope,
+          countrySourcePolicies: sourcePolicies?.countrySourcePolicies || {}
+        });
+      } else {
+        onSaveSourcePolicies({
+          ...sourcePolicies,
+          countrySourcePolicies: {
+            ...(sourcePolicies?.countrySourcePolicies || {}),
+            [countryKey]: parsedScope
+          }
+        });
+      }
     }
     onClose();
   };
@@ -271,6 +332,28 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
             <div>
               Koppla specifika nyhetssajter till SNI-koder. Vid analys av ett bolag kommer AI:n att prioritera sökningar på dessa domäner.
               <br/><strong>Exempel:</strong> SNI 47 → ehandel.se, market.se
+            </div>
+          </div>
+
+          <div className="bg-dhl-gray-light p-3 border border-dhl-gray-medium rounded-sm">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Aktiv källa-profil (land)</label>
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => onSelectCountry?.(e.target.value)}
+                  className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2 bg-white"
+                >
+                  {countryOptions.map((country) => (
+                    <option key={country} value={country}>
+                      {country === 'global' ? 'Global standard' : country.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-[9px] text-slate-500">
+                {selectedCountry === 'global' ? 'Redigerar globala standardkällor' : `Redigerar override för ${selectedCountry.toUpperCase()}`}
+              </div>
             </div>
           </div>
 

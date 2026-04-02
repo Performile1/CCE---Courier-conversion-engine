@@ -207,6 +207,9 @@ export const App: React.FC = () => {
       return saved ? JSON.parse(saved) : DEFAULT_SOURCE_POLICIES;
     } catch (e) { return DEFAULT_SOURCE_POLICIES; }
   });
+  const [activeSourceCountry, setActiveSourceCountry] = useState<string>(() => {
+    return localStorage.getItem('dhl_active_source_country') || 'global';
+  });
   const [toolAccessConfig, setToolAccessConfig] = useState<ToolAccessConfig>(() => {
     try {
       const saved = localStorage.getItem('dhl_tool_access_config');
@@ -340,6 +343,7 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_mail_focus_words', JSON.stringify(mailFocusWords)); }, [mailFocusWords]);
   useEffect(() => { localStorage.setItem('dhl_news_sources', JSON.stringify(newsSourceMappings)); }, [newsSourceMappings]);
   useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
+  useEffect(() => { localStorage.setItem('dhl_active_source_country', activeSourceCountry); }, [activeSourceCountry]);
   useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
 
   useEffect(() => {
@@ -680,7 +684,8 @@ export const App: React.FC = () => {
         activeCarrier,
         threePLProviders,
         undefined,
-        sourcePolicies
+        sourcePolicies,
+        activeSourceCountry
       );
       setDeepDiveLead(final);
       setAnalysisResult(final);
@@ -729,6 +734,7 @@ export const App: React.FC = () => {
       if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
       if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
       if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
+      if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
       if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
       if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
       if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -757,6 +763,7 @@ export const App: React.FC = () => {
       threePLProviders,
       newsSourceMappings,
       sourcePolicies,
+      activeSourceCountry,
       mailTemplateSv,
       mailTemplateEn,
       mailSignature,
@@ -787,6 +794,7 @@ export const App: React.FC = () => {
     if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
     if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
     if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
+    if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
     if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
     if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
     if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -816,6 +824,8 @@ export const App: React.FC = () => {
       sniPercentages,
       threePLProviders,
       newsSourceMappings,
+      sourcePolicies,
+      activeSourceCountry,
       mailTemplateSv,
       mailTemplateEn,
       mailSignature,
@@ -900,6 +910,8 @@ export const App: React.FC = () => {
         setActiveCarrier={handleCarrierChange}
         availableCarriers={carriers}
         onAddCarrier={handleAddCarrier}
+        activeSourceCountry={activeSourceCountry}
+        setActiveSourceCountry={setActiveSourceCountry}
         visibleTools={visibleTools}
       />
       
@@ -1012,7 +1024,16 @@ export const App: React.FC = () => {
         deepDiveLead={deepDiveLead}
       />
       <CacheManager isOpen={isCacheOpen} onClose={() => setIsCacheOpen(false)} cacheData={cacheData} setCacheData={setCacheData} onMoveToActive={(ls) => ls?.filter(Boolean).forEach(handleUpdateLead)} activeLeads={leads} existingCustomers={existingCustomers} downloadedLeads={downloadedLeads} />
-      <NewsSourceManager isOpen={isNewsSourceOpen} onClose={() => setIsNewsSourceOpen(false)} mappings={newsSourceMappings} onSave={setNewsSourceMappings} sourcePolicies={sourcePolicies} onSaveSourcePolicies={setSourcePolicies} />
+      <NewsSourceManager
+        isOpen={isNewsSourceOpen}
+        onClose={() => setIsNewsSourceOpen(false)}
+        mappings={newsSourceMappings}
+        onSave={setNewsSourceMappings}
+        sourcePolicies={sourcePolicies}
+        onSaveSourcePolicies={setSourcePolicies}
+        selectedCountry={activeSourceCountry}
+        onSelectCountry={setActiveSourceCountry}
+      />
       <BackupManager 
         isOpen={isBackupsOpen} 
         onClose={() => setIsBackupsOpen(false)} 

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Shield, Save, X, Plus, Trash2 } from 'lucide-react';
 import { ToolAccessConfig, UserRole } from '../types';
+import { sendMagicLink, sendPasswordResetEmail } from '../services/supabaseClient';
 
 interface ToolAccessManagerProps {
   isOpen: boolean;
@@ -45,6 +46,8 @@ export const ToolAccessManager: React.FC<ToolAccessManagerProps> = ({ isOpen, on
   const [localConfig, setLocalConfig] = useState<ToolAccessConfig>(config);
   const [newUserId, setNewUserId] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('user');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminMsg, setAdminMsg] = useState('');
 
   const userEntries = useMemo(() => Object.entries(localConfig.userRoles), [localConfig.userRoles]);
 
@@ -97,6 +100,26 @@ export const ToolAccessManager: React.FC<ToolAccessManagerProps> = ({ isOpen, on
   const handleSave = () => {
     onSave(localConfig);
     onClose();
+  };
+
+  const handleSendMagicLink = async () => {
+    if (!adminEmail.trim()) return;
+    try {
+      await sendMagicLink(adminEmail.trim(), true);
+      setAdminMsg(`Magic link sent to ${adminEmail.trim()}`);
+    } catch (e: any) {
+      setAdminMsg(e?.message || 'Failed to send magic link');
+    }
+  };
+
+  const handleSendReset = async () => {
+    if (!adminEmail.trim()) return;
+    try {
+      await sendPasswordResetEmail(adminEmail.trim());
+      setAdminMsg(`Password reset email sent to ${adminEmail.trim()}`);
+    } catch (e: any) {
+      setAdminMsg(e?.message || 'Failed to send password reset email');
+    }
   };
 
   return (
@@ -168,13 +191,14 @@ export const ToolAccessManager: React.FC<ToolAccessManagerProps> = ({ isOpen, on
                         const selected = (localConfig.roleToolAccess[role] || []).includes(toolKey);
                         return (
                           <td key={`${toolKey}-${role}`} className="text-center">
-                            <button
-                              type="button"
-                              onClick={() => toggleToolForRole(role, toolKey)}
-                              className={`px-2 py-1 rounded-sm border font-bold ${selected ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-600 border-dhl-gray-medium'}`}
-                            >
-                              {selected ? 'Yes' : 'No'}
-                            </button>
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleToolForRole(role, toolKey)}
+                                className="w-4 h-4 accent-red-600"
+                              />
+                            </label>
                           </td>
                         );
                       })}
@@ -183,6 +207,22 @@ export const ToolAccessManager: React.FC<ToolAccessManagerProps> = ({ isOpen, on
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="border border-dhl-gray-medium rounded-sm p-3 space-y-2">
+            <div className="text-[10px] font-black uppercase text-slate-500">Admin User Actions</div>
+            <div className="grid grid-cols-[2fr_auto_auto] gap-2">
+              <input
+                type="email"
+                value={adminEmail}
+                onChange={e => setAdminEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="text-xs border border-dhl-gray-medium rounded-sm p-2"
+              />
+              <button onClick={handleSendMagicLink} className="px-3 py-2 text-[10px] font-black uppercase bg-dhl-black text-white rounded-sm hover:bg-red-600">Send Magic Link</button>
+              <button onClick={handleSendReset} className="px-3 py-2 text-[10px] font-black uppercase bg-dhl-gray-light text-dhl-gray-dark border border-dhl-gray-medium rounded-sm hover:border-red-300">Forgot Password</button>
+            </div>
+            {adminMsg && <div className="text-[10px] text-slate-600">{adminMsg}</div>}
           </div>
         </div>
 

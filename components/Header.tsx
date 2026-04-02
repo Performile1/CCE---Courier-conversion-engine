@@ -44,6 +44,9 @@ interface HeaderProps {
   setActiveCarrier: (carrier: string) => void;
   availableCarriers?: string[];
   onAddCarrier?: (carrier: string) => void;
+  activeSourceCountry?: string;
+  setActiveSourceCountry?: (country: string) => void;
+  availableSourceCountries?: string[];
    visibleTools?: string[];
    onOpenToolAccess?: () => void;
 }
@@ -60,6 +63,8 @@ export const Header: React.FC<HeaderProps> = ({
   inclusionCount, exclusionCount, cacheCount, 
   protocolMode, setProtocolMode, onAddNewLead, activeCarrier, setActiveCarrier, 
    availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier,
+  activeSourceCountry = 'global', setActiveSourceCountry,
+  availableSourceCountries = ['global', 'se', 'no', 'dk', 'fi'],
    visibleTools,
    onOpenToolAccess
 }) => {
@@ -126,6 +131,24 @@ export const Header: React.FC<HeaderProps> = ({
                         </select>
                       </div>
                     </div>
+
+                    {setActiveSourceCountry && (
+                    <div className="px-4 py-3">
+                      <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Källprofil (Land)</div>
+                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-sm">
+                        <Globe className="w-4 h-4 text-red-600 ml-2" />
+                        <select
+                          value={activeSourceCountry}
+                          onChange={(e) => setActiveSourceCountry(e.target.value)}
+                          className="flex-1 bg-slate-50 text-xs font-black text-slate-900 uppercase py-2 px-2 outline-none cursor-pointer"
+                        >
+                          {availableSourceCountries.map((c) => (
+                            <option key={c} value={c}>{c === 'global' ? 'GLOBAL' : c.toUpperCase()}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    )}
 
                     {hasTool('carrierSettings') && <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-red-600" />

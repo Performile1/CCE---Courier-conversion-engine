@@ -234,7 +234,7 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
   ].join('\n');
 }
 
-function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyConfig {
+function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): SourcePolicyConfig {
   const defaultFieldMappings: Record<string, string[]> = {
     financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress'],
@@ -244,15 +244,34 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyC
     news: ['latestNews']
   };
 
+  const countryKey = (activeCountry || '').trim().toLowerCase();
+  const countryOverrides = countryKey && countryKey !== 'global'
+    ? (sourcePolicies?.countrySourcePolicies?.[countryKey] || sourcePolicies?.countrySourcePolicies?.[activeCountry || ''])
+    : undefined;
+
+  const pickList = (
+    override?: string[],
+    global?: string[],
+    fallback: string[] = []
+  ) => (override && override.length ? override : (global && global.length ? global : fallback));
+
   return {
-    financial: sourcePolicies?.financial?.length ? sourcePolicies.financial : FINANCIAL_SOURCE_DOMAINS,
-    addresses: sourcePolicies?.addresses?.length ? sourcePolicies.addresses : ADDRESS_SOURCE_DOMAINS,
-    decisionMakers: sourcePolicies?.decisionMakers?.length ? sourcePolicies.decisionMakers : CONTACT_SOURCE_DOMAINS,
-    payment: sourcePolicies?.payment?.length ? sourcePolicies.payment : PAYMENT_SOURCE_DOMAINS,
-    webSoftware: sourcePolicies?.webSoftware?.length ? sourcePolicies.webSoftware : WEBSOFTWARE_SOURCE_DOMAINS,
-    news: sourcePolicies?.news?.length ? sourcePolicies.news : ['ehandel.se', 'market.se', 'breakit.se'],
-    customCategories: sourcePolicies?.customCategories || {},
-    categoryFieldMappings: sourcePolicies?.categoryFieldMappings || defaultFieldMappings
+    financial: pickList(countryOverrides?.financial, sourcePolicies?.financial, FINANCIAL_SOURCE_DOMAINS),
+    addresses: pickList(countryOverrides?.addresses, sourcePolicies?.addresses, ADDRESS_SOURCE_DOMAINS),
+    decisionMakers: pickList(countryOverrides?.decisionMakers, sourcePolicies?.decisionMakers, CONTACT_SOURCE_DOMAINS),
+    payment: pickList(countryOverrides?.payment, sourcePolicies?.payment, PAYMENT_SOURCE_DOMAINS),
+    webSoftware: pickList(countryOverrides?.webSoftware, sourcePolicies?.webSoftware, WEBSOFTWARE_SOURCE_DOMAINS),
+    news: pickList(countryOverrides?.news, sourcePolicies?.news, ['ehandel.se', 'market.se', 'breakit.se']),
+    customCategories: {
+      ...(sourcePolicies?.customCategories || {}),
+      ...(countryOverrides?.customCategories || {})
+    },
+    categoryFieldMappings: {
+      ...defaultFieldMappings,
+      ...(sourcePolicies?.categoryFieldMappings || {}),
+      ...(countryOverrides?.categoryFieldMappings || {})
+    },
+    countrySourcePolicies: sourcePolicies?.countrySourcePolicies || {}
   };
 }
 
@@ -678,12 +697,13 @@ export async function generateDeepDiveSequential(
   activeCarrier: string,
   threePLProviders: ThreePLProvider[],
   model?: ModelName,
-  sourcePolicies?: SourcePolicyConfig
+  sourcePolicies?: SourcePolicyConfig,
+  activeCountry?: string
 ): Promise<LeadData> {
   const activeModel = model || selectedModel;
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
-  const effectivePolicies = mergeSourcePolicies(sourcePolicies);
+  const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
   const customDomains = Object.values(effectivePolicies.customCategories || {}).flat();
   const preferredDomains = Array.from(new Set([
     ...getPreferredDomains(newsSourceMappings),
