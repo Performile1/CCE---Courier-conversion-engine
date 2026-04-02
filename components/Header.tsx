@@ -60,14 +60,11 @@ export const Header: React.FC<HeaderProps> = ({
   availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
-  const [isCarrierOpen, setIsCarrierOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const carrierRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) setIsToolsOpen(false);
-      if (carrierRef.current && !carrierRef.current.contains(event.target as Node)) setIsCarrierOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -78,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-[1600px] mx-auto px-4 py-2 flex items-center justify-between">
         
         {/* Logo & Identity */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onOpenBriefing()}>
             <div className="bg-red-600 p-2 rounded-sm shadow-sm group-hover:rotate-12 transition-transform">
               <Radar className="h-6 w-6 text-white" />
@@ -90,52 +87,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Fokustransportör Selector */}
-          <div className="relative ml-2" ref={carrierRef}>
-            <button 
-              onClick={() => setIsCarrierOpen(!isCarrierOpen)}
-              className="flex items-center gap-2 bg-white/90 border-b-2 border-red-600 px-3 py-1.5 rounded-sm hover:bg-white transition-all shadow-sm group"
-            >
-              <Truck className="w-4 h-4 text-red-600 group-hover:translate-x-1 transition-transform" />
-              <div className="text-left leading-none">
-                <div className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Fokustransportör</div>
-                <div className="text-xs font-black text-slate-900 uppercase">{activeCarrier}</div>
-              </div>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isCarrierOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {isCarrierOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-white shadow-2xl border-t-4 border-red-600 animate-fadeIn z-[110] ring-1 ring-black/5 divide-y divide-slate-100">
-                <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Aktivt Sälj-case</div>
-                {availableCarriers.map((c) => (
-                  <button 
-                    key={c}
-                    onClick={() => { setActiveCarrier(c); setIsCarrierOpen(false); }}
-                    className={`w-full text-left px-4 py-3 text-xs font-bold uppercase flex items-center justify-between hover:bg-slate-50 ${activeCarrier === c ? 'text-red-600 bg-red-50' : 'text-slate-700'}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${activeCarrier === c ? 'bg-red-600 animate-pulse' : 'bg-slate-300'}`}></div>
-                      {c}
-                    </div>
-                    {activeCarrier === c && <Check className="w-4 h-4" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
         
         {/* Action Controls */}
         <div className="flex items-center gap-3">
-           
-           <button 
-             onClick={onOpenCarrierSettings} 
-             className="hidden lg:flex items-center gap-2 bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase rounded-sm border-b-2 border-red-600 hover:bg-black transition-all shadow-lg"
-           >
-              <TrendingUp className="w-4 h-4 text-red-600" /> Market Data
-           </button>
-
            <div className="relative" ref={toolsRef}>
               <button 
                 onClick={() => setIsToolsOpen(!isToolsOpen)} 
@@ -149,8 +104,24 @@ export const Header: React.FC<HeaderProps> = ({
               {isToolsOpen && (
                 <div className="absolute top-full right-0 mt-2 w-72 bg-white shadow-2xl border-t-4 border-red-600 animate-fadeIn z-[110] rounded-b-sm overflow-hidden ring-1 ring-black/5 divide-y divide-slate-100">
                     
-                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Protokoll & Sökning</div>
+                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Fokus & Marknad</div>
                     
+                    <div className="px-4 py-3">
+                      <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Fokustransportör</div>
+                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-sm">
+                        <Truck className="w-4 h-4 text-red-600 ml-2" />
+                        <select 
+                          value={activeCarrier} 
+                          onChange={(e) => { setActiveCarrier(e.target.value); }}
+                          className="flex-1 bg-slate-50 text-xs font-black text-slate-900 uppercase py-2 px-2 outline-none cursor-pointer"
+                        >
+                          {availableCarriers.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
@@ -158,6 +129,8 @@ export const Header: React.FC<HeaderProps> = ({
                           <span className="text-[9px] text-slate-400 font-medium tracking-tight">DMT, Svavel & Prisindex (2026)</span>
                        </div>
                     </button>
+                    
+                    <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Protokoll & Sökning</div>
 
                     <button onClick={() => { onOpenInclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
                        <Search className="w-4 h-4 text-[#D40511]" />
@@ -332,18 +305,24 @@ export const Header: React.FC<HeaderProps> = ({
               )}
            </div>
 
-           {/* User Actions */}
-           <div className="flex items-center gap-2">
+           {/* User Actions - Icons Only */}
+           <div className="flex items-center gap-1">
              {onOpenUserProfile && (
-               <button onClick={() => { onOpenUserProfile(); setIsToolsOpen(false); }} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-sm transition-all shadow-sm group">
+               <button 
+                 onClick={() => { onOpenUserProfile(); setIsToolsOpen(false); }} 
+                 className="p-2 hover:bg-slate-200 text-slate-700 rounded-sm transition-all shadow-sm group" 
+                 title="Profil"
+               >
                  <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                 <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Profil</span>
                </button>
              )}
              {onLogout && (
-               <button onClick={onLogout} className="flex items-center gap-2 bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 px-3 py-2 rounded-sm transition-all shadow-sm group">
+               <button 
+                 onClick={onLogout} 
+                 className="p-2 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded-sm transition-all shadow-sm group" 
+                 title="Logga ut"
+               >
                  <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                 <span className="text-[10px] font-black uppercase hidden lg:inline tracking-widest">Logga ut</span>
                </button>
              )}
            </div>
