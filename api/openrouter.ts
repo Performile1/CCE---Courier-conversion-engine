@@ -15,7 +15,8 @@ if (!OPENROUTER_API_KEY) {
 
 interface OpenRouterRequest {
   model: string;
-  prompt: string;
+  prompt?: string;
+  userMessage?: string;
   systemInstruction?: string;
   temperature?: number;
   maxTokens?: number;
@@ -42,8 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { model, prompt, systemInstruction, temperature = 0.1, maxTokens = 2048, responseMimeType } = req.body as OpenRouterRequest;
 
+    // Support both 'prompt' and 'userMessage' field names
+    const userContent = userMessage || prompt;
+    
     // Validate request
-    if (!model || !prompt) {
+    if (!model || !userContent) {
       return res.status(400).json({ error: 'Missing required fields: model, prompt' });
     }
 
@@ -76,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           },
           {
             role: 'user',
-            content: prompt
+            content: userContent
           }
         ],
         temperature,
@@ -94,16 +98,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const text = data.choices[0]?.message?.content || '';
     const usage = data.usage || {};
 
-    // Return response with cost tracking info
+    // Return response compatible with both frontend services
     return res.status(200).json({
+      // For openRouterInternationalService
+      content: text,
+      tokensUsed: {
+        prompt: usage.prompt_tokens || 0,
+        completion: usage.completion_tokens || 0,
+        total: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0)
+      },
+      // For openrouterService
       text,
       model: modelId,
       usage: {
         promptTokens: usage.prompt_tokens || 0,
-        completionTokens: usage.completion_tokens || 0
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0)
       },
-      // Calculate approximate cost
-      estimatedCost: this.calculateCost(model, usage.prompt_tokens || 0, usage.completion_tokens || 0)
+      choices: [{
+        message: { content: text }
+      }]
     });
 
   } catch (error: any) {

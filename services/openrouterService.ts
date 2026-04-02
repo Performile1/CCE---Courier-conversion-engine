@@ -119,6 +119,7 @@ function parseRevenueToTKR(val: any): number {
 
 /**
  * OPENROUTER API CALL WITH RETRY
+ * Calls backend proxy to keep API key secure
  */
 async function callOpenRouterWithRetry(
   model: ModelName,
@@ -128,47 +129,27 @@ async function callOpenRouterWithRetry(
   handleWait?: (s: number, type: 'rate' | 'quota') => void,
   retries = 2
 ): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY not configured. Set it in environment variables.");
-  }
-
-  const modelId = model === 'google-gemini-free' ? 'google/gemini-flash-1.5' : model;
+  const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
   
   for (let i = 0; i < retries; i++) {
     try {
       await throttle();
 
       const response = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
+        `${backendUrl}/api/openrouter`,
         {
-          model: modelId,
-          messages: [
-            {
-              role: 'system',
-              content: config.systemInstruction || SYSTEM_INSTRUCTION
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
+          model: model === 'google-gemini-free' ? 'google/gemini-flash-1.5' : model,
+          prompt: prompt,
+          systemInstruction: config.systemInstruction || SYSTEM_INSTRUCTION,
           temperature: config.temperature || 0.1,
-          max_tokens: MODEL_CONFIG[model].maxTokens,
-          response_format: config.responseMimeType === 'application/json' ? { type: 'json_object' } : undefined
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': window?.location?.origin || 'http://localhost',
-            'X-Title': 'PerformileLeads'
-          }
+          maxTokens: MODEL_CONFIG[model].maxTokens,
+          responseMimeType: config.responseMimeType
         }
       );
 
-      const text = response.data.choices[0]?.message?.content || '';
-      const inputTokens = response.data.usage?.prompt_tokens || 0;
-      const outputTokens = response.data.usage?.completion_tokens || 0;
+      const text = response.data.content || response.data.choices?.[0]?.message?.content || '';
+      const inputTokens = response.data.tokensUsed?.prompt || response.data.usage?.prompt_tokens || 0;
+      const outputTokens = response.data.tokensUsed?.completion || response.data.usage?.completion_tokens || 0;
       
       // Calculate cost
       const costPer1k = (MODEL_CONFIG[model].costPer1kTokens / 1000);

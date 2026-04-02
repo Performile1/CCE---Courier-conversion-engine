@@ -331,51 +331,37 @@ Return as JSON with fields: name, registryId, foundedYear, industry, status, add
     totalTokens: number;
     error?: string;
   }> {
-    if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured');
-    }
-
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      // Call backend proxy instead of direct API call
+      const backendUrl = import.meta.env.VITE_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://cce-carrier-conversion.vercel.app' : 'http://localhost:3000');
+      const apiEndpoint = `${backendUrl}/api/openrouter`;
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://cce-carrier-conversion.com',
-          'X-Title': 'Carrier Conversion Engine'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: params.model,
-          messages: [
-            {
-              role: 'system',
-              content: params.systemPrompt
-            },
-            {
-              role: 'user',
-              content: params.userMessage
-            }
-          ],
+          systemInstruction: params.systemPrompt,
+          userMessage: params.userMessage,
           temperature: params.temperature ?? 0.3,
-          max_tokens: params.maxTokens ?? 1024,
-          top_p: 0.95,
-          frequency_penalty: 0.1,
-          presence_penalty: 0.1
+          maxTokens: params.maxTokens ?? 1024
         })
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`OpenRouter API error: ${error.error?.message || response.statusText}`);
+        throw new Error(`Backend API error: ${error.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
 
       return {
-        content: data.choices[0]?.message?.content || '',
-        promptTokens: data.usage?.prompt_tokens || 0,
-        completionTokens: data.usage?.completion_tokens || 0,
-        totalTokens: data.usage?.total_tokens || 0
+        content: data.content || data.choices?.[0]?.message?.content || '',
+        promptTokens: data.tokensUsed?.prompt || data.usage?.prompt_tokens || 0,
+        completionTokens: data.tokensUsed?.completion || data.usage?.completion_tokens || 0,
+        totalTokens: data.tokensUsed?.total || data.usage?.total_tokens || 0
       };
     } catch (error) {
       console.error('OpenRouter API call failed:', error);
