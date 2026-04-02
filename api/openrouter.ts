@@ -92,9 +92,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const upstream = await response.json().catch(() => ({}));
-      const upstreamMessage = upstream?.error?.message || upstream?.message || 'OpenRouter API error';
-      return res.status(response.status).json({ error: upstreamMessage, upstream });
+      const upstream = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const upstreamMessage = typeof upstream?.error === 'string' ? upstream.error : (upstream?.error?.message || upstream?.message || 'OpenRouter API error');
+      return res.status(response.status).json({ error: upstreamMessage });
     }
 
     const data = await response.json();
