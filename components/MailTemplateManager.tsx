@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Mail, X, Save, Bold, Italic, List, Info, Paperclip, Plus, Trash2, Wand2, Loader2, Tag, Calendar, Database } from 'lucide-react';
-import { generateEmailSuggestion } from '../services/geminiService';
+import { generateEmailSuggestion } from '../services/openrouterService';
 import { LeadData } from '../types';
 
 interface MailTemplateManagerProps {

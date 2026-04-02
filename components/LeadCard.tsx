@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { LeadData, Segment, ThreePLProvider } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateEmailSuggestion } from '../services/geminiService';
+import { generateEmailSuggestion } from '../services/openrouterService';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 

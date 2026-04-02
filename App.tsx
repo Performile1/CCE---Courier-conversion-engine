@@ -43,7 +43,7 @@ import { PasswordReset } from './components/PasswordReset';
 import { WelcomeLoadingScreen } from './components/WelcomeLoadingScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ShareLeadModal } from './components/ShareLeadModal';
-import { generateLeads, generateDeepDiveSequential } from './services/geminiService'; 
+import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { signOut, supabase } from './services/supabaseClient';
 import { ShieldAlert } from 'lucide-react';
 import { 

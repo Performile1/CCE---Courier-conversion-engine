@@ -20,7 +20,7 @@ import { ProcessingStatusBanner } from './ProcessingStatusBanner';
 import { RateLimitOverlay } from './RateLimitOverlay';
 import { QuotaTimer } from './QuotaTimer';
 import { OnboardingTour } from './OnboardingTour';
-import { generateLeads, generateDeepDiveSequential } from '../services/geminiService'; 
+import { generateLeads, generateDeepDiveSequential } from '../services/openrouterService'; 
 import { 
   SearchFormData, 
   LeadData, 
