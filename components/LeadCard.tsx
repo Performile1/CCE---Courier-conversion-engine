@@ -487,7 +487,58 @@ const LeadCard: React.FC<LeadCardProps> = ({
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="grid grid-cols-3 gap-6">
+              {/* Show basic info only if analysis not complete */}
+              {!scanComplete && !editData.analysisDate && (
+                <div className="bg-dhl-gray-light border-l-4 border-dhl-red p-6 rounded-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-dhl-black mb-2 flex items-center gap-2">
+                        <Microscope className="w-5 h-5 text-dhl-red" />
+                        Kör analys för att få detaljerat innehål
+                      </h3>
+                      <p className="text-sm text-dhl-gray-dark mb-4">
+                        Denna lead visar grundläggande företagsinformation. Kör "Surgical Analysis" för att få fullständig financial, marknad och opportunity-analyser.
+                      </p>
+                      <div className="space-y-3 mb-4">
+                        <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
+                          <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Företag</p>
+                          <p className="text-sm font-bold text-dhl-black">{editData.companyName}</p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
+                            <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Org Nummer</p>
+                            <p className="text-sm font-bold text-dhl-black">{editData.orgNumber || 'N/A'}</p>
+                          </div>
+                          <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
+                            <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Segment</p>
+                            <p className={`text-sm font-bold px-2 py-1 rounded-sm w-fit ${getSegmentBadgeStyle(editData.segment || 'FS')}`}>{editData.segment}</p>
+                          </div>
+                          <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
+                            <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Status</p>
+                            <p className="text-sm font-bold text-dhl-black">{editData.legalStatus || 'Okänd'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (onRefreshAnalysis) {
+                            onRefreshAnalysis(editData.companyName);
+                            setActiveTab('analysis');
+                          }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-dhl-red text-white font-bold rounded-sm hover:bg-red-800 transition-all"
+                      >
+                        <Microscope className="w-4 h-4" />
+                        Starta Surgical Analysis
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Show detailed analysis data only if analysis is complete */}
+              {(scanComplete || editData.analysisDate) && (
+                <div className="grid grid-cols-3 gap-6">
                 {/* Kolumn 1: Finansiellt */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -1036,6 +1087,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
                 </div>
               </div>
+              )}
             </motion.div>
           )}
 
