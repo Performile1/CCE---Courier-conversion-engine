@@ -132,6 +132,36 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 ```
 
+### 4.6 Create Shared Leads Table
+```sql
+CREATE TABLE IF NOT EXISTS public.shared_leads (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  original_lead_id UUID,
+  sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  recipient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  recipient_email TEXT NOT NULL,
+  lead_data JSONB NOT NULL,
+  message TEXT,
+  shared_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.shared_leads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read shared leads sent to them" ON public.shared_leads
+  FOR SELECT USING (recipient_id = auth.uid());
+
+CREATE POLICY "Users can read leads they sent" ON public.shared_leads
+  FOR SELECT USING (sender_id = auth.uid());
+
+CREATE POLICY "Users can create shared leads" ON public.shared_leads
+  FOR INSERT WITH CHECK (sender_id = auth.uid());
+
+CREATE POLICY "Recipients can delete shared leads" ON public.shared_leads
+  FOR DELETE USING (recipient_id = auth.uid());
+```
+
 ## Step 5: Configure Authentication
 
 In Supabase Dashboard, go to **Authentication → Providers**:

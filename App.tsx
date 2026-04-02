@@ -40,6 +40,9 @@ import Phase9IntegrationManager from './components/Phase9IntegrationManager';
 import { LoginPage } from './components/LoginPage';
 import { UserProfile } from './components/UserProfile';
 import { PasswordReset } from './components/PasswordReset';
+import { WelcomeLoadingScreen } from './components/WelcomeLoadingScreen';
+import { WelcomeScreen } from './components/WelcomeScreen';
+import { ShareLeadModal } from './components/ShareLeadModal';
 import { generateLeads, generateDeepDiveSequential } from './services/geminiService'; 
 import { signOut, supabase } from './services/supabaseClient';
 import { ShieldAlert } from 'lucide-react';
@@ -68,6 +71,7 @@ export const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'session_only'>('loading');
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [activeCarrier, setActiveCarrier] = useState<string>(() => localStorage.getItem('dhl_active_carrier') || 'DHL');
   const [carriers, setCarriers] = useState<string[]>(() => {
@@ -118,6 +122,8 @@ export const App: React.FC = () => {
   const [isSlackManagerOpen, setIsSlackManagerOpen] = useState(false);
   const [isWebhookManagerOpen, setIsWebhookManagerOpen] = useState(false);
   const [isPhase9IntegrationOpen, setIsPhase9IntegrationOpen] = useState(false);
+  const [isShareLeadOpen, setIsShareLeadOpen] = useState(false);
+  const [selectedLeadForSharing, setSelectedLeadForSharing] = useState<LeadData | null>(null);
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
@@ -203,7 +209,18 @@ export const App: React.FC = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      const newUser = session?.user || null;
+      setUser(newUser);
+      
+      // Show welcome screen on successful login
+      if (newUser && _event === 'SIGNED_IN') {
+        setShowWelcomeScreen(true);
+        // Auto-hide after 3 seconds
+        const timer = setTimeout(() => {
+          setShowWelcomeScreen(false);
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
     });
 
     return () => {
@@ -220,6 +237,11 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.error('Logout failed:', err);
     }
+  };
+
+  const openShareLead = (lead: LeadData) => {
+    setSelectedLeadForSharing(lead);
+    setIsShareLeadOpen(true);
   };
 
   // Persistence for mail settings
@@ -711,6 +733,7 @@ export const App: React.FC = () => {
 
       {!authLoading && user && (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      <WelcomeScreen isVisible={showWelcomeScreen} userName={user?.email?.split('@')[0] || 'User'} />
       <Header 
         onOpenExclusions={() => setIsExclusionOpen(true)} 
         onOpenInclusions={() => setIsInclusionOpen(true)} 
@@ -791,6 +814,7 @@ export const App: React.FC = () => {
                    onRefreshAnalysis={handleDeepDive} 
                    onDownloadSingle={(lead) => handleDownloadLeads([lead])}
                    onOpenMailSettings={() => setIsMailTemplateOpen(true)}
+                   onShareLead={openShareLead}
                    customTemplateSv={mailTemplateSv} 
                    customTemplateEn={mailTemplateEn} 
                    customSignature={mailSignature} 
@@ -1083,6 +1107,21 @@ export const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Share Lead Modal */}
+      <ShareLeadModal
+        isOpen={isShareLeadOpen}
+        lead={selectedLeadForSharing}
+        onClose={() => {
+          setIsShareLeadOpen(false);
+          setSelectedLeadForSharing(null);
+        }}
+        onSuccess={() => {
+          // Refresh leads or show notification
+          setIsShareLeadOpen(false);
+          setSelectedLeadForSharing(null);
+        }}
+      />
 
       {/* User Profile Modal */}
       {isUserProfileOpen && user && (

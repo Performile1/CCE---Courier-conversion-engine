@@ -4,7 +4,7 @@ import {
   MapPin, Building, Package, DollarSign, Microscope, 
   TrendingUp, CheckCircle2, ShieldAlert, Layout, Truck, ThumbsUp, ThumbsDown, Edit, Download,
   ArrowDownRight, RefreshCw, UserCheck, Calendar as CalendarIcon,
-  MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText
+  MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2
 } from 'lucide-react';
 import { LeadData, Segment, ThreePLProvider } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -19,6 +19,7 @@ interface LeadCardProps {
   onRefreshAnalysis?: (companyName: string) => void;
   onDownloadSingle?: (lead: LeadData) => void;
   onOpenMailSettings?: () => void;
+  onShareLead?: (lead: LeadData) => void;
   customTemplateSv?: string;
   customTemplateEn?: string;
   customSignature?: string;
@@ -37,6 +38,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
   onRefreshAnalysis,
   onDownloadSingle,
   onOpenMailSettings,
+  onShareLead,
   customTemplateSv,
   customTemplateEn,
   customSignature,
@@ -453,6 +455,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 title="Redigera"
               >
                 <Edit className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => onShareLead && onShareLead(editData)}
+                className="p-1 text-black/50 hover:text-black hover:bg-white/20 rounded-none transition-all border border-transparent hover:border-black/10"
+                title="Dela lead"
+              >
+                <Share2 className="w-4 h-4" />
               </button>
               <button 
                 onClick={() => setShowDeleteConfirm(true)}
