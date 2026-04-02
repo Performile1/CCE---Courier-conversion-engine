@@ -511,7 +511,8 @@ export const App: React.FC = () => {
         }
       }
     } catch (err: any) { 
-      setError(err.message); 
+      const errorMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      setError(errorMsg); 
     } finally { 
       setLoading(false); 
       setAnalysisSubStatus(null); 
@@ -562,11 +563,12 @@ export const App: React.FC = () => {
       setDeepDiveLead(final);
       setAnalysisResult(final);
     } catch (err: any) { 
-      const msg = (err.message || "").toLowerCase();
+      const errorMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      const msg = (errorMsg || "").toLowerCase();
       if (msg.includes('429') || msg.includes('quota')) {
         setError("Performile Shield: Rate limit. Systemet vilar 65s för att skydda din kvot.");
       } else {
-        setError(err.message); 
+        setError(errorMsg); 
       }
     } finally { 
       setDeepDiveLoading(false); 
