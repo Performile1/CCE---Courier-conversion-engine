@@ -8,21 +8,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
-if (!TAVILY_API_KEY) {
-  throw new Error('TAVILY_API_KEY not configured in Vercel environment variables');
-}
-
 interface TavilyRequest {
-  query: string;
-  action: 'search' | 'verify-company' | 'verify-financials' | 'verify-decision-maker' | 'verify-tech-stack';
+  query?: string;
+  url?: string;
+  action: 'search' | 'fetch' | 'verify-company' | 'verify-financials' | 'verify-decision-maker' | 'verify-tech-stack';
   context?: Record<string, any>;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   // CORS
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -33,26 +26,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  try {
-    const { query, action, context } = req.body as TavilyRequest;
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-    if (!query || !action) {
+  try {
+    if (!TAVILY_API_KEY) {
+      return res.status(500).json({
+        error: 'TAVILY_API_KEY not configured in Vercel environment variables'
+      });
+    }
+
+    const { query, url, action, context } = req.body as TavilyRequest;
+    const effectiveQuery = query || url;
+
+    if (!effectiveQuery || !action) {
       return res.status(400).json({ error: 'Missing required fields: query, action' });
     }
 
     // Route to appropriate verification function
     switch (action) {
       case 'verify-company':
-        return await verifyCompany(query, context);
+        return res.status(200).json(await verifyCompany(effectiveQuery, context));
       case 'verify-financials':
-        return await verifyFinancials(query, context);
+        return res.status(200).json(await verifyFinancials(effectiveQuery, context));
       case 'verify-decision-maker':
-        return await verifyDecisionMaker(query, context);
+        return res.status(200).json(await verifyDecisionMaker(effectiveQuery, context));
       case 'verify-tech-stack':
-        return await verifyTechStack(query, context);
+        return res.status(200).json(await verifyTechStack(effectiveQuery, context));
+      case 'fetch':
       case 'search':
       default:
-        return await performSearch(query, res);
+        return await performSearch(effectiveQuery, res);
     }
 
   } catch (error: any) {
@@ -75,7 +80,9 @@ async function performSearch(query: string, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      throw new Error(`Tavily API error: ${response.statusText}`);
+      const upstream = await response.json().catch(() => ({}));
+      const message = upstream?.error || upstream?.message || response.statusText;
+      throw new Error(`Tavily API error: ${message}`);
     }
 
     const data = await response.json();
