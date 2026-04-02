@@ -184,6 +184,14 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
+                    <button onClick={() => { onOpenNewsSources(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <Newspaper className="w-4 h-4 text-red-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Source Managers</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Källor per SNI och per datadel</span>
+                       </div>
+                    </button>
+
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Analytics & Rapporter</div>
 
                     <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">

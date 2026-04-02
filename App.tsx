@@ -83,7 +83,8 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   decisionMakers: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
   payment: ['klarna.com', 'stripe.com', 'adyen.com'],
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
-  news: ['ehandel.se', 'market.se', 'breakit.se']
+  news: ['ehandel.se', 'market.se', 'breakit.se'],
+  customCategories: {}
 };
 
 export const App: React.FC = () => {

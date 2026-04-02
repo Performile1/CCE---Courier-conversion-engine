@@ -79,6 +79,7 @@ export interface SourcePolicyConfig {
   payment: string[];
   webSoftware: string[];
   news: string[];
+  customCategories?: Record<string, string[]>;
 }
 
 export interface SNIPercentage {

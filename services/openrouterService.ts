@@ -215,20 +215,27 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyC
     decisionMakers: sourcePolicies?.decisionMakers?.length ? sourcePolicies.decisionMakers : CONTACT_SOURCE_DOMAINS,
     payment: sourcePolicies?.payment?.length ? sourcePolicies.payment : PAYMENT_SOURCE_DOMAINS,
     webSoftware: sourcePolicies?.webSoftware?.length ? sourcePolicies.webSoftware : WEBSOFTWARE_SOURCE_DOMAINS,
-    news: sourcePolicies?.news?.length ? sourcePolicies.news : ['ehandel.se', 'market.se', 'breakit.se']
+    news: sourcePolicies?.news?.length ? sourcePolicies.news : ['ehandel.se', 'market.se', 'breakit.se'],
+    customCategories: sourcePolicies?.customCategories || {}
   };
 }
 
 function getSourcePriorityByPartBlock(sourcePolicies?: SourcePolicyConfig): string {
   const effective = mergeSourcePolicies(sourcePolicies);
-  return [
+  const baseLines = [
     `Finansiell data (omsättning/resultat): ${effective.financial.join(', ')}`,
     `Adresser: ${effective.addresses.join(', ')}`,
     `Beslutsfattare: ${effective.decisionMakers.join(', ')}`,
     `Payment/checkout: ${effective.payment.join(', ')}`,
     `Websoftware/plattform: ${effective.webSoftware.join(', ')}`,
     `Nyheter: ${effective.news.join(', ')}`
-  ].join('\n');
+  ];
+
+  const customLines = Object.entries(effective.customCategories || {})
+    .filter(([name, sources]) => name && Array.isArray(sources) && sources.length > 0)
+    .map(([name, sources]) => `${name}: ${sources.join(', ')}`);
+
+  return [...baseLines, ...customLines].join('\n');
 }
 
 function getTechWatchlistText(): string {
@@ -470,6 +477,7 @@ export async function generateDeepDiveSequential(
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
   const effectivePolicies = mergeSourcePolicies(sourcePolicies);
+  const customDomains = Object.values(effectivePolicies.customCategories || {}).flat();
   const preferredDomains = Array.from(new Set([
     ...getPreferredDomains(newsSourceMappings),
     ...effectivePolicies.news,
@@ -477,7 +485,8 @@ export async function generateDeepDiveSequential(
     ...effectivePolicies.addresses,
     ...effectivePolicies.decisionMakers,
     ...effectivePolicies.payment,
-    ...effectivePolicies.webSoftware
+    ...effectivePolicies.webSoftware,
+    ...customDomains
   ].map(normalizeDomain).filter(Boolean)));
   const searchQuery = `${formData.companyNameOrOrg} (${preferredDomains.join(', ')}, LinkedIn)`;
   const prompt = `${MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery)}

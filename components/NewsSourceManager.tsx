@@ -25,6 +25,9 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     webSoftware: '',
     news: ''
   });
+  const [customCategoryInputs, setCustomCategoryInputs] = useState<Record<string, string>>({});
+  const [newCustomCategoryName, setNewCustomCategoryName] = useState('');
+  const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -37,8 +40,33 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         webSoftware: (sourcePolicies?.webSoftware || []).join(', '),
         news: (sourcePolicies?.news || []).join(', ')
       });
+      const custom = sourcePolicies?.customCategories || {};
+      const mapped: Record<string, string> = {};
+      Object.entries(custom).forEach(([name, sources]) => {
+        mapped[name] = (sources || []).join(', ');
+      });
+      setCustomCategoryInputs(mapped);
     }
   }, [mappings, isOpen, sourcePolicies]);
+
+  const addCustomCategory = () => {
+    const name = newCustomCategoryName.trim();
+    if (!name) return;
+    if (customCategoryInputs[name] !== undefined) return;
+
+    setCustomCategoryInputs({
+      ...customCategoryInputs,
+      [name]: newCustomCategorySources.trim()
+    });
+    setNewCustomCategoryName('');
+    setNewCustomCategorySources('');
+  };
+
+  const removeCustomCategory = (name: string) => {
+    const next = { ...customCategoryInputs };
+    delete next[name];
+    setCustomCategoryInputs(next);
+  };
 
   if (!isOpen) return null;
 
@@ -97,13 +125,19 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
     onSave(localMappings);
     if (onSaveSourcePolicies) {
       const parse = (v: string) => v.split(',').map(s => s.trim()).filter(Boolean);
+      const customCategories = Object.fromEntries(
+        Object.entries(customCategoryInputs)
+          .map(([name, value]) => [name.trim(), parse(value)])
+          .filter(([name]) => Boolean(name))
+      );
       onSaveSourcePolicies({
         financial: parse(policyText.financial),
         addresses: parse(policyText.addresses),
         decisionMakers: parse(policyText.decisionMakers),
         payment: parse(policyText.payment),
         webSoftware: parse(policyText.webSoftware),
-        news: parse(policyText.news)
+        news: parse(policyText.news),
+        customCategories
       });
     }
     onClose();
@@ -219,6 +253,63 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
               <input type="text" value={policyText.payment} onChange={e => setPolicyText({ ...policyText, payment: e.target.value })} placeholder="Payment: klarna.com, stripe.com, adyen.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
               <input type="text" value={policyText.webSoftware} onChange={e => setPolicyText({ ...policyText, webSoftware: e.target.value })} placeholder="Websoftware: shopify.com, norce.io, woocommerce.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
               <input type="text" value={policyText.news} onChange={e => setPolicyText({ ...policyText, news: e.target.value })} placeholder="Nyheter: ehandel.se, market.se, breakit.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500">Egna kategorier</label>
+              {Object.keys(customCategoryInputs).length === 0 && (
+                <div className="text-[10px] italic text-slate-400">Inga egna kategorier ännu.</div>
+              )}
+              {Object.entries(customCategoryInputs).map(([name, value]) => (
+                <div key={name} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                  <input
+                    type="text"
+                    value={name}
+                    readOnly
+                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2 bg-dhl-gray-light"
+                  />
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={e => setCustomCategoryInputs({ ...customCategoryInputs, [name]: e.target.value })}
+                    placeholder="domain1.se, domain2.se"
+                    className="text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCustomCategory(name)}
+                    className="p-2 text-slate-400 hover:text-red-600"
+                    title="Ta bort kategori"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              <div className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                <input
+                  type="text"
+                  value={newCustomCategoryName}
+                  onChange={e => setNewCustomCategoryName(e.target.value)}
+                  placeholder="Ny kategori"
+                  className="text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                />
+                <input
+                  type="text"
+                  value={newCustomCategorySources}
+                  onChange={e => setNewCustomCategorySources(e.target.value)}
+                  placeholder="källor..."
+                  className="text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomCategory}
+                  className="p-2 bg-dhl-gray-light hover:bg-dhl-gray-medium rounded-sm"
+                  title="Lägg till kategori"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
