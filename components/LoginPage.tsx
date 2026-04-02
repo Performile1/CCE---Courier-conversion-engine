@@ -54,12 +54,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
     : email && password && password.length >= 6;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">PerformileLeads</h1>
-          <p className="text-slate-300">Strategic Intelligence for E-commerce Growth</p>
+          <div className="bg-[#ffcc00] rounded-lg p-4 mb-4 shadow-lg inline-block">
+            <h1 className="text-3xl font-black text-red-700 uppercase tracking-widest">CCE</h1>
+            <p className="text-xs font-bold text-red-600 uppercase tracking-wider mt-1">Courier Conversion Engine</p>
+          </div>
+          <p className="text-yellow-100 text-lg font-semibold">Strategic Lead Intelligence Platform</p>
         </div>
 
         {/* Auth Card */}
@@ -70,8 +73,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
                 mode === 'login'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-yellow-50 text-red-700 hover:bg-yellow-100 border border-yellow-300'
               }`}
             >
               Sign In
@@ -80,8 +83,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
               onClick={() => { setMode('signup'); setError(''); }}
               className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
                 mode === 'signup'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-yellow-50 text-red-700 hover:bg-yellow-100 border border-yellow-300'
               }`}
             >
               Sign Up
@@ -92,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             {/* Full Name (Sign Up only) */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-red-700 mb-1">
                   <User className="w-4 h-4 inline mr-2" />
                   Full Name
                 </label>
@@ -101,7 +104,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
                   disabled={loading}
                 />
               </div>
@@ -109,7 +112,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-red-700 mb-1">
                 <Mail className="w-4 h-4 inline mr-2" />
                 Email Address
               </label>
@@ -118,14 +121,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
                 disabled={loading}
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-red-700 mb-1">
                 <Lock className="w-4 h-4 inline mr-2" />
                 Password
               </label>
@@ -135,26 +138,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
                   disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-700"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {mode === 'signup' && (
-                <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-red-600 font-medium mt-1">Minimum 6 characters</p>
               )}
             </div>
 
             {/* Username (Sign Up only) */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-red-700 mb-1">
                   <User className="w-4 h-4 inline mr-2" />
                   Username (Optional)
                 </label>
@@ -163,7 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="your_username"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
                   disabled={loading}
                 />
               </div>
@@ -172,7 +175,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             {/* Phone (Sign Up only) */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-red-700 mb-1">
                   <Phone className="w-4 h-4 inline mr-2" />
                   Phone Number (Optional)
                 </label>
@@ -181,7 +184,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition bg-yellow-50"
                   disabled={loading}
                 />
               </div>
@@ -189,17 +192,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
 
             {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="p-3 bg-red-50 border-2 border-red-600 rounded-lg flex gap-2">
+                <AlertCircle className="w-5 h-5 text-red-700 flex-shrink-0 font-bold" />
+                <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
             )}
 
             {/* Success Message */}
             {success && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <p className="text-sm text-green-600">{success}</p>
+              <div className="p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg flex gap-2">
+                <AlertCircle className="w-5 h-5 text-yellow-700 flex-shrink-0 font-bold" />
+                <p className="text-sm text-yellow-700 font-medium">{success}</p>
               </div>
             )}
 
@@ -207,7 +210,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             <button
               type="submit"
               disabled={!isFormValid || loading}
-              className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 disabled:bg-yellow-300 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
             >
               {loading ? (
                 <>
@@ -223,13 +226,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
           </form>
 
           {/* Footer */}
-          <p className="text-center text-sm text-slate-600 mt-6">
+          <p className="text-center text-sm text-red-700 font-medium mt-6">
             {mode === 'login' ? (
               <>
                 Don't have an account?{' '}
                 <button
                   onClick={() => setMode('signup')}
-                  className="text-indigo-600 hover:text-indigo-700 font-semibold"
+                  className="text-red-600 hover:text-red-800 font-bold underline"
                 >
                   Sign up
                 </button>
@@ -239,7 +242,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
                 Already have an account?{' '}
                 <button
                   onClick={() => setMode('login')}
-                  className="text-indigo-600 hover:text-indigo-700 font-semibold"
+                  className="text-red-600 hover:text-red-800 font-bold underline"
                 >
                   Sign in
               </button>
