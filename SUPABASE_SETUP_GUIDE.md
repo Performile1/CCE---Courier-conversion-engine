@@ -142,8 +142,8 @@ In Supabase Dashboard, go to **Authentication → Providers**:
 
 ### Configure Redirect URLs
 Go to **Authentication → URL Configuration**:
-- Site URL: `http://localhost:5173` (development)
-- Production: `https://yourdomain.com`
+- Site URL: `https://cce-carrier-conversion-engine.vercel.app` (production)
+- Additional: `http://localhost:5173` (local development)
 
 ## Step 6: Set Up Salesforce OAuth (Optional)
 

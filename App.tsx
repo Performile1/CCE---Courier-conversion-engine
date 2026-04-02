@@ -182,6 +182,13 @@ export const App: React.FC = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Handle email confirmation callback (hash parameters from email link)
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+          // Supabase will automatically process the hash - just wait for session
+          // The onAuthStateChange listener below will catch it
+        }
+
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
       } catch (err) {
