@@ -73,7 +73,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
         {/* Header */}
         <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-700 p-2 rounded-full">
+            <div className="bg-dhl-gray-dark p-2 rounded-sm">
                <Folder className="w-6 h-6 text-yellow-300" />
             </div>
             <div>
@@ -83,7 +83,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+          <button type="button" onClick={onClose} className="p-1 hover:bg-white/10 rounded-sm transition-colors">
             <X className="w-6 h-6 text-white" />
           </button>
         </div>
@@ -114,7 +114,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                 <button 
                   type="submit"
                   disabled={!newBackupName.trim()}
-                  className="w-full flex items-center justify-center gap-2 bg-red-600 text-white py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-red-700 transition-colors shadow-sm rounded-sm disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-dhl-red text-white py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-red-800 transition-colors shadow-sm rounded-sm disabled:opacity-50"
                 >
                   <HardDrive className="w-4 h-4" />
                   Spara till Mapp
@@ -130,7 +130,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                  </h3>
                  <button
                      onClick={onDownloadCurrent}
-                     className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-800 border border-slate-300 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-slate-200 transition-colors shadow-sm rounded-sm"
+                     className="w-full flex items-center justify-center gap-2 bg-dhl-gray-light text-dhl-black border border-dhl-gray-medium py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-dhl-gray-medium transition-colors shadow-sm rounded-sm"
                  >
                      <FileJson className="w-4 h-4" />
                      Ladda ner Systemstatus
@@ -155,7 +155,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                />
                <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 text-slate-600 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 hover:text-black transition-colors rounded-sm"
+                  className="w-full flex items-center justify-center gap-2 bg-white border border-dhl-gray-medium text-slate-600 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-dhl-gray-light hover:text-black transition-colors rounded-sm"
                >
                  <FileJson className="w-4 h-4" />
                  Ladda upp .JSON-fil
@@ -179,17 +179,17 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
             </h3>
 
             {backups.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-300 rounded-sm">
+              <div className="h-64 flex flex-col items-center justify-center text-dhl-gray-dark border-2 border-dashed border-dhl-gray-medium rounded-sm">
                 <Folder className="w-12 h-12 opacity-20 mb-2" />
                 <p className="text-sm italic">Mappen är tom.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {backups.map((backup) => (
-                  <div key={backup.id} className="bg-white border border-slate-200 p-4 rounded-sm shadow-sm hover:shadow-md transition-shadow group relative">
+                  <div key={backup.id} className="bg-white border border-dhl-gray-medium p-4 rounded-sm shadow-sm hover:shadow-md transition-shadow group relative">
                     <div className="flex justify-between items-start mb-2">
                        <div className="flex items-center gap-2">
-                          <div className="bg-yellow-100 p-1.5 rounded-sm">
+                          <div className="bg-dhl-gray-light p-1.5 rounded-sm">
                             <FileJson className="w-4 h-4 text-black" />
                           </div>
                           <div>
@@ -202,7 +202,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                        </div>
                        <button 
                          onClick={() => onDeleteBackup(backup.id)}
-                         className="text-slate-300 hover:text-red-600 transition-colors p-1"
+                         className="text-dhl-gray-medium hover:text-dhl-red transition-colors p-1"
                          title="Radera backup permanent"
                        >
                          <Trash2 className="w-4 h-4" />
@@ -215,14 +215,14 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                              onRestoreBackup(backup);
                              onClose();
                          }}
-                         className="flex-1 bg-slate-100 hover:bg-green-50 text-slate-700 hover:text-green-700 border border-slate-200 hover:border-green-200 py-1.5 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm transition-colors"
+                         className="flex-1 bg-dhl-gray-light hover:bg-green-50 text-dhl-black hover:text-green-700 border border-dhl-gray-medium hover:border-green-200 py-1.5 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm transition-colors"
                        >
                          <RotateCcw className="w-3 h-3" />
                          Återställ
                        </button>
                        <button 
                          onClick={() => downloadBackup(backup)}
-                         className="flex-1 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 py-1.5 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm transition-colors"
+                         className="flex-1 bg-white hover:bg-dhl-gray-light text-slate-500 border border-dhl-gray-medium py-1.5 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm transition-colors"
                        >
                          <Download className="w-3 h-3" />
                          Exportera
@@ -234,7 +234,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
             )}
             
             {backups.length > 5 && (
-              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-sm flex items-start gap-2 text-xs text-orange-800">
+              <div className="mt-4 p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex items-start gap-2 text-xs text-dhl-gray-dark">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
                   <strong>Tips:</strong> För många backups kan göra webbläsaren långsam. Ladda ner gamla backups till datorn och radera dem härifrån för att frigöra utrymme.

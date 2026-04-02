@@ -96,8 +96,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8 flex items-center justify-center min-h-96">
-        <Loader className="h-8 w-8 text-indigo-600 animate-spin" />
+      <div className="bg-white rounded-sm shadow-md p-8 flex items-center justify-center min-h-96 border-t-2 border-dhl-red">
+        <Loader className="h-8 w-8 text-dhl-red animate-spin" />
       </div>
     );
   }

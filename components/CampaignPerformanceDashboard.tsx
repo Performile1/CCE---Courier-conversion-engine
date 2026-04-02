@@ -86,7 +86,7 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
   };
 
   if (loading) {
-    return <div className="bg-white rounded-lg p-6 text-center">Loading analytics...</div>;
+    return <div className="bg-white rounded-sm p-6 text-center border-t-2 border-dhl-red">Laddar analytics...</div>;
   }
 
   const totalOpens = metrics.reduce((sum, m) => sum + m.opens, 0);

@@ -166,7 +166,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-dhl-gray-light flex flex-col font-sans">
       <Header 
         onOpenExclusions={() => setIsExclusionOpen(true)} 
         onOpenInclusions={() => setIsInclusionOpen(true)} 
