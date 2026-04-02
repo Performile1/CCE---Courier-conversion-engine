@@ -977,7 +977,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Campaign Performance Dashboard</h2>
-            <CampaignPerformanceDashboard />
+            {user?.id ? <CampaignPerformanceDashboard userId={user.id} /> : <div className="text-slate-500">Please log in to view analytics</div>}
             <button 
               onClick={() => setIsCampaignPerformanceOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"

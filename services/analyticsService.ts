@@ -41,6 +41,11 @@ export interface CostBreakdown {
  */
 export const getAnalytics = async (userId: string): Promise<AnalyticsData> => {
   try {
+    // Guard against undefined userId
+    if (!userId) {
+      throw new Error('userId is required to fetch analytics');
+    }
+
     // Get campaigns
     const { data: campaigns, error: campaignError } = await supabase
       .from('campaigns')
@@ -93,6 +98,11 @@ export const getAnalytics = async (userId: string): Promise<AnalyticsData> => {
  */
 export const getCampaignMetrics = async (userId: string): Promise<CampaignMetrics[]> => {
   try {
+    // Guard against undefined userId
+    if (!userId) {
+      throw new Error('userId is required to fetch campaign metrics');
+    }
+
     const { data: campaigns, error } = await supabase
       .from('campaigns')
       .select('id, name, total_recipients, total_opened, total_clicked, created_at')

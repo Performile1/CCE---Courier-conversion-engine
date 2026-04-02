@@ -33,6 +33,13 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
 
   const loadMetrics = async () => {
     try {
+      // Guard against undefined userId
+      if (!userId) {
+        console.warn('userId is undefined - cannot load metrics');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('campaigns')
         .select('created_at, total_opened, total_clicked, total_recipients')

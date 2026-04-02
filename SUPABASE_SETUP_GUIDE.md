@@ -125,7 +125,57 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 ```
 
-### 4.6 Create Shared Leads Table
+### 4.6 Create Campaigns Table
+```sql
+CREATE TABLE IF NOT EXISTS public.campaigns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  total_recipients INTEGER DEFAULT 0,
+  total_opened INTEGER DEFAULT 0,
+  total_clicked INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read their own campaigns" ON public.campaigns
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert their own campaigns" ON public.campaigns
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update their own campaigns" ON public.campaigns
+  FOR UPDATE USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete their own campaigns" ON public.campaigns
+  FOR DELETE USING (user_id = auth.uid());
+```
+
+### 4.7 Create Cost Tracking Table
+```sql
+CREATE TABLE IF NOT EXISTS public.cost_tracking (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  cost_usd NUMERIC NOT NULL DEFAULT 0,
+  model TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.cost_tracking ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read their own costs" ON public.cost_tracking
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert their own costs" ON public.cost_tracking
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete their own costs" ON public.cost_tracking
+  FOR DELETE USING (user_id = auth.uid());
+```
+
+### 4.8 Create Shared Leads Table
 ```sql
 CREATE TABLE IF NOT EXISTS public.shared_leads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

@@ -12,7 +12,22 @@ export default {
     "./mobile/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // DHL Brand Colors
+        'dhl-yellow': '#FFCC00',
+        'dhl-red': '#D00000',
+        'dhl-black': '#333333',
+        'dhl-gray-light': '#F5F5F5',
+        'dhl-gray-medium': '#E0E0E0',
+        'dhl-gray-dark': '#666666',
+      },
+      borderRadius: {
+        'none': '0px',
+        'sm': '2px',
+        'md': '4px',
+      },
+    },
   },
   plugins: [],
 }
