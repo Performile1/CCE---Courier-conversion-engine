@@ -232,7 +232,7 @@ class NewsAggregationService {
         const apiSources = newsSources.filter(s => s.feedType === 'api');
 
         // MyNewsDesk is a common regional API
-        const myNewsDeskAPI = process.env.REACT_APP_MYNEWSDESK_API_KEY;
+        const myNewsDeskAPI = import.meta.env.VITE_MYNEWSDESK_API_KEY;
         if (myNewsDeskAPI && apiSources.some(s => s.name.includes('MyNewsDesk'))) {
           const apiArticles = await this.fetchFromMyNewsDeskAPI(
             myNewsDeskAPI,

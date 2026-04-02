@@ -80,7 +80,7 @@ class EnhancedOpenRouterService {
     }
   ];
 
-  constructor(apiKey: string = process.env.REACT_APP_OPENROUTER_API_KEY || '') {
+  constructor(apiKey: string = import.meta.env.VITE_OPENROUTER_API_KEY || '') {
     this.apiKey = apiKey;
   }
 

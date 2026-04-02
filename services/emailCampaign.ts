@@ -127,8 +127,8 @@ export async function sendCampaign(
           html: emailContent,
           campaignId,
           recipientId: recipient.id,
-          trackingPixel: `${process.env.REACT_APP_BASE_URL}/track/open/${recipient.id}`,
-          clickTrackingDomain: process.env.REACT_APP_BASE_URL
+          trackingPixel: `${import.meta.env.VITE_BASE_URL}/track/open/${recipient.id}`,
+          clickTrackingDomain: import.meta.env.VITE_BASE_URL
         })
       });
 

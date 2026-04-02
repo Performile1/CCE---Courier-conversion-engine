@@ -5,8 +5,8 @@
 
 import { supabase } from './supabaseClient';
 
-const SALESFORCE_CLIENT_ID = process.env.REACT_APP_SALESFORCE_CLIENT_ID || '';
-const SALESFORCE_CLIENT_SECRET = process.env.REACT_APP_SALESFORCE_CLIENT_SECRET || '';
+const SALESFORCE_CLIENT_ID = import.meta.env.VITE_SALESFORCE_CLIENT_ID || '';
+const SALESFORCE_CLIENT_SECRET = import.meta.env.VITE_SALESFORCE_CLIENT_SECRET || '';
 const SALESFORCE_LOGIN_URL = 'https://login.salesforce.com';
 
 interface SalesforceAuthToken {

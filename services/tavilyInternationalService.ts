@@ -44,7 +44,7 @@ class EnhancedTavilyService {
   private apiKey: string;
   private baseUrl = 'https://api.tavily.com';
 
-  constructor(apiKey: string = process.env.REACT_APP_TAVILY_API_KEY || '') {
+  constructor(apiKey: string = import.meta.env.VITE_TAVILY_API_KEY || '') {
     this.apiKey = apiKey;
   }
 
