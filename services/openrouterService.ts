@@ -45,7 +45,7 @@ export function resetCostTracker(): void {
   totalCostAccumulated = 0;
 }
 
-const MIN_INTERVAL = 1000; // More generous rate limit for OpenRouter
+const MIN_INTERVAL = 200; // Rate limit spacing (200ms between requests)
 let lastCallTime = 0;
 
 async function throttle() {
