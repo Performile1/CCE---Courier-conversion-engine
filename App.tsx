@@ -50,6 +50,7 @@ import {
   SearchFormData, 
   LeadData, 
   NewsSourceMapping, 
+  SourcePolicyConfig,
   SNIPercentage, 
   ThreePLProvider, 
   RemovalReason,
@@ -76,6 +77,14 @@ const DEFAULT_NEWS_SOURCE_MAPPINGS: NewsSourceMapping[] = [
     sources: ['ehandel.se', 'market.se', 'breakit.se']
   }
 ];
+const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
+  financial: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se', 'boolag.se'],
+  addresses: ['hitta.se', 'eniro.se', 'allabolag.se'],
+  decisionMakers: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+  payment: ['klarna.com', 'stripe.com', 'adyen.com'],
+  webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
+  news: ['ehandel.se', 'market.se', 'breakit.se']
+};
 
 export const App: React.FC = () => {
   // Authentication state - MUST BE BEFORE ALL OTHER STATE
@@ -166,6 +175,12 @@ export const App: React.FC = () => {
       const saved = localStorage.getItem('dhl_news_sources');
       return saved ? JSON.parse(saved) : DEFAULT_NEWS_SOURCE_MAPPINGS;
     } catch (e) { return DEFAULT_NEWS_SOURCE_MAPPINGS; }
+  });
+  const [sourcePolicies, setSourcePolicies] = useState<SourcePolicyConfig>(() => {
+    try {
+      const saved = localStorage.getItem('dhl_source_policies');
+      return saved ? JSON.parse(saved) : DEFAULT_SOURCE_POLICIES;
+    } catch (e) { return DEFAULT_SOURCE_POLICIES; }
   });
 
   const [mailTemplateSv, setMailTemplateSv] = useState(() => localStorage.getItem('dhl_mail_template_sv') || DEFAULT_MAIL_TEMPLATE_SV);
@@ -264,6 +279,7 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_mail_attachments', JSON.stringify(mailAttachments)); }, [mailAttachments]);
   useEffect(() => { localStorage.setItem('dhl_mail_focus_words', JSON.stringify(mailFocusWords)); }, [mailFocusWords]);
   useEffect(() => { localStorage.setItem('dhl_news_sources', JSON.stringify(newsSourceMappings)); }, [newsSourceMappings]);
+  useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
 
   const refreshData = useCallback(async (statusOverride?: string) => {
     const currentStatus = statusOverride || dbStatus;
@@ -571,7 +587,9 @@ export const App: React.FC = () => {
         sniPercentages,
         integrations,
         activeCarrier,
-        threePLProviders
+        threePLProviders,
+        undefined,
+        sourcePolicies
       );
       setDeepDiveLead(final);
       setAnalysisResult(final);
@@ -898,7 +916,7 @@ export const App: React.FC = () => {
         deepDiveLead={deepDiveLead}
       />
       <CacheManager isOpen={isCacheOpen} onClose={() => setIsCacheOpen(false)} cacheData={cacheData} setCacheData={setCacheData} onMoveToActive={(ls) => ls?.filter(Boolean).forEach(handleUpdateLead)} activeLeads={leads} existingCustomers={existingCustomers} downloadedLeads={downloadedLeads} />
-      <NewsSourceManager isOpen={isNewsSourceOpen} onClose={() => setIsNewsSourceOpen(false)} mappings={newsSourceMappings} onSave={setNewsSourceMappings} />
+      <NewsSourceManager isOpen={isNewsSourceOpen} onClose={() => setIsNewsSourceOpen(false)} mappings={newsSourceMappings} onSave={setNewsSourceMappings} sourcePolicies={sourcePolicies} onSaveSourcePolicies={setSourcePolicies} />
       <BackupManager 
         isOpen={isBackupsOpen} 
         onClose={() => setIsBackupsOpen(false)} 

@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -45,7 +45,7 @@ export function resetCostTracker(): void {
   totalCostAccumulated = 0;
 }
 
-const MIN_INTERVAL = 1200; // Rate limit spacing to reduce 429 responses
+const MIN_INTERVAL = 300; // Keep fast by default; rely on adaptive backoff on 429
 let lastCallTime = 0;
 const DEFAULT_TRUSTED_DOMAINS = [
   'allabolag.se',
@@ -57,8 +57,10 @@ const DEFAULT_TRUSTED_DOMAINS = [
   'breakit.se'
 ];
 const FINANCIAL_SOURCE_DOMAINS = ['allabolag.se', 'kreditrapporten.se', 'boolag.se', 'ratsit.se'];
-const ADDRESS_SOURCE_DOMAINS = ['allabolag.se', 'boolag.se', 'ratsit.se', 'bolagsverket.se'];
+const ADDRESS_SOURCE_DOMAINS = ['allabolag.se', 'boolag.se', 'ratsit.se', 'bolagsverket.se', 'hitta.se', 'eniro.se'];
 const CONTACT_SOURCE_DOMAINS = ['ratsit.se', 'allabolag.se', 'linkedin.com', 'hitta.se'];
+const PAYMENT_SOURCE_DOMAINS = ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'];
+const WEBSOFTWARE_SOURCE_DOMAINS = ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com', 'magento.com'];
 const TECH_SOLUTION_KEYWORDS = {
   ecommercePlatforms: ['shopify', 'woocommerce', 'magento', 'adobe commerce', 'centra', 'norce', 'prestashop'],
   checkoutSolutions: ['klarna checkout', 'kco', 'qliro checkout', 'stripe checkout', 'adyen checkout', 'nets easy'],
@@ -203,6 +205,29 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
     `Finansiell data: ${financial.join(', ') || FINANCIAL_SOURCE_DOMAINS.join(', ')}`,
     `Adresser: ${address.join(', ') || ADDRESS_SOURCE_DOMAINS.join(', ')}`,
     `Kontaktpersoner: ${contacts.join(', ') || CONTACT_SOURCE_DOMAINS.join(', ')}`
+  ].join('\n');
+}
+
+function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig): SourcePolicyConfig {
+  return {
+    financial: sourcePolicies?.financial?.length ? sourcePolicies.financial : FINANCIAL_SOURCE_DOMAINS,
+    addresses: sourcePolicies?.addresses?.length ? sourcePolicies.addresses : ADDRESS_SOURCE_DOMAINS,
+    decisionMakers: sourcePolicies?.decisionMakers?.length ? sourcePolicies.decisionMakers : CONTACT_SOURCE_DOMAINS,
+    payment: sourcePolicies?.payment?.length ? sourcePolicies.payment : PAYMENT_SOURCE_DOMAINS,
+    webSoftware: sourcePolicies?.webSoftware?.length ? sourcePolicies.webSoftware : WEBSOFTWARE_SOURCE_DOMAINS,
+    news: sourcePolicies?.news?.length ? sourcePolicies.news : ['ehandel.se', 'market.se', 'breakit.se']
+  };
+}
+
+function getSourcePriorityByPartBlock(sourcePolicies?: SourcePolicyConfig): string {
+  const effective = mergeSourcePolicies(sourcePolicies);
+  return [
+    `Finansiell data (omsättning/resultat): ${effective.financial.join(', ')}`,
+    `Adresser: ${effective.addresses.join(', ')}`,
+    `Beslutsfattare: ${effective.decisionMakers.join(', ')}`,
+    `Payment/checkout: ${effective.payment.join(', ')}`,
+    `Websoftware/plattform: ${effective.webSoftware.join(', ')}`,
+    `Nyheter: ${effective.news.join(', ')}`
   ].join('\n');
 }
 
@@ -438,18 +463,29 @@ export async function generateDeepDiveSequential(
   integrations: string[],
   activeCarrier: string,
   threePLProviders: ThreePLProvider[],
-  model?: ModelName
+  model?: ModelName,
+  sourcePolicies?: SourcePolicyConfig
 ): Promise<LeadData> {
   const activeModel = model || selectedModel;
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
-  const preferredDomains = getPreferredDomains(newsSourceMappings);
+  const effectivePolicies = mergeSourcePolicies(sourcePolicies);
+  const preferredDomains = Array.from(new Set([
+    ...getPreferredDomains(newsSourceMappings),
+    ...effectivePolicies.news,
+    ...effectivePolicies.financial,
+    ...effectivePolicies.addresses,
+    ...effectivePolicies.decisionMakers,
+    ...effectivePolicies.payment,
+    ...effectivePolicies.webSoftware
+  ].map(normalizeDomain).filter(Boolean)));
   const searchQuery = `${formData.companyNameOrOrg} (${preferredDomains.join(', ')}, LinkedIn)`;
   const prompt = `${MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery)}
 
 ### SOURCE PRIORITY
 Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
 ${getSourcePriorityBlock(preferredDomains)}
+${getSourcePriorityByPartBlock(effectivePolicies)}
 
 ### TECH WATCHLIST (Tavily + Crawl4ai)
 ${getTechWatchlistText()}
@@ -497,11 +533,12 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       root?.news_summary,
       root?.newsSummary
     );
-    const latestNewsFallback = await fetchLatestNews(
+    const latestNewsFallback = latestNewsFromModel ? '' : await fetchLatestNews(
       pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
-      getPreferredDomains(newsSourceMappings, sniCode)
+      Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean)))
     );
-    const crawlTechEvidence = await fetchTechEvidenceFromCrawl(
+    const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
+    const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
 
@@ -541,7 +578,7 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
       checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
       taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: pickString(logistics?.tech_evidence, logistics?.techEvidence) || crawlTechEvidence,
+      techEvidence: modelTechEvidence || crawlTechEvidence,
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: latestNewsFromModel || latestNewsFallback, 

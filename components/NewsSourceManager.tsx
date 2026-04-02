@@ -1,26 +1,44 @@
 
 import React, { useState, useEffect } from 'react';
 import { Newspaper, X, Plus, Trash2, Save, Info, Globe } from 'lucide-react';
-import { NewsSourceMapping } from '../types';
+import { NewsSourceMapping, SourcePolicyConfig } from '../types';
 
 interface NewsSourceManagerProps {
   isOpen: boolean;
   onClose: () => void;
   mappings: NewsSourceMapping[];
   onSave: (mappings: NewsSourceMapping[]) => void;
+  sourcePolicies?: SourcePolicyConfig;
+  onSaveSourcePolicies?: (policies: SourcePolicyConfig) => void;
 }
 
-export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, onClose, mappings, onSave }) => {
+export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, onClose, mappings, onSave, sourcePolicies, onSaveSourcePolicies }) => {
   const [localMappings, setLocalMappings] = useState<NewsSourceMapping[]>(mappings);
   const [newSni, setNewSni] = useState('');
   const [newSources, setNewSources] = useState('');
   const [inlineInputs, setInlineInputs] = useState<Record<string, string>>({});
+  const [policyText, setPolicyText] = useState({
+    financial: '',
+    addresses: '',
+    decisionMakers: '',
+    payment: '',
+    webSoftware: '',
+    news: ''
+  });
 
   useEffect(() => {
     if (isOpen) {
       setLocalMappings(mappings);
+      setPolicyText({
+        financial: (sourcePolicies?.financial || []).join(', '),
+        addresses: (sourcePolicies?.addresses || []).join(', '),
+        decisionMakers: (sourcePolicies?.decisionMakers || []).join(', '),
+        payment: (sourcePolicies?.payment || []).join(', '),
+        webSoftware: (sourcePolicies?.webSoftware || []).join(', '),
+        news: (sourcePolicies?.news || []).join(', ')
+      });
     }
-  }, [mappings, isOpen]);
+  }, [mappings, isOpen, sourcePolicies]);
 
   if (!isOpen) return null;
 
@@ -77,6 +95,17 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
 
   const handleSave = () => {
     onSave(localMappings);
+    if (onSaveSourcePolicies) {
+      const parse = (v: string) => v.split(',').map(s => s.trim()).filter(Boolean);
+      onSaveSourcePolicies({
+        financial: parse(policyText.financial),
+        addresses: parse(policyText.addresses),
+        decisionMakers: parse(policyText.decisionMakers),
+        payment: parse(policyText.payment),
+        webSoftware: parse(policyText.webSoftware),
+        news: parse(policyText.news)
+      });
+    }
     onClose();
   };
 
@@ -179,6 +208,18 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <label className="text-[10px] font-black uppercase text-slate-500">Källor per datadel</label>
+            <div className="grid grid-cols-1 gap-2">
+              <input type="text" value={policyText.financial} onChange={e => setPolicyText({ ...policyText, financial: e.target.value })} placeholder="Finansiell data: allabolag.se, ratsit.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+              <input type="text" value={policyText.addresses} onChange={e => setPolicyText({ ...policyText, addresses: e.target.value })} placeholder="Adresser: hitta.se, eniro.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+              <input type="text" value={policyText.decisionMakers} onChange={e => setPolicyText({ ...policyText, decisionMakers: e.target.value })} placeholder="Beslutsfattare: linkedin.com, allabolag.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+              <input type="text" value={policyText.payment} onChange={e => setPolicyText({ ...policyText, payment: e.target.value })} placeholder="Payment: klarna.com, stripe.com, adyen.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+              <input type="text" value={policyText.webSoftware} onChange={e => setPolicyText({ ...policyText, webSoftware: e.target.value })} placeholder="Websoftware: shopify.com, norce.io, woocommerce.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+              <input type="text" value={policyText.news} onChange={e => setPolicyText({ ...policyText, news: e.target.value })} placeholder="Nyheter: ehandel.se, market.se, breakit.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+            </div>
           </div>
         </div>
 

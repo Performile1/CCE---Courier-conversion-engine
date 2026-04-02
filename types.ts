@@ -72,6 +72,15 @@ export interface NewsSourceMapping {
   sources: string[];
 }
 
+export interface SourcePolicyConfig {
+  financial: string[];
+  addresses: string[];
+  decisionMakers: string[];
+  payment: string[];
+  webSoftware: string[];
+  news: string[];
+}
+
 export interface SNIPercentage {
   sniPrefix: string;
   percentage: number;
