@@ -4,7 +4,7 @@
  * API keys hidden from frontend
  */
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Secure API key from environment variables
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { model, prompt, systemInstruction, temperature = 0.1, maxTokens = 2048, responseMimeType } = req.body as OpenRouterRequest;
+    const { model, prompt, userMessage, systemInstruction, temperature = 0.1, maxTokens = 2048, responseMimeType } = req.body as OpenRouterRequest;
 
     // Support both 'prompt' and 'userMessage' field names
     const userContent = userMessage || prompt;

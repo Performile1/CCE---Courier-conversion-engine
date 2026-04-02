@@ -4,7 +4,7 @@
  * Used as fallback when Tavily can't handle JavaScript-heavy sites or PDFs
  */
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
 
 const CRAWL4AI_API_URL = 'https://api.crawl4ai.com/crawl';

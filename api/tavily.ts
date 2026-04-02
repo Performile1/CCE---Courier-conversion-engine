@@ -4,7 +4,7 @@
  * API keys hidden from frontend
  */
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
