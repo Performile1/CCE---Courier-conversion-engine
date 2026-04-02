@@ -333,8 +333,9 @@ Return as JSON with fields: name, registryId, foundedYear, industry, status, add
   }> {
     try {
       // Call backend proxy instead of direct API call
-      const backendUrl = import.meta.env.VITE_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://cce-carrier-conversion.vercel.app' : 'http://localhost:3000');
-      const apiEndpoint = `${backendUrl}/api/openrouter`;
+      const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
+      const normalizedBaseUrl = configuredBaseUrl.replace(/\/$/, '');
+      const apiEndpoint = normalizedBaseUrl ? `${normalizedBaseUrl}/api/openrouter` : '/api/openrouter';
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',

@@ -31,6 +31,16 @@ interface HallucinationAnalysis {
   recommendations: string[];
 }
 
+function resolveApiBaseUrl(): string {
+  const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
+  return configuredBaseUrl.replace(/\/$/, '');
+}
+
+function buildApiUrl(path: string): string {
+  const baseUrl = resolveApiBaseUrl();
+  return baseUrl ? `${baseUrl}${path}` : path;
+}
+
 /**
  * Fact-check a lead's key claims against external sources
  */
@@ -38,19 +48,8 @@ export async function analyzeForHallucinations(
   lead: LeadData,
   onProgress?: (msg: string) => void
 ): Promise<HallucinationAnalysis> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  
-  if (!apiKey) {
-    console.warn("TAVILY_API_KEY not configured. Skipping hallucination check. Set it in environment variables.");
-    return {
-      halluccinationScore: 0,
-      verifiedFields: [],
-      unverifiedFields: [],
-      conflictingFields: [],
-      overallTrust: 'medium',
-      recommendations: ['Configure Tavily API for hallucination detection']
-    };
-  }
+  // Backend proxy holds the API key; frontend should not require direct key access.
+  const apiKey = 'backend-proxy';
 
   const verifications: VerificationResult[] = [];
   const results: HallucinationAnalysis = {
@@ -262,11 +261,8 @@ async function performTavilySearch(
   apiKey: string
 ): Promise<string[]> {
   try {
-    // Call backend proxy instead of direct API
-    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
-    
     const response = await axios.post(
-      `${backendUrl}/api/tavily`,
+      buildApiUrl('/api/tavily'),
       {
         query: query,
         action: 'search',
@@ -298,11 +294,8 @@ export async function getSourcesForClaim(
   apiKey?: string
 ): Promise<SearchResult[]> {
   try {
-    // Call backend proxy instead of direct API
-    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
-    
     const response = await axios.post(
-      `${backendUrl}/api/tavily`,
+      buildApiUrl('/api/tavily'),
       {
         query: `${claim} ${context}`,
         action: 'search',
@@ -348,13 +341,11 @@ export async function fetchWithCrawl4aiFallback(
   options?: { useCrawl4aiPrimary?: boolean }
 ): Promise<{ content: string; source: 'tavily' | 'crawl4ai'; metadata?: Record<string, any> }> {
   try {
-    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
-
     // Try Tavily first (unless explicitly requesting Crawl4ai)
     if (!options?.useCrawl4aiPrimary) {
       try {
         const response = await axios.post(
-          `${backendUrl}/api/tavily`,
+          buildApiUrl('/api/tavily'),
           {
             url: url,
             action: 'fetch',
@@ -378,7 +369,7 @@ export async function fetchWithCrawl4aiFallback(
     // Fallback to Crawl4ai for complex sites
     try {
       const response = await axios.post(
-        `${backendUrl}/api/crawl`,
+        buildApiUrl('/api/crawl'),
         {
           url: url,
           includeLinks: true,
@@ -439,10 +430,8 @@ export async function scrapeWithCrawl4ai(
   error?: string;
 }> {
   try {
-    const backendUrl = import.meta.env.VITE_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://cce-carrier-conversion.vercel.app');
-
     const response = await axios.post(
-      `${backendUrl}/api/crawl`,
+      buildApiUrl('/api/crawl'),
       {
         url: url,
         maxDepth: options?.maxDepth || 1,
