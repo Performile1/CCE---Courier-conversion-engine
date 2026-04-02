@@ -43,6 +43,7 @@ import { PasswordReset } from './components/PasswordReset';
 import { WelcomeLoadingScreen } from './components/WelcomeLoadingScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ShareLeadModal } from './components/ShareLeadModal';
+import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { signOut, supabase } from './services/supabaseClient';
 import { ShieldAlert } from 'lucide-react';
@@ -51,6 +52,8 @@ import {
   LeadData, 
   NewsSourceMapping, 
   SourcePolicyConfig,
+  ToolAccessConfig,
+  UserRole,
   SNIPercentage, 
   ThreePLProvider, 
   RemovalReason,
@@ -93,6 +96,18 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
     webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence'],
     news: ['latestNews']
   }
+};
+const DEFAULT_ROLE_TOOL_ACCESS: Record<UserRole, string[]> = {
+  admin: [
+    'carrierSettings', 'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'backups', 'threePL', 'newsSources',
+    'modelSelector', 'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'customApi', 'customIntegration',
+    'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess'
+  ],
+  user: [
+    'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'threePL', 'newsSources', 'modelSelector',
+    'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport'
+  ],
+  viewer: ['cache', 'newsSources', 'campaignPerformance', 'exportManager']
 };
 
 export const App: React.FC = () => {
@@ -153,6 +168,7 @@ export const App: React.FC = () => {
   const [isWebhookManagerOpen, setIsWebhookManagerOpen] = useState(false);
   const [isPhase9IntegrationOpen, setIsPhase9IntegrationOpen] = useState(false);
   const [isShareLeadOpen, setIsShareLeadOpen] = useState(false);
+  const [isToolAccessOpen, setIsToolAccessOpen] = useState(false);
   const [selectedLeadForSharing, setSelectedLeadForSharing] = useState<LeadData | null>(null);
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
@@ -190,6 +206,14 @@ export const App: React.FC = () => {
       const saved = localStorage.getItem('dhl_source_policies');
       return saved ? JSON.parse(saved) : DEFAULT_SOURCE_POLICIES;
     } catch (e) { return DEFAULT_SOURCE_POLICIES; }
+  });
+  const [toolAccessConfig, setToolAccessConfig] = useState<ToolAccessConfig>(() => {
+    try {
+      const saved = localStorage.getItem('dhl_tool_access_config');
+      return saved ? JSON.parse(saved) : { userRoles: {}, roleToolAccess: DEFAULT_ROLE_TOOL_ACCESS };
+    } catch (e) {
+      return { userRoles: {}, roleToolAccess: DEFAULT_ROLE_TOOL_ACCESS };
+    }
   });
 
   const [mailTemplateSv, setMailTemplateSv] = useState(() => localStorage.getItem('dhl_mail_template_sv') || DEFAULT_MAIL_TEMPLATE_SV);
@@ -316,6 +340,23 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_mail_focus_words', JSON.stringify(mailFocusWords)); }, [mailFocusWords]);
   useEffect(() => { localStorage.setItem('dhl_news_sources', JSON.stringify(newsSourceMappings)); }, [newsSourceMappings]);
   useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
+  useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!toolAccessConfig.userRoles[user.id]) {
+      setToolAccessConfig(prev => ({
+        ...prev,
+        userRoles: {
+          ...prev.userRoles,
+          [user.id]: Object.keys(prev.userRoles).length === 0 ? 'admin' : 'user'
+        }
+      }));
+    }
+  }, [user?.id, toolAccessConfig.userRoles]);
+
+  const currentUserRole: UserRole = user?.id ? (toolAccessConfig.userRoles[user.id] || 'user') : 'viewer';
+  const visibleTools = toolAccessConfig.roleToolAccess[currentUserRole] || [];
 
   const refreshData = useCallback(async (statusOverride?: string) => {
     const currentStatus = statusOverride || dbStatus;
@@ -847,6 +888,7 @@ export const App: React.FC = () => {
         onOpenWebhookManager={() => setIsWebhookManagerOpen(true)}
         onOpenPhase9Integration={() => setIsPhase9IntegrationOpen(true)}
         onOpenUserProfile={() => setIsUserProfileOpen(true)}
+        onOpenToolAccess={() => setIsToolAccessOpen(true)}
         onLogout={handleLogout}
         inclusionCount={includedKeywords.length} 
         exclusionCount={existingCustomers.length + downloadedLeads.length} 
@@ -858,6 +900,7 @@ export const App: React.FC = () => {
         setActiveCarrier={handleCarrierChange}
         availableCarriers={carriers}
         onAddCarrier={handleAddCarrier}
+        visibleTools={visibleTools}
       />
       
       <main className="max-w-[1600px] mx-auto px-4 py-6 flex-1 w-full">
@@ -1216,6 +1259,16 @@ export const App: React.FC = () => {
             <UserProfile userId={user.id} onClose={() => setIsUserProfileOpen(false)} />
           </div>
         </div>
+      )}
+
+      {isToolAccessOpen && currentUserRole === 'admin' && user?.id && (
+        <ToolAccessManager
+          isOpen={isToolAccessOpen}
+          onClose={() => setIsToolAccessOpen(false)}
+          config={toolAccessConfig}
+          onSave={setToolAccessConfig}
+          currentUserId={user.id}
+        />
       )}
 
       <OnboardingTour 

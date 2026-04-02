@@ -83,6 +83,27 @@ export interface SourcePolicyConfig {
   categoryFieldMappings?: Record<string, string[]>;
 }
 
+export type UserRole = 'admin' | 'user' | 'viewer';
+
+export interface ToolAccessConfig {
+  userRoles: Record<string, UserRole>;
+  roleToolAccess: Record<UserRole, string[]>;
+}
+
+export interface SourceCoverageEntry {
+  category: string;
+  field: string;
+  source: string;
+  url?: string;
+  isPreferred: boolean;
+}
+
+export interface SourcePerformanceEntry {
+  domain: string;
+  goodHits: number;
+  lastSeen: string;
+}
+
 export interface SNIPercentage {
   sniPrefix: string;
   percentage: number;
@@ -204,4 +225,6 @@ export interface LeadData {
     overallTrust?: 'high' | 'medium' | 'low';
     recommendations?: string[];
   };
+
+  sourceCoverage?: SourceCoverageEntry[];
 }

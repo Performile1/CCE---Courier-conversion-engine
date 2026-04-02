@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -298,12 +298,45 @@ function getCategoryDomains(sourcePolicies: SourcePolicyConfig): Record<string, 
 }
 
 async function fetchCategoryExactPageEvidence(companyName: string, sourcePolicies: SourcePolicyConfig): Promise<string> {
-  if (!companyName) return '';
+  return (await fetchCategoryExactPageEvidenceBundle(companyName, sourcePolicies)).promptEvidence;
+}
+
+function updateSourcePerformance(domainHits: Record<string, number>): void {
+  try {
+    const key = 'dhl_source_performance';
+    const existing: Record<string, SourcePerformanceEntry> = JSON.parse(localStorage.getItem(key) || '{}');
+    const now = new Date().toISOString();
+
+    Object.entries(domainHits).forEach(([domain, hits]) => {
+      const prev = existing[domain];
+      existing[domain] = {
+        domain,
+        goodHits: (prev?.goodHits || 0) + hits,
+        lastSeen: now
+      };
+    });
+
+    localStorage.setItem(key, JSON.stringify(existing));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+async function fetchCategoryExactPageEvidenceBundle(
+  companyName: string,
+  sourcePolicies: SourcePolicyConfig
+): Promise<{ promptEvidence: string; coverage: SourceCoverageEntry[]; domainHits: Record<string, number> }> {
+  if (!companyName) return { promptEvidence: '', coverage: [], domainHits: {} };
 
   const categoryDomains = getCategoryDomains(sourcePolicies);
   const snippets: string[] = [];
+  const coverage: SourceCoverageEntry[] = [];
+  const domainHits: Record<string, number> = {};
+  const preferredSet = new Set(
+    Object.values(categoryDomains).flat().map(normalizeDomain).filter(Boolean)
+  );
 
-  const categories = Object.keys(categoryDomains).slice(0, 5);
+  const categories = Object.keys(categoryDomains).slice(0, 6);
   for (const category of categories) {
     const domains = (categoryDomains[category] || []).map(normalizeDomain).filter(Boolean).slice(0, 4);
     if (!domains.length) continue;
@@ -329,9 +362,51 @@ async function fetchCategoryExactPageEvidence(companyName: string, sourcePolicie
       const urls: string[] = (tavilyResponse.data?.results || [])
         .map((r: any) => pickString(r?.url))
         .filter(Boolean)
-        .slice(0, 2);
+        .slice(0, 4);
 
-      if (!urls.length) continue;
+      let externalUrls: string[] = [];
+      try {
+        const broadResponse = await axios.post(
+          buildApiUrl('/api/tavily'),
+          {
+            query: `${companyName} ${pageHints.slice(0, 2).join(' ')}`,
+            action: 'search',
+            maxResults: 4
+          },
+          {
+            timeout: 9000
+          }
+        );
+
+        externalUrls = (broadResponse.data?.results || [])
+          .map((r: any) => pickString(r?.url))
+          .filter(Boolean)
+          .map(u => ({ raw: u, domain: normalizeDomain(u) }))
+          .filter(item => item.domain && !preferredSet.has(item.domain))
+          .slice(0, 2)
+          .map(item => item.raw);
+      } catch {
+        externalUrls = [];
+      }
+
+      if (!urls.length && !externalUrls.length) continue;
+
+      [...urls, ...externalUrls].forEach((url) => {
+        const domain = normalizeDomain(url);
+        if (!domain) return;
+        domainHits[domain] = (domainHits[domain] || 0) + 1;
+
+        const mappedFields = sourcePolicies.categoryFieldMappings?.[category] || ['unknown'];
+        mappedFields.forEach((field) => {
+          coverage.push({
+            category,
+            field,
+            source: domain,
+            url,
+            isPreferred: preferredSet.has(domain)
+          });
+        });
+      });
 
       let crawlSnippet = '';
       try {
@@ -361,7 +436,13 @@ async function fetchCategoryExactPageEvidence(companyName: string, sourcePolicie
     }
   }
 
-  return snippets.join('\n');
+  updateSourcePerformance(domainHits);
+
+  return {
+    promptEvidence: snippets.join('\n'),
+    coverage,
+    domainHits
+  };
 }
 
 function getTechWatchlistText(): string {
@@ -637,10 +718,11 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
     onUpdate({}, 'Samlar källunderlag via Tavily/Google och Crawl4ai...');
-    const sourceGroundingEvidence = await fetchCategoryExactPageEvidence(
+    const sourceBundle = await fetchCategoryExactPageEvidenceBundle(
       formData.companyNameOrOrg,
       effectivePolicies
     );
+    const sourceGroundingEvidence = sourceBundle.promptEvidence;
 
     const groundedPrompt = `${prompt}
 
@@ -773,7 +855,8 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
       conversionScore: pickNumber(logistics?.conversion_score, logistics?.conversionScore) || 0,
       deepScanPerformed: false,
       aiModel: activeModel,
-      halluccinationScore: 0 // Will be updated by Tavily
+      halluccinationScore: 0, // Will be updated by Tavily
+      sourceCoverage: sourceBundle.coverage
     };
 
     onUpdate(lead, "Analys slutförd.");

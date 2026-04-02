@@ -89,6 +89,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
     ecommercePlatform: data?.ecommercePlatform ?? "Shopify",
     paymentProvider: data?.paymentProvider ?? "Klarna",
     latestNews: data?.latestNews ?? "",
+    sourceCoverage: data?.sourceCoverage ?? [],
     taSystem: data?.taSystem ?? "nShift",
     techEvidence: data?.techEvidence ?? "Detekterade Shopify-scripts och Klarna Checkout v3.",
     marketCount: data?.marketCount ?? 3,
@@ -937,6 +938,32 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
                       {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
                     </p>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-none border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Source Coverage</p>
+                    {editData.sourceCoverage && editData.sourceCoverage.length > 0 ? (
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {editData.sourceCoverage.slice(0, 20).map((entry, idx) => (
+                          <div key={`${entry.category}-${entry.field}-${entry.source}-${idx}`} className="text-[10px] border border-slate-100 p-1.5 rounded-sm bg-dhl-gray-light">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-dhl-black">{entry.field}</span>
+                              <span className={`px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase ${entry.isPreferred ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {entry.isPreferred ? 'Preferred' : 'External'}
+                              </span>
+                            </div>
+                            <div className="text-slate-600">{entry.category} · {entry.source}</div>
+                            {entry.url && (
+                              <a href={entry.url} target="_blank" rel="noreferrer" className="text-red-600 hover:underline break-all">
+                                {entry.url}
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 italic">Ingen source coverage tillgänglig ännu.</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

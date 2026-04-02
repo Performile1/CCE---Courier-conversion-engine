@@ -44,6 +44,8 @@ interface HeaderProps {
   setActiveCarrier: (carrier: string) => void;
   availableCarriers?: string[];
   onAddCarrier?: (carrier: string) => void;
+   visibleTools?: string[];
+   onOpenToolAccess?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -57,10 +59,13 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUserProfile, onLogout,
   inclusionCount, exclusionCount, cacheCount, 
   protocolMode, setProtocolMode, onAddNewLead, activeCarrier, setActiveCarrier, 
-  availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier
+   availableCarriers = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'], onAddCarrier,
+   visibleTools,
+   onOpenToolAccess
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
+   const hasTool = (toolKey: string) => !visibleTools || visibleTools.includes(toolKey);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -122,193 +127,201 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('carrierSettings') && <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Market Intelligence Center</span>
                           <span className="text-[9px] text-slate-400 font-medium tracking-tight">DMT, Svavel & Prisindex (2026)</span>
                        </div>
-                    </button>
+                    </button>}
                     
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Protokoll & Sökning</div>
 
-                    <button onClick={() => { onOpenInclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('inclusions') && <button onClick={() => { onOpenInclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Search className="w-4 h-4 text-[#D40511]" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Riktad Sökning (SNI)</span>
                           <span className="text-[9px] text-slate-400 font-medium">Inkludera specifika segment</span>
                           {inclusionCount > 0 && <span className="absolute right-4 bg-[#D40511] text-white text-[8px] px-1.5 rounded-full font-bold">{inclusionCount}</span>}
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCache(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('cache') && <button onClick={() => { onOpenCache(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Database className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Lead Reservoir (Cachen)</span>
                           <span className="text-[9px] text-slate-400 font-medium">{cacheCount} bolag redo</span>
                        </div>
-                    </button>
+                    </button>}
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Sälj & Kommunikation</div>
 
-                    <button onClick={() => { onOpenMailTemplate(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('mailTemplate') && <button onClick={() => { onOpenMailTemplate(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Mail className="w-4 h-4 text-dhl-yellow" />
                        <span className="text-xs font-black text-slate-800 uppercase">Mailmotor & Mallar</span>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenSNISettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('sniSettings') && <button onClick={() => { onOpenSNISettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Percent className="w-4 h-4 text-red-600" />
                        <span className="text-xs font-black text-slate-800 uppercase">Fraktpotential per SNI</span>
-                    </button>
+                    </button>}
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">System & Drift</div>
 
-                    <button onClick={() => { onOpenExclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('exclusions') && <button onClick={() => { onOpenExclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <ShieldBan className="w-4 h-4 text-slate-400" />
                        <span className="text-xs font-black text-slate-800 uppercase">Exkluderingar</span>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenBackups(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('backups') && <button onClick={() => { onOpenBackups(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <History className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">System Backup</span>
                           <span className="text-[9px] text-slate-400 font-medium">Importera/Exportera data</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenThreePL(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('threePL') && <button onClick={() => { onOpenThreePL(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Package className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">3PL Manager</span>
                           <span className="text-[9px] text-slate-400 font-medium">Hantera 3PL-partners & adresser</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenNewsSources(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('newsSources') && <button onClick={() => { onOpenNewsSources(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Newspaper className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Source Managers</span>
                           <span className="text-[9px] text-slate-400 font-medium">Källor per SNI och per datadel</span>
                        </div>
-                    </button>
+                    </button>}
+
+                    {hasTool('toolAccess') && onOpenToolAccess && <button onClick={() => { onOpenToolAccess(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <User className="w-4 h-4 text-red-600" />
+                       <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-800 uppercase">Role & Tool Access</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Styr vad olika roller ser</span>
+                       </div>
+                    </button>}
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Analytics & Rapporter</div>
 
-                    <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('modelSelector') && <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">AI Model Selection</span>
                           <span className="text-[9px] text-slate-400 font-medium">Välj LLM & spåra kostnad</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCampaignAnalytics?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('campaignAnalytics') && <button onClick={() => { onOpenCampaignAnalytics?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Kampanj Analytics</span>
                           <span className="text-[9px] text-slate-400 font-medium">Detaljerade kampanjstatistik</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCampaignPerformance?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('campaignPerformance') && <button onClick={() => { onOpenCampaignPerformance?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Performance Dashboard</span>
                           <span className="text-[9px] text-slate-400 font-medium">Kampanjprestanda i realtid</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCostAnalysis?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('costAnalysis') && <button onClick={() => { onOpenCostAnalysis?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Kostnadsanalys</span>
                           <span className="text-[9px] text-slate-400 font-medium">Kostnad per kampanj & segment</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenExportManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('exportManager') && <button onClick={() => { onOpenExportManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Download className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Export Manager</span>
                           <span className="text-[9px] text-slate-400 font-medium">Exportera leads & rapporter</span>
                        </div>
-                    </button>
+                    </button>}
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Integrations & Webhooks</div>
 
-                    <button onClick={() => { onOpenCustomAPI?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('customApi') && <button onClick={() => { onOpenCustomAPI?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Settings className="w-4 h-4 text-cyan-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom API Builder</span>
                           <span className="text-[9px] text-slate-400 font-medium">Koppla egna API:er</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCustomIntegration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('customIntegration') && <button onClick={() => { onOpenCustomIntegration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-teal-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom Integration</span>
                           <span className="text-[9px] text-slate-400 font-medium">Anpassade integrationsadaptrar</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenWebhookManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('webhookManager') && <button onClick={() => { onOpenWebhookManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Webhook System</span>
                           <span className="text-[9px] text-slate-400 font-medium">Hantera webhooks & events</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenSlackManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('slackManager') && <button onClick={() => { onOpenSlackManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Slack Integration</span>
                           <span className="text-[9px] text-slate-400 font-medium">Koppla Slack-notifieringar</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCRMManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('crmManager') && <button onClick={() => { onOpenCRMManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Database className="w-4 h-4 text-yellow-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">CRM Manager</span>
                           <span className="text-[9px] text-slate-400 font-medium">Synka leads till CRM</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenPhase9Integration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('phase9') && <button onClick={() => { onOpenPhase9Integration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-pink-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Phase 9 Integrations</span>
                           <span className="text-[9px] text-slate-400 font-medium">Avancerade integrations</span>
                        </div>
-                    </button>
+                    </button>}
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Kampanjer & Mail</div>
 
-                    <button onClick={() => { onOpenEmailCampaignBuilder?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('emailCampaign') && <button onClick={() => { onOpenEmailCampaignBuilder?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Mail className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Email Campaign Builder</span>
                           <span className="text-[9px] text-slate-400 font-medium">Skapa avancerade emailkampanjer</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenEventTriggers?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('eventTriggers') && <button onClick={() => { onOpenEventTriggers?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Settings className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Event Triggers</span>
                           <span className="text-[9px] text-slate-400 font-medium">Automatisk triggering baserat på event</span>
                        </div>
-                    </button>
+                    </button>}
 
-                    <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                    {hasTool('customReport') && <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Download className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom Report Builder</span>
                           <span className="text-[9px] text-slate-400 font-medium">Generera anpassade rapporter</span>
                        </div>
-                    </button>
+                    </button>}
                 </div>
               )}
            </div>

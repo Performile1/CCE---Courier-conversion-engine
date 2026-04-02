@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Newspaper, X, Plus, Trash2, Save, Info, Globe } from 'lucide-react';
-import { NewsSourceMapping, SourcePolicyConfig } from '../types';
+import { NewsSourceMapping, SourcePolicyConfig, SourcePerformanceEntry } from '../types';
 
 const AVAILABLE_LEADCARD_FIELDS = [
   'companyName',
@@ -49,6 +49,8 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
   const [categoryFieldSelections, setCategoryFieldSelections] = useState<Record<string, string[]>>({});
   const [newCustomCategoryName, setNewCustomCategoryName] = useState('');
   const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
+  const [suggestionTargetCategory, setSuggestionTargetCategory] = useState('news');
+  const [sourceSuggestions, setSourceSuggestions] = useState<SourcePerformanceEntry[]>([]);
 
   const baseCategories = ['financial', 'addresses', 'decisionMakers', 'payment', 'webSoftware', 'news'];
 
@@ -77,6 +79,32 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
         mappingInputs[category] = configuredFieldMappings[category] || [];
       });
       setCategoryFieldSelections(mappingInputs);
+
+      try {
+        const performanceRaw = localStorage.getItem('dhl_source_performance') || '{}';
+        const performanceMap: Record<string, SourcePerformanceEntry> = JSON.parse(performanceRaw);
+        const allConfiguredSources = new Set(
+          [
+            ...Object.values(custom).flat(),
+            ...(sourcePolicies?.financial || []),
+            ...(sourcePolicies?.addresses || []),
+            ...(sourcePolicies?.decisionMakers || []),
+            ...(sourcePolicies?.payment || []),
+            ...(sourcePolicies?.webSoftware || []),
+            ...(sourcePolicies?.news || [])
+          ].map(s => s.toLowerCase().trim())
+        );
+
+        const suggestions = Object.values(performanceMap)
+          .filter(entry => entry.goodHits >= 2)
+          .filter(entry => !allConfiguredSources.has(entry.domain.toLowerCase().trim()))
+          .sort((a, b) => b.goodHits - a.goodHits)
+          .slice(0, 20);
+
+        setSourceSuggestions(suggestions);
+      } catch {
+        setSourceSuggestions([]);
+      }
     }
   }, [mappings, isOpen, sourcePolicies]);
 
@@ -117,6 +145,32 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
       ...categoryFieldSelections,
       [category]: next
     });
+  };
+
+  const addSuggestionToCategory = (domain: string) => {
+    const normalized = domain.trim();
+    if (!normalized) return;
+
+    if (baseCategories.includes(suggestionTargetCategory)) {
+      const key = suggestionTargetCategory as keyof typeof policyText;
+      const existing = (policyText[key] || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!existing.includes(normalized)) {
+        setPolicyText({
+          ...policyText,
+          [key]: [...existing, normalized].join(', ')
+        });
+      }
+    } else {
+      const existing = (customCategoryInputs[suggestionTargetCategory] || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!existing.includes(normalized)) {
+        setCustomCategoryInputs({
+          ...customCategoryInputs,
+          [suggestionTargetCategory]: [...existing, normalized].join(', ')
+        });
+      }
+    }
+
+    setSourceSuggestions(prev => prev.filter(s => s.domain !== domain));
   };
 
   if (!isOpen) return null;
@@ -393,6 +447,44 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({ isOpen, on
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500">Föreslagna källor (bra träffar)</label>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500">Lägg till i kategori:</span>
+                <select
+                  value={suggestionTargetCategory}
+                  onChange={e => setSuggestionTargetCategory(e.target.value)}
+                  className="text-[10px] border border-dhl-gray-medium rounded-sm p-1"
+                >
+                  {[...baseCategories, ...Object.keys(customCategoryInputs)].map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+
+              {sourceSuggestions.length === 0 ? (
+                <div className="text-[10px] italic text-slate-400">Inga nya källförslag ännu.</div>
+              ) : (
+                <div className="space-y-1 max-h-40 overflow-y-auto border border-dhl-gray-medium rounded-sm p-2 bg-dhl-gray-light">
+                  {sourceSuggestions.map(suggestion => (
+                    <div key={suggestion.domain} className="flex items-center justify-between bg-white border border-slate-100 p-2 rounded-sm">
+                      <div className="text-[10px]">
+                        <div className="font-bold text-dhl-black">{suggestion.domain}</div>
+                        <div className="text-slate-500">Hits: {suggestion.goodHits}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addSuggestionToCategory(suggestion.domain)}
+                        className="px-2 py-1 text-[9px] font-bold bg-dhl-black text-white rounded-sm hover:bg-red-600"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
