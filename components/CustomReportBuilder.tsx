@@ -175,29 +175,29 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <p className="text-sm text-green-600">{success}</p>
+        <div className="p-3 bg-dhl-gray-light border border-green-200 rounded-sm flex gap-2">
+          <CheckCircle className="w-5 h-5 text-dhl-yellow flex-shrink-0" />
+          <p className="text-sm text-dhl-yellow">{success}</p>
         </div>
       )}
 
       {view === 'templates' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+              <FileText className="w-5 h-5 text-dhl-red" />
               Report Templates
             </h3>
             <button
               onClick={() => setView('builder')}
-              className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2"
+              className="py-2 px-4 bg-dhl-red hover:bg-red-800 text-white font-semibold rounded-sm transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               Custom Report
@@ -208,15 +208,15 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
             {REPORT_TEMPLATES.map((template) => (
               <div
                 key={template.id}
-                className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+                className="border border-dhl-gray-medium rounded-sm p-4 hover:shadow-md transition-all cursor-pointer"
                 onClick={() => handleTemplateSelect(template)}
               >
-                <h4 className="font-bold text-slate-900 mb-2">{template.name}</h4>
-                <p className="text-sm text-slate-600 mb-3">{template.description}</p>
+                <h4 className="font-bold text-dhl-black mb-2">{template.name}</h4>
+                <p className="text-sm text-dhl-gray-dark mb-3">{template.description}</p>
                 <p className="text-xs text-slate-500 mb-3">
                   Metrics: {template.metrics.length}
                 </p>
-                <button className="w-full py-2 px-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 font-medium rounded transition-all">
+                <button className="w-full py-2 px-3 bg-indigo-100 hover:bg-indigo-200 text-dhl-red font-medium rounded transition-all">
                   Use Template
                 </button>
               </div>
@@ -234,15 +234,15 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 setReportName('');
                 setSelectedMetrics([]);
               }}
-              className="text-indigo-600 hover:text-indigo-700 font-medium text-sm"
+              className="text-dhl-red hover:text-indigo-700 font-medium text-sm"
             >
               ← Back to Templates
             </button>
           </div>
 
-          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
+          <div className="bg-white rounded-sm border border-dhl-gray-medium p-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Report Name
               </label>
               <input
@@ -250,18 +250,18 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 value={reportName}
                 onChange={(e) => setReportName(e.target.value)}
                 placeholder="e.g., March 2026 Performance Report"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Date Range
               </label>
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as any)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
               >
                 <option value="week">Last 7 Days</option>
                 <option value="month">Last 30 Days</option>
@@ -272,18 +272,18 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-3">
+              <label className="block text-sm font-medium text-dhl-black mb-3">
                 Metrics ({selectedMetrics.length} selected)
               </label>
               <div className="space-y-2  max-h-96 overflow-y-auto">
                 {['Email', 'Sales', 'Finance', 'Prospects', 'Quality', 'Integration'].map((category) => (
                   <div key={category}>
-                    <p className="text-xs font-bold text-slate-600 uppercase mb-2">{category}</p>
+                    <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-2">{category}</p>
                     <div className="space-y-1 mb-3">
                       {AVAILABLE_METRICS.filter((m) => m.category === category).map((metric) => (
                         <label
                           key={metric.id}
-                          className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
+                          className="flex items-center gap-2 p-2 hover:bg-dhl-gray-light rounded cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -291,7 +291,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                             onChange={() => handleMetricToggle(metric.id)}
                             className="w-4 h-4"
                           />
-                          <span className="text-sm text-slate-700">{metric.label}</span>
+                          <span className="text-sm text-dhl-gray-dark">{metric.label}</span>
                         </label>
                       ))}
                     </div>
@@ -300,17 +300,17 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
               </div>
             </div>
 
-            <div className="flex gap-2 border-t border-slate-200 pt-4">
+            <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
               <button
                 onClick={generateReport}
                 disabled={generating}
-                className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
               >
                 {generating ? '⌛ Generating...' : '📊 Generate Report'}
               </button>
               <button
                 onClick={() => setView('templates')}
-                className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg transition-all"
+                className="py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm transition-all"
               >
                 Cancel
               </button>
@@ -323,3 +323,6 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
 };
 
 export default CustomReportBuilder;
+
+
+

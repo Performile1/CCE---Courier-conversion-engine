@@ -98,7 +98,7 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-2xl shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
         
-        <div className="bg-white p-4 flex justify-between items-center border-b border-slate-200">
+        <div className="bg-white p-4 flex justify-between items-center border-b border-dhl-gray-medium">
           <h2 className="text-lg font-black italic uppercase flex items-center gap-2 text-black">
             <ShieldBan className="w-5 h-5 text-red-600" />
             Hantera Exkluderingar
@@ -108,11 +108,11 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
           </button>
         </div>
 
-        <div className="flex border-b border-slate-200">
+        <div className="flex border-b border-dhl-gray-medium">
           <button
             onClick={() => setActiveTab('existing')}
             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${
-              activeTab === 'existing' ? 'bg-white text-red-600 border-b-2 border-red-600' : 'bg-slate-50 text-slate-500'
+              activeTab === 'existing' ? 'bg-white text-red-600 border-b-2 border-red-600' : 'bg-dhl-gray-light text-slate-500'
             }`}
           >
             Befintliga Kunder ({existingCustomers.length})
@@ -120,7 +120,7 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
           <button
             onClick={() => setActiveTab('history')}
             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${
-              activeTab === 'history' ? 'bg-white text-red-600 border-b-2 border-red-600' : 'bg-slate-50 text-slate-500'
+              activeTab === 'history' ? 'bg-white text-red-600 border-b-2 border-red-600' : 'bg-dhl-gray-light text-slate-500'
             }`}
           >
             Nedladdad Historik ({downloadedLeads.length})
@@ -130,22 +130,22 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
         <div className="p-6 flex-1 overflow-y-auto">
           {activeTab === 'existing' ? (
             <div className="space-y-4">
-              <div className="bg-red-50 p-3 border-l-4 border-red-500">
+              <div className="bg-dhl-gray-light p-3 border-l-4 border-dhl-red">
                 <p className="text-xs text-red-800">
                   Lägg till Org.nr eller Företagsnamn (ett per rad) för att blockera dem.
                 </p>
               </div>
               <div className="flex gap-2">
                 <input type="file" accept=".xlsx, .xls" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="ex-upload" />
-                <label htmlFor="ex-upload" className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 text-xs font-bold uppercase cursor-pointer hover:bg-green-700 shadow-sm rounded-sm">
+                <label htmlFor="ex-upload" className="flex items-center gap-2 bg-dhl-yellow text-white px-4 py-2 text-xs font-bold uppercase cursor-pointer hover:bg-dhl-yellow shadow-sm rounded-sm">
                   <FileSpreadsheet className="w-4 h-4" /> Ladda upp Excel
                 </label>
-                <button onClick={handleDownloadTemplate} className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-3 py-2 text-xs font-bold uppercase hover:bg-slate-50 shadow-sm rounded-sm">
+                <button onClick={handleDownloadTemplate} className="flex items-center gap-2 bg-white border border-dhl-gray-medium text-dhl-gray-dark px-3 py-2 text-xs font-bold uppercase hover:bg-dhl-gray-light shadow-sm rounded-sm">
                   <FileDown className="w-4 h-4" /> Mall
                 </button>
               </div>
               <textarea
-                className="w-full h-64 p-3 text-xs border border-slate-300 focus:border-red-600 focus:ring-red-600 rounded-none font-mono"
+                className="w-full h-64 p-3 text-xs border border-dhl-gray-medium focus:border-red-600 focus:ring-red-600 rounded-none font-mono"
                 placeholder="Exempel:&#10;556000-0000&#10;Volvo Cars"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
@@ -153,7 +153,7 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-green-50 border-l-4 border-green-500 p-3 flex justify-between items-center">
+              <div className="bg-dhl-gray-light border-l-4 border-green-500 p-3 flex justify-between items-center">
                 <p className="text-xs text-green-800">
                   Företag som bearbetats exkluderas automatiskt från framtida sökningar.
                 </p>
@@ -165,14 +165,14 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
                   <Trash2 className="w-3 h-3" /> Rensa allt
                 </button>
               </div>
-              <div className="border border-slate-200 bg-slate-50 h-80 overflow-y-auto rounded-sm shadow-inner">
+              <div className="border border-dhl-gray-medium bg-dhl-gray-light h-80 overflow-y-auto rounded-sm shadow-inner">
                 {downloadedLeads.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-slate-400 text-xs italic uppercase font-bold">Historiken är tom</div>
                 ) : (
-                  <div className="divide-y divide-slate-200">
+                  <div className="divide-y divide-dhl-gray-medium">
                     {downloadedLeads.map((lead, idx) => (
-                      <div key={idx} className="p-3 bg-white flex justify-between items-center group hover:bg-slate-50 transition-colors">
-                        <span className="text-xs font-mono font-bold text-slate-700">{lead}</span>
+                      <div key={idx} className="p-3 bg-white flex justify-between items-center group hover:bg-dhl-gray-light transition-colors">
+                        <span className="text-xs font-mono font-bold text-dhl-gray-dark">{lead}</span>
                         <button 
                           onClick={() => removeSingleHistoryItem(lead)}
                           className="text-slate-300 hover:text-red-600 transition-colors p-1"
@@ -189,8 +189,8 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
           )}
         </div>
 
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-2 text-xs font-black uppercase text-slate-400 hover:text-slate-600 transition-colors">Avbryt</button>
+        <div className="p-4 bg-dhl-gray-light border-t border-dhl-gray-medium flex justify-end gap-3">
+          <button onClick={onClose} className="px-6 py-2 text-xs font-black uppercase text-slate-400 hover:text-dhl-gray-dark transition-colors">Avbryt</button>
           {activeTab === 'existing' && (
             <button
               onClick={handleSaveExisting}
@@ -204,3 +204,5 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
     </div>
   );
 };
+
+

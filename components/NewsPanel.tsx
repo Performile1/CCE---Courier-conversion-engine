@@ -12,8 +12,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   startup: 'bg-purple-100 text-purple-800',
   logistics: 'bg-amber-100 text-amber-800',
   finance: 'bg-green-100 text-green-800',
-  tech: 'bg-blue-100 text-blue-800',
-  general: 'bg-slate-100 text-slate-800',
+  tech: 'bg-dhl-gray-light text-blue-800',
+  general: 'bg-dhl-gray-light text-dhl-black',
   industry: 'bg-indigo-100 text-indigo-800'
 };
 
@@ -74,32 +74,32 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
 
   return (
     <div className="w-full space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-        <Newspaper className="w-5 h-5 text-orange-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+        <Newspaper className="w-5 h-5 text-dhl-yellow" />
         News Sources - {getCountryName()}
       </h3>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="p-3 bg-slate-50 border border-slate-300 rounded">
-          <div className="text-xs text-slate-600">Total Sources</div>
-          <div className="text-2xl font-bold text-slate-900">{newsSources.length}</div>
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded">
+          <div className="text-xs text-dhl-gray-dark">Total Sources</div>
+          <div className="text-2xl font-bold text-dhl-black">{newsSources.length}</div>
         </div>
-        <div className="p-3 bg-slate-50 border border-slate-300 rounded">
-          <div className="text-xs text-slate-600">RSS Feeds</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded">
+          <div className="text-xs text-dhl-gray-dark">RSS Feeds</div>
+          <div className="text-2xl font-bold text-dhl-black">
             {newsSources.filter(s => s.feedType === 'rss').length}
           </div>
         </div>
-        <div className="p-3 bg-slate-50 border border-slate-300 rounded">
-          <div className="text-xs text-slate-600">API Sources</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded">
+          <div className="text-xs text-dhl-gray-dark">API Sources</div>
+          <div className="text-2xl font-bold text-dhl-black">
             {newsSources.filter(s => s.feedType === 'api').length}
           </div>
         </div>
-        <div className="p-3 bg-slate-50 border border-slate-300 rounded">
-          <div className="text-xs text-slate-600">Avg Reliability</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded">
+          <div className="text-xs text-dhl-gray-dark">Avg Reliability</div>
+          <div className="text-2xl font-bold text-dhl-black">
             {Math.round(newsSources.reduce((acc, s) => acc + s.reliability, 0) / newsSources.length)}%
           </div>
         </div>
@@ -107,14 +107,14 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
 
       {/* Category Filter */}
       <div>
-        <h4 className="text-sm font-semibold text-slate-700 mb-2">Categories</h4>
+        <h4 className="text-sm font-semibold text-dhl-gray-dark mb-2">Categories</h4>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedCategory(null)}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
               selectedCategory === null
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                ? 'bg-dhl-red text-white'
+                : 'bg-dhl-gray-medium text-dhl-gray-dark hover:bg-dhl-gray-medium'
             }`}
           >
             All ({newsSources.length})
@@ -125,8 +125,8 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-all capitalize ${
                 selectedCategory === cat
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  ? 'bg-dhl-red text-white'
+                  : 'bg-dhl-gray-medium text-dhl-gray-dark hover:bg-dhl-gray-medium'
               }`}
             >
               {cat} ({groupedByCategory[cat].length})
@@ -140,7 +140,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
         {(selectedCategory ? groupedByCategory[selectedCategory] : newsSources).map(source => (
           <div
             key={source.id}
-            className="border border-slate-300 rounded-lg overflow-hidden hover:shadow-md transition-all"
+            className="border border-dhl-gray-medium rounded-sm overflow-hidden hover:shadow-md transition-all"
           >
             {/* Header */}
             <button
@@ -148,11 +148,11 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                 setExpandedSource(expandedSource === source.id ? null : source.id);
                 onSourceSelect?.(source);
               }}
-              className="w-full p-3 flex items-center justify-between gap-2 hover:bg-slate-50 bg-white"
+              className="w-full p-3 flex items-center justify-between gap-2 hover:bg-dhl-gray-light bg-white"
             >
               <div className="flex-1 text-left">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-semibold text-slate-900">{source.name}</h4>
+                  <h4 className="font-semibold text-dhl-black">{source.name}</h4>
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${CATEGORY_COLORS[source.category]}`}>
                     {source.category}
                   </span>
@@ -160,15 +160,15 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                     {FEED_TYPE_ICONS[source.feedType]}
                   </span>
                 </div>
-                <p className="text-xs text-slate-600">{source.domain}</p>
+                <p className="text-xs text-dhl-gray-dark">{source.domain}</p>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="text-xs text-slate-600">
+                  <div className="text-xs text-dhl-gray-dark">
                     {getFrequencyLabel(source.updateFrequency)}
                   </div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-semibold text-dhl-black">
                     {source.reliability}% ⭐
                   </div>
                 </div>
@@ -180,36 +180,36 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
 
             {/* Expanded Content */}
             {expandedSource === source.id && (
-              <div className="border-t border-slate-200 p-3 bg-slate-50 space-y-3 text-sm">
+              <div className="border-t border-dhl-gray-medium p-3 bg-dhl-gray-light space-y-3 text-sm">
                 {/* Description */}
-                <p className="text-slate-700">{source.description}</p>
+                <p className="text-dhl-gray-dark">{source.description}</p>
 
                 {/* Details Grid */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <p className="text-xs text-slate-600">Language</p>
-                    <p className="font-semibold text-slate-900 uppercase">{source.language}</p>
+                    <p className="text-xs text-dhl-gray-dark">Language</p>
+                    <p className="font-semibold text-dhl-black uppercase">{source.language}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-600">Update Frequency</p>
-                    <p className="font-semibold text-slate-900">{getFrequencyLabel(source.updateFrequency)}</p>
+                    <p className="text-xs text-dhl-gray-dark">Update Frequency</p>
+                    <p className="font-semibold text-dhl-black">{getFrequencyLabel(source.updateFrequency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-600">Feed Type</p>
-                    <p className="font-semibold text-slate-900 capitalize flex items-center gap-1">
+                    <p className="text-xs text-dhl-gray-dark">Feed Type</p>
+                    <p className="font-semibold text-dhl-black capitalize flex items-center gap-1">
                       {FEED_TYPE_ICONS[source.feedType]} {source.feedType.toUpperCase()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-600">Reliability</p>
-                    <p className="font-semibold text-slate-900">{source.reliability}%</p>
+                    <p className="text-xs text-dhl-gray-dark">Reliability</p>
+                    <p className="font-semibold text-dhl-black">{source.reliability}%</p>
                   </div>
                 </div>
 
                 {/* Feed URLs */}
                 {source.feedUrl && (
-                  <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                    <p className="text-xs text-blue-600 font-semibold mb-1 flex items-center gap-1">
+                  <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded p-2">
+                    <p className="text-xs text-dhl-red font-semibold mb-1 flex items-center gap-1">
                       <Rss className="w-3 h-3" />
                       RSS Feed
                     </p>
@@ -218,8 +218,8 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                 )}
 
                 {source.apiEndpoint && (
-                  <div className="bg-purple-50 border border-purple-200 rounded p-2">
-                    <p className="text-xs text-purple-600 font-semibold mb-1 flex items-center gap-1">
+                  <div className="bg-dhl-gray-light border border-purple-200 rounded p-2">
+                    <p className="text-xs text-dhl-red font-semibold mb-1 flex items-center gap-1">
                       <Zap className="w-3 h-3" />
                       API Endpoint
                     </p>
@@ -234,12 +234,12 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 pt-2 border-t border-slate-300">
+                <div className="flex gap-2 pt-2 border-t border-dhl-gray-medium">
                   <a
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded font-medium text-xs flex items-center justify-center gap-1"
+                    className="flex-1 px-3 py-2 bg-dhl-yellow hover:bg-orange-700 text-white rounded font-medium text-xs flex items-center justify-center gap-1"
                   >
                     <ExternalLink className="w-3 h-3" />
                     Visit Website
@@ -249,7 +249,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
                       href={source.feedUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 px-3 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded font-medium text-xs flex items-center justify-center gap-1"
+                      className="flex-1 px-3 py-2 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black rounded font-medium text-xs flex items-center justify-center gap-1"
                     >
                       <Rss className="w-3 h-3" />
                       Subscribe
@@ -263,7 +263,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
       </div>
 
       {/* Integration Tips */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+      <div className="bg-dhl-gray-light border border-green-200 rounded-sm p-3">
         <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
           <Check className="w-4 h-4" />
           Integration Tips
@@ -281,3 +281,5 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
 };
 
 export default NewsPanel;
+
+

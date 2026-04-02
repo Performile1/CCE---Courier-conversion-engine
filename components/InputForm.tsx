@@ -55,38 +55,38 @@ const SNIDropdown = ({ selected, onSelect }: { selected: string, onSelect: (val:
 
   return (
     <div className="relative mb-3" ref={dropdownRef}>
-      <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+      <label className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
         <Briefcase className="w-3 h-3 text-red-600" />
         Bransch / SNI-kod
       </label>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white border border-slate-300 p-2 text-left text-xs rounded-none flex justify-between items-center shadow-sm hover:border-red-600 transition-colors"
+        className="w-full bg-white border border-dhl-gray-medium p-2 text-left text-xs rounded-none flex justify-between items-center shadow-sm hover:border-red-600 transition-colors"
       >
-        <span className={selectedItem ? "text-slate-900 font-bold" : "text-slate-400 italic"}>
+        <span className={selectedItem ? "text-dhl-black font-bold" : "text-slate-400 italic"}>
           {selectedItem ? `SNI ${selectedItem.code}: ${selectedItem.label}` : "Sök eller välj bransch..."}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 shadow-xl rounded-sm animate-fadeIn overflow-hidden">
-          <div className="p-2 border-b border-slate-100 bg-slate-50">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-dhl-gray-medium shadow-xl rounded-sm animate-fadeIn overflow-hidden">
+          <div className="p-2 border-b border-slate-100 bg-dhl-gray-light">
             <input
               type="text"
               autoFocus
               placeholder="Filtrera branscher..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full p-2 text-xs border border-slate-200 focus:ring-1 focus:ring-red-600 outline-none"
+              className="w-full p-2 text-xs border border-dhl-gray-medium focus:ring-1 focus:ring-red-600 outline-none"
             />
           </div>
           <div className="max-h-60 overflow-y-auto">
             <button
               type="button"
               onClick={() => { onSelect(''); setIsOpen(false); }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center justify-between group"
+              className="w-full text-left px-3 py-2 text-xs hover:bg-dhl-gray-light flex items-center justify-between group"
             >
               <span className="italic text-slate-500">Ingen specifik (Bred sökning)</span>
               {selected === '' && <Check className="w-3 h-3 text-red-600" />}
@@ -96,10 +96,10 @@ const SNIDropdown = ({ selected, onSelect }: { selected: string, onSelect: (val:
                 key={item.code}
                 type="button"
                 onClick={() => { onSelect(item.code); setIsOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center justify-between group border-t border-slate-50 first:border-0 ${selected === item.code ? 'bg-red-50 font-bold' : ''}`}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-dhl-gray-light flex items-center justify-between group border-t border-slate-50 first:border-0 ${selected === item.code ? 'bg-dhl-gray-light font-bold' : ''}`}
               >
                 <div className="flex flex-col">
-                  <span className="text-slate-900 group-hover:text-red-700">SNI {item.code}</span>
+                  <span className="text-dhl-black group-hover:text-red-700">SNI {item.code}</span>
                   <span className="text-[10px] text-slate-500">{item.label}</span>
                 </div>
                 {selected === item.code && <Check className="w-3 h-3 text-red-600" />}
@@ -146,7 +146,7 @@ const ChipInput = ({
 
   return (
     <div className="mb-2">
-      <label htmlFor={id} className="block text-xs font-bold text-slate-800 mb-1 flex justify-between">
+      <label htmlFor={id} className="block text-xs font-bold text-dhl-black mb-1 flex justify-between">
         <span className="flex items-center gap-1">
           <Icon className="w-3 h-3 text-red-600" />
           {label}
@@ -154,10 +154,10 @@ const ChipInput = ({
         <span className="text-[9px] font-normal text-slate-500 italic self-center">Enter för att lägga till</span>
       </label>
       
-      <div className="border border-slate-300 p-1.5 bg-white rounded-none focus-within:ring-1 focus-within:ring-red-600 focus-within:border-red-600 shadow-sm">
+      <div className="border border-dhl-gray-medium p-1.5 bg-white rounded-none focus-within:ring-1 focus-within:ring-red-600 focus-within:border-red-600 shadow-sm">
         <div className="flex flex-wrap gap-1 mb-1">
           {chips.map((chip, index) => (
-            <span key={index} className="bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-semibold px-1.5 py-0.5 flex items-center gap-1 rounded-sm shadow-sm">
+            <span key={index} className="bg-dhl-gray-light border border-dhl-gray-medium text-dhl-black text-[10px] font-semibold px-1.5 py-0.5 flex items-center gap-1 rounded-sm shadow-sm">
               {chip}
               <button 
                 type="button" 
@@ -329,7 +329,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
         </div>
       </div>
 
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-dhl-gray-medium">
         <button
           id="tab-single"
           type="button"
@@ -337,7 +337,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
           className={`flex-1 py-2 px-3 text-xs font-bold transition-colors uppercase tracking-wide ${
             activeTab === 'single' 
               ? 'bg-white text-red-600 border-b-2 border-red-600' 
-              : 'text-slate-500 hover:bg-slate-50 bg-slate-50'
+              : 'text-slate-500 hover:bg-dhl-gray-light bg-dhl-gray-light'
           }`}
         >
           <div className="flex items-center justify-center gap-2">
@@ -352,7 +352,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
           className={`flex-1 py-2 px-3 text-xs font-bold transition-colors uppercase tracking-wide ${
             activeTab === 'batch' 
               ? 'bg-white text-red-600 border-b-2 border-red-600' 
-              : 'text-slate-500 hover:bg-slate-50 bg-slate-50'
+              : 'text-slate-500 hover:bg-dhl-gray-light bg-dhl-gray-light'
           }`}
         >
           <div className="flex items-center justify-center gap-2">
@@ -365,9 +365,9 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
       <form onSubmit={handleSubmit} className="p-3 space-y-3">
         {activeTab === 'single' && (
           <div className="space-y-3 animate-fadeIn">
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <div className="p-3 bg-dhl-gray-light rounded-sm border border-dhl-gray-medium space-y-3">
               <div>
-                <label htmlFor="companyNameOrOrg" className="block text-xs font-bold text-slate-800 mb-1">
+                <label htmlFor="companyNameOrOrg" className="block text-xs font-bold text-dhl-black mb-1">
                   Sök på företagsnamn / Org.nr
                 </label>
                 <div className="relative">
@@ -380,13 +380,13 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                     value={formData.companyNameOrOrg}
                     onChange={handleChange}
                     placeholder="t.ex. RevolutionRace AB / 556754-5262"
-                    className="pl-8 block w-full rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
+                    className="pl-8 block w-full rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="specificPerson" className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <label htmlFor="specificPerson" className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
                   Sök Specifik Person (Valfritt)
                   <span className="text-[9px] font-normal text-slate-400 italic">- Extra personanalys</span>
                 </label>
@@ -400,7 +400,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                     value={formData.specificPerson || ''}
                     onChange={handleChange}
                     placeholder="t.ex. Anders Andersson"
-                    className="pl-8 block w-full rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
+                    className="pl-8 block w-full rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
                   />
                 </div>
               </div>
@@ -412,7 +412,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
           <div className="space-y-3 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label htmlFor="geoArea" className="block text-xs font-bold text-slate-800 mb-1">
+                <label htmlFor="geoArea" className="block text-xs font-bold text-dhl-black mb-1">
                   Geografiskt område
                 </label>
                 <div className="relative">
@@ -425,13 +425,13 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                     value={formData.geoArea}
                     onChange={handleChange}
                     placeholder="Ort/Postnr"
-                    className="pl-8 block w-full rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
+                    className="pl-8 block w-full rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
                   />
                 </div>
               </div>
               
               <div>
-                <label htmlFor="financialScope" className="block text-xs font-bold text-slate-800 mb-1">
+                <label htmlFor="financialScope" className="block text-xs font-bold text-dhl-black mb-1">
                   Fraktomsättning (Est.)
                 </label>
                 <div className="relative">
@@ -441,7 +441,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                     name="financialScope"
                     value={formData.financialScope}
                     onChange={handleChange}
-                    className="pl-8 block w-full rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2 bg-white"
+                    className="pl-8 block w-full rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2 bg-white"
                   >
                     <option value="Alla">Alla (Enklast)</option>
                     <option value="KAM">KAM (≥ 5M)</option>
@@ -467,7 +467,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
             />
 
             <div>
-              <label htmlFor="leadCount" className="block text-xs font-bold text-slate-800 mb-1 flex justify-between">
+              <label htmlFor="leadCount" className="block text-xs font-bold text-dhl-black mb-1 flex justify-between">
                 <span>Antal leads (Mål)</span>
                 {formData.leadCount > 20 && <span className="text-red-600 italic text-[10px]">Batch-loop aktiv</span>}
               </label>
@@ -480,7 +480,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                   max="100"
                   value={formData.leadCount}
                   onChange={handleChange}
-                  className="block w-20 rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2 text-center font-bold"
+                  className="block w-20 rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2 text-center font-bold"
                 />
                 <input
                   type="range"
@@ -490,15 +490,15 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
                   max="100"
                   value={formData.leadCount}
                   onChange={(e) => setFormData(p => ({ ...p, leadCount: parseInt(e.target.value) }))}
-                  className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                  className="flex-1 h-1.5 bg-dhl-gray-medium rounded-sm appearance-none cursor-pointer accent-red-600"
                 />
               </div>
             </div>
           </div>
         )}
 
-        <div className="border-t border-slate-200 pt-3">
-          <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1 uppercase tracking-wide">
+        <div className="border-t border-dhl-gray-medium pt-3">
+          <h3 className="text-xs font-bold text-dhl-black mb-2 flex items-center gap-1 uppercase tracking-wide">
             <Briefcase className="w-3 h-3 text-red-600" />
             Fokus-Positioner & Sökord
           </h3>
@@ -532,7 +532,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
           />
 
           <div>
-            <label htmlFor="icebreakerTopic" className="block text-xs font-bold text-slate-800 mb-1">
+            <label htmlFor="icebreakerTopic" className="block text-xs font-bold text-dhl-black mb-1">
               Ice Breaker Ämne
             </label>
             <textarea
@@ -542,7 +542,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
               onChange={handleChange}
               rows={2}
               placeholder="Ämne för inledning..."
-              className="block w-full rounded-none border-slate-300 shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
+              className="block w-full rounded-none border-dhl-gray-medium shadow-sm focus:border-red-600 focus:ring-red-600 text-xs border p-2"
             />
           </div>
         </div>
@@ -566,3 +566,5 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
 };
 
 export default InputForm;
+
+

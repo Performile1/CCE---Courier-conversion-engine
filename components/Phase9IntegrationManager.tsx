@@ -115,7 +115,7 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
       case 'error':
         return 'bg-red-100 text-red-800 border-red-300';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-300';
+        return 'bg-dhl-gray-light text-dhl-black border-dhl-gray-medium';
     }
   };
 
@@ -125,24 +125,24 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
   };
 
   if (loading) {
-    return <div className="bg-white rounded-lg p-6 text-center">Loading integrations...</div>;
+    return <div className="bg-white rounded-sm p-6 text-center">Loading integrations...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-          <Settings className="w-5 h-5 text-slate-700" />
+        <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+          <Settings className="w-5 h-5 text-dhl-gray-dark" />
           Integration Manager
         </h3>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-dhl-gray-dark mb-4">
           Manage all integrations, webhooks, and custom adapters in one centralized place
         </p>
       </div>
 
       {/* Integration Types Overview */}
       <div>
-        <h4 className="font-semibold text-slate-900 mb-3">Integration Types</h4>
+        <h4 className="font-semibold text-dhl-black mb-3">Integration Types</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           {INTEGRATION_TYPES.map((type) => {
             const count = integrations.filter((i) => i.type === type.id).length;
@@ -150,16 +150,16 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
               <button
                 key={type.id}
                 onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
-                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                className={`p-4 rounded-sm border-2 text-left transition-all ${
                   selectedType === type.id
                     ? `border-${type.color}-600 bg-${type.color}-50`
-                    : 'border-slate-300 bg-white hover:border-slate-400'
+                    : 'border-dhl-gray-medium bg-white hover:border-dhl-gray-medium'
                 }`}
               >
                 <div className="text-2xl mb-2">{type.icon}</div>
-                <p className="font-semibold text-sm text-slate-900">{type.label}</p>
-                <p className="text-xs text-slate-600 mt-1">{type.description}</p>
-                <p className="text-xs font-bold text-slate-700 mt-2">{count} active</p>
+                <p className="font-semibold text-sm text-dhl-black">{type.label}</p>
+                <p className="text-xs text-dhl-gray-dark mt-1">{type.description}</p>
+                <p className="text-xs font-bold text-dhl-gray-dark mt-2">{count} active</p>
               </button>
             );
           })}
@@ -168,7 +168,7 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
 
       {/* Integrations List */}
       <div>
-        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+        <h4 className="font-semibold text-dhl-black mb-3 flex items-center gap-2">
           <GitBranch className="w-4 h-4" />
           {selectedType
             ? `${INTEGRATION_TYPES.find((t) => t.id === selectedType)?.label || 'All'} Integrations`
@@ -178,8 +178,8 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
 
         <div className="space-y-2">
           {integrations.filter((i) => !selectedType || i.type === selectedType).length === 0 ? (
-            <div className="bg-slate-50 border border-slate-300 rounded-lg p-6 text-center">
-              <p className="text-slate-600">
+            <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-6 text-center">
+              <p className="text-dhl-gray-dark">
                 No {selectedType ? INTEGRATION_TYPES.find((t) => t.id === selectedType)?.label : ''} integrations yet
               </p>
             </div>
@@ -189,15 +189,15 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
               .map((integration) => (
                 <div
                   key={integration.id}
-                  className="border border-slate-300 rounded-lg p-4 bg-white hover:bg-slate-50 transition-all"
+                  className="border border-dhl-gray-medium rounded-sm p-4 bg-white hover:bg-dhl-gray-light transition-all"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-2xl">{getTypeIcon(integration.type)}</span>
                         <div>
-                          <h5 className="font-semibold text-slate-900">{integration.name}</h5>
-                          <p className="text-xs text-slate-600">
+                          <h5 className="font-semibold text-dhl-black">{integration.name}</h5>
+                          <p className="text-xs text-dhl-gray-dark">
                             Type: {INTEGRATION_TYPES.find((t) => t.id === integration.type)?.label}
                           </p>
                         </div>
@@ -216,7 +216,7 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
                         </span>
 
                         {integration.lastSync && (
-                          <span className="text-xs text-slate-600">
+                          <span className="text-xs text-dhl-gray-dark">
                             Last sync: {new Date(integration.lastSync).toLocaleTimeString()}
                           </span>
                         )}
@@ -229,7 +229,7 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
 
                     <button
                       onClick={() => setShowDetails(showDetails === integration.id ? null : integration.id)}
-                      className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded text-sm font-medium"
+                      className="text-dhl-red hover:bg-dhl-gray-light px-3 py-1 rounded text-sm font-medium"
                     >
                       {showDetails === integration.id ? 'Hide' : 'View'} Details
                     </button>
@@ -237,23 +237,23 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
 
                   {/* Details Panel */}
                   {showDetails === integration.id && (
-                    <div className="border-t border-slate-200 mt-4 pt-4">
-                      <h6 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                    <div className="border-t border-dhl-gray-medium mt-4 pt-4">
+                      <h6 className="font-semibold text-dhl-black mb-2 flex items-center gap-2">
                         <Code className="w-4 h-4" />
                         Configuration
                       </h6>
-                      <pre className="bg-slate-900 text-green-400 p-3 rounded text-xs overflow-x-auto max-h-64 overflow-y-auto">
+                      <pre className="bg-dhl-black text-green-400 p-3 rounded text-xs overflow-x-auto max-h-64 overflow-y-auto">
                         {JSON.stringify(integration.config, null, 2)}
                       </pre>
 
                       <div className="mt-3 flex gap-2">
-                        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium">
+                        <button className="px-3 py-1 bg-dhl-red hover:bg-dhl-red text-white text-sm rounded font-medium">
                           Test
                         </button>
-                        <button className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm rounded font-medium">
+                        <button className="px-3 py-1 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black text-sm rounded font-medium">
                           Edit
                         </button>
-                        <button className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded font-medium">
+                        <button className="px-3 py-1 bg-red-100 hover:bg-dhl-gray-light text-red-700 text-sm rounded font-medium">
                           Delete
                         </button>
                       </div>
@@ -266,16 +266,16 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
       </div>
 
       {/* Integration Statistics */}
-      <div className="bg-slate-50 border border-slate-300 rounded-lg p-4">
-        <h4 className="font-semibold text-slate-900 mb-3">Integration Statistics</h4>
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
+        <h4 className="font-semibold text-dhl-black mb-3">Integration Statistics</h4>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {INTEGRATION_TYPES.map((type) => {
             const total = integrations.filter((i) => i.type === type.id).length;
             const active = integrations.filter((i) => i.type === type.id && i.status === 'active').length;
             return (
               <div key={type.id} className="text-center">
-                <p className="text-2xl font-bold text-slate-900">{active}</p>
-                <p className="text-xs text-slate-600 mt-1">of {total} {type.label}</p>
+                <p className="text-2xl font-bold text-dhl-black">{active}</p>
+                <p className="text-xs text-dhl-gray-dark mt-1">of {total} {type.label}</p>
               </div>
             );
           })}
@@ -283,7 +283,7 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
       </div>
 
       {/* Quick Start Guide */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
         <h4 className="font-semibold text-blue-900 mb-2">🚀 Quick Start: Adding Integrations</h4>
         <ol className="text-sm text-blue-900 space-y-1 list-decimal list-inside">
           <li>Go to the specific integration tab (Webhooks, Adapters, etc.)</li>
@@ -298,3 +298,5 @@ export const IntegrationManagerComponent: React.FC<IntegrationManagerComponentPr
 };
 
 export default IntegrationManagerComponent;
+
+

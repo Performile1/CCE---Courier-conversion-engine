@@ -104,7 +104,7 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
   };
 
   if (loading) {
-    return <div className="bg-white rounded-lg p-6 text-center">Loading cost analysis...</div>;
+    return <div className="bg-white rounded-sm p-6 text-center">Loading cost analysis...</div>;
   }
 
   const avgCostPerUse = costByModel.length > 0 ? (totalCost / costByModel.reduce((sum, m) => sum + m.count, 0)).toFixed(4) : '0';
@@ -113,13 +113,13 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* Total Cost & Trend */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200 p-6">
+      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-sm border border-dhl-gray-medium p-6">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-slate-600 mb-1">Total API Cost (All Time)</p>
-            <p className="text-4xl font-bold text-slate-900 mb-2">${totalCost.toFixed(2)}</p>
-            <p className="text-xs text-slate-600 flex items-center gap-1">
-              <TrendingDown className="w-3 h-3 text-green-600" />
+            <p className="text-sm text-dhl-gray-dark mb-1">Total API Cost (All Time)</p>
+            <p className="text-4xl font-bold text-dhl-black mb-2">${totalCost.toFixed(2)}</p>
+            <p className="text-xs text-dhl-gray-dark flex items-center gap-1">
+              <TrendingDown className="w-3 h-3 text-dhl-yellow" />
               Average: ${avgCostPerUse} per call
             </p>
           </div>
@@ -129,8 +129,8 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
 
       {/* Cost by Model */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <h3 className="font-bold text-slate-900 mb-4">Cost by Model</h3>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <h3 className="font-bold text-dhl-black mb-4">Cost by Model</h3>
           {costByModel.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -152,26 +152,26 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-center text-slate-600 py-8">No cost data</p>
+            <p className="text-center text-dhl-gray-dark py-8">No cost data</p>
           )}
         </div>
 
         {/* Cost Breakdown Table */}
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <h3 className="font-bold text-slate-900 mb-4">Cost Breakdown</h3>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <h3 className="font-bold text-dhl-black mb-4">Cost Breakdown</h3>
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {costByModel.map((model, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded">
+              <div key={idx} className="flex items-center justify-between p-2 hover:bg-dhl-gray-light rounded">
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: COLORS[idx % COLORS.length] }}
                   ></div>
-                  <span className="text-sm font-medium text-slate-900">{model.model}</span>
+                  <span className="text-sm font-medium text-dhl-black">{model.model}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-slate-900">${model.cost.toFixed(2)}</p>
-                  <p className="text-xs text-slate-600">{model.count} calls</p>
+                  <p className="text-sm font-bold text-dhl-black">${model.cost.toFixed(2)}</p>
+                  <p className="text-xs text-dhl-gray-dark">{model.count} calls</p>
                 </div>
               </div>
             ))}
@@ -180,8 +180,8 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
       </div>
 
       {/* Cost by Service */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="font-bold text-slate-900 mb-4">Cost by Service</h3>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+        <h3 className="font-bold text-dhl-black mb-4">Cost by Service</h3>
         {costByService.length > 0 ? (
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={costByService}>
@@ -193,13 +193,13 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-center text-slate-600 py-8">No data</p>
+          <p className="text-center text-dhl-gray-dark py-8">No data</p>
         )}
       </div>
 
       {/* Monthly Trend */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="font-bold text-slate-900 mb-4">Monthly Cost Trend</h3>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+        <h3 className="font-bold text-dhl-black mb-4">Monthly Cost Trend</h3>
         {monthlyCosts.length > 0 ? (
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={monthlyCosts}>
@@ -218,13 +218,13 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-center text-slate-600 py-8">No data</p>
+          <p className="text-center text-dhl-gray-dark py-8">No data</p>
         )}
       </div>
 
       {/* Cost Summary */}
       {highestCostModel && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div className="bg-dhl-gray-light border border-amber-200 rounded-sm p-4">
           <p className="text-sm text-amber-900 mb-2">
             💡 <strong>Top Cost Driver:</strong> {highestCostModel.model} accounts for{' '}
             {highestCostModel.percentage}% of your API costs
@@ -239,3 +239,5 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
 };
 
 export default CostAnalysisDashboard;
+
+

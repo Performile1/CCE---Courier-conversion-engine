@@ -130,15 +130,15 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-        <Settings className="w-5 h-5 text-purple-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+        <Settings className="w-5 h-5 text-dhl-red" />
         Custom Integration Adapters
       </h3>
 
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+          className="w-full py-2 px-4 bg-dhl-red hover:bg-purple-700 text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Create Adapter
@@ -146,10 +146,10 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
       )}
 
       {showForm && (
-        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
+        <div className="border border-dhl-gray-medium rounded-sm p-4 space-y-4 bg-dhl-gray-light">
           {/* Adapter Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
+            <label className="block text-sm font-medium text-dhl-black mb-2">
               Adapter Type
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -160,14 +160,14 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                     setSelectedType(key as 'http' | 'javascript' | 'zapier');
                     setConfig(template.config);
                   }}
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  className={`p-3 rounded-sm border-2 text-left transition-all ${
                     selectedType === key
-                      ? 'border-purple-600 bg-purple-50'
-                      : 'border-slate-300 bg-white hover:border-purple-400'
+                      ? 'border-purple-600 bg-dhl-gray-light'
+                      : 'border-dhl-gray-medium bg-white hover:border-purple-400'
                   }`}
                 >
-                  <p className="font-medium text-sm text-slate-900">{template.name}</p>
-                  <p className="text-xs text-slate-600 mt-1">{template.description}</p>
+                  <p className="font-medium text-sm text-dhl-black">{template.name}</p>
+                  <p className="text-xs text-dhl-gray-dark mt-1">{template.description}</p>
                 </button>
               ))}
             </div>
@@ -175,7 +175,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 
           {/* Adapter Details */}
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-1">
+            <label className="block text-sm font-medium text-dhl-black mb-1">
               Adapter Name
             </label>
             <input
@@ -183,12 +183,12 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
               value={adapterName}
               onChange={(e) => setAdapterName(e.target.value)}
               placeholder="e.g., Slack Notifications"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-1">
+            <label className="block text-sm font-medium text-dhl-black mb-1">
               Description (optional)
             </label>
             <input
@@ -196,7 +196,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
               value={adapterDescription}
               onChange={(e) => setAdapterDescription(e.target.value)}
               placeholder="What does this adapter do?"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
             />
           </div>
 
@@ -204,7 +204,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
           {selectedType === 'http' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-dhl-black mb-1">
                   HTTP Method
                 </label>
                 <select
@@ -212,7 +212,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                   onChange={(e) =>
                     setConfig({ ...config, method: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                  className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
                 >
                   <option>GET</option>
                   <option>POST</option>
@@ -222,7 +222,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-dhl-black mb-1">
                   Endpoint URL
                 </label>
                 <input
@@ -230,12 +230,12 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                   value={config.url}
                   onChange={(e) => setConfig({ ...config, url: e.target.value })}
                   placeholder="https://api.example.com/webhook"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                  className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">
+                <label className="block text-sm font-medium text-dhl-black mb-1">
                   Body Template
                 </label>
                 <textarea
@@ -244,9 +244,9 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                     setConfig({ ...config, bodyTemplate: e.target.value })
                   }
                   rows={4}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 font-mono text-xs"
+                  className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black font-mono text-xs"
                 />
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-xs text-dhl-gray-dark mt-1">
                   Use {'{{event}}'} and {'{{data}}'} placeholders
                 </p>
               </div>
@@ -255,16 +255,16 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 
           {selectedType === 'javascript' && (
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Transformation Code
               </label>
               <textarea
                 value={config.code}
                 onChange={(e) => setConfig({ ...config, code: e.target.value })}
                 rows={8}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 font-mono text-xs"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black font-mono text-xs"
               />
-              <p className="text-xs text-slate-600 mt-1">
+              <p className="text-xs text-dhl-gray-dark mt-1">
                 Function receives {'{ event, data, timestamp }'} and must return transformed data
               </p>
             </div>
@@ -272,7 +272,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 
           {selectedType === 'zapier' && (
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Zapier Webhook URL
               </label>
               <input
@@ -282,16 +282,16 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                   setConfig({ ...config, webhookUrl: e.target.value })
                 }
                 placeholder="https://hooks.zapier.com/hooks/catch/..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
               />
             </div>
           )}
 
-          <div className="flex gap-2 border-t border-slate-300 pt-4">
+          <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
             <button
               onClick={handleAddAdapter}
               disabled={saving}
-              className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white font-semibold rounded-lg"
+              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-purple-700 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm"
             >
               {saving ? 'Creating...' : 'Create Adapter'}
             </button>
@@ -300,7 +300,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                 setShowForm(false);
                 setAdapterName('');
               }}
-              className="flex-1 py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg"
+              className="flex-1 py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm"
             >
               Cancel
             </button>
@@ -310,7 +310,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 
       {/* Test Result Display */}
       {testResult && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-3">
           <p className="text-sm text-blue-900 font-mono whitespace-pre-wrap">{testResult}</p>
         </div>
       )}
@@ -318,31 +318,31 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
       {/* Adapters List */}
       <div className="space-y-2">
         {adapters.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-4">No adapters created</p>
+          <p className="text-sm text-dhl-gray-dark text-center py-4">No adapters created</p>
         ) : (
           adapters.map((adapter) => (
-            <div key={adapter.id} className="border border-slate-300 rounded-lg p-3 bg-white">
+            <div key={adapter.id} className="border border-dhl-gray-medium rounded-sm p-3 bg-white">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     {adapter.active ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <CheckCircle className="w-4 h-4 text-dhl-yellow" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-600" />
                     )}
-                    <h4 className="font-semibold text-slate-900">{adapter.name}</h4>
+                    <h4 className="font-semibold text-dhl-black">{adapter.name}</h4>
                     <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
                       {adapter.type}
                     </span>
                   </div>
                   {adapter.description && (
-                    <p className="text-xs text-slate-600 mt-1">{adapter.description}</p>
+                    <p className="text-xs text-dhl-gray-dark mt-1">{adapter.description}</p>
                   )}
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => testAdapter(adapter)}
-                    className="p-1 hover:bg-blue-50 rounded text-blue-600"
+                    className="p-1 hover:bg-dhl-gray-light rounded text-dhl-red"
                   >
                     <TestTube className="w-4 h-4" />
                   </button>
@@ -352,7 +352,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                       setAdapters(updated);
                       localStorage.setItem(`adapters_${userId}`, JSON.stringify(updated));
                     }}
-                    className="p-1 hover:bg-red-50 rounded text-red-600"
+                    className="p-1 hover:bg-dhl-gray-light rounded text-red-600"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -364,7 +364,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
       </div>
 
       {/* Use Cases */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+      <div className="bg-dhl-gray-light border border-amber-200 rounded-sm p-4 space-y-2">
         <p className="text-sm font-bold text-amber-900">Use Case Examples:</p>
         <ul className="text-xs text-amber-900 space-y-1">
           <li>• <strong>HTTP:</strong> Send campaign completions to your CRM via API</li>
@@ -377,3 +377,5 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
 };
 
 export default CustomIntegrationAdapter;
+
+

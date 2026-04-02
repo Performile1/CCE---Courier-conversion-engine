@@ -158,16 +158,16 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+    <div className="bg-white rounded-sm border border-dhl-gray-medium p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-indigo-600" />
+        <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+          <MessageCircle className="w-5 h-5 text-dhl-red" />
           Slack Notifications
         </h3>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2"
+            className="py-2 px-4 bg-dhl-red hover:bg-red-800 text-white font-semibold rounded-sm transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Add Webhook
@@ -176,17 +176,17 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {showForm && (
-        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
+        <div className="border border-dhl-gray-medium rounded-sm p-4 space-y-4 bg-dhl-gray-light">
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Slack Webhook URL
               </label>
               <input
@@ -194,15 +194,15 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
                 placeholder="https://hooks.slack.com/services/..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
               />
-              <p className="text-xs text-slate-600 mt-1">
+              <p className="text-xs text-dhl-gray-dark mt-1">
                 Get this from Slack Apps → Incoming Webhooks
               </p>
             </div>
 
             <div>
-              <p className="text-sm font-medium text-slate-900 mb-2">Notifications</p>
+              <p className="text-sm font-medium text-dhl-black mb-2">Notifications</p>
               <div className="space-y-2">
                 {Object.entries(notificationPrefs).map(([key, value]) => (
                   <label key={key} className="flex items-center gap-2 p-2 hover:bg-white rounded">
@@ -214,7 +214,7 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
                       }
                       className="w-4 h-4"
                     />
-                    <span className="text-sm text-slate-900">
+                    <span className="text-sm text-dhl-black">
                       {key === 'leadCreated' && 'New Lead Created'}
                       {key === 'hallucinationAlert' && 'Hallucination Alert (>70%)'}
                       {key === 'campaignStarted' && 'Campaign Started'}
@@ -227,18 +227,18 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-300 pt-4">
+          <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
             <button
               onClick={handleAddIntegration}
               disabled={loading || !webhookUrl}
-              className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
             >
               {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Connect
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="flex-1 py-2 px-4 bg-slate-300 hover:bg-slate-400 text-slate-900 font-semibold rounded-lg transition-all"
+              className="flex-1 py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm transition-all"
             >
               Cancel
             </button>
@@ -248,27 +248,27 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
 
       <div className="space-y-2">
         {integrations.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-4">No Slack webhooks connected</p>
+          <p className="text-sm text-dhl-gray-dark text-center py-4">No Slack webhooks connected</p>
         ) : (
           integrations.map((integration) => (
-            <div key={integration.id} className="border border-slate-300 rounded-lg p-3">
+            <div key={integration.id} className="border border-dhl-gray-medium rounded-sm p-3">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <p className="font-medium text-slate-900">
+                  <CheckCircle className="w-5 h-5 text-dhl-yellow" />
+                  <p className="font-medium text-dhl-black">
                     {integration.webhookUrl.substring(0, 50)}...
                   </p>
                 </div>
                 <button
                   onClick={() => handleDeleteIntegration(integration.id)}
                   disabled={loading}
-                  className="p-1 hover:bg-red-50 rounded transition-all"
+                  className="p-1 hover:bg-dhl-gray-light rounded transition-all"
                 >
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </button>
               </div>
 
-              <div className="space-y-1 text-xs text-slate-600">
+              <div className="space-y-1 text-xs text-dhl-gray-dark">
                 <p>
                   Lead Created: {integration.notifications?.leadCreated ? '✅' : '❌'}
                 </p>
@@ -295,3 +295,6 @@ export const SlackManager: React.FC<SlackManagerProps> = ({ userId }) => {
 };
 
 export default SlackManager;
+
+
+

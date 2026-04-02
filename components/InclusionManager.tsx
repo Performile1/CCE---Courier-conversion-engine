@@ -194,7 +194,7 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
       <div className="bg-white w-full max-w-3xl shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="bg-white p-4 flex justify-between items-center border-b border-slate-200">
+        <div className="bg-white p-4 flex justify-between items-center border-b border-dhl-gray-medium">
           <h2 className="text-lg font-black italic uppercase flex items-center gap-2 text-black">
             <Target className="w-6 h-6 text-red-600" />
             Riktad Sökning (Inkludering)
@@ -207,15 +207,15 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
         <div className="flex flex-col md:flex-row h-full overflow-hidden">
           
           {/* Left: Input Area */}
-          <div className="w-full md:w-1/3 p-4 flex flex-col border-r border-slate-100 bg-slate-50">
-             <div className="bg-green-50 border-l-4 border-green-500 p-3 mb-4">
+          <div className="w-full md:w-1/3 p-4 flex flex-col border-r border-slate-100 bg-dhl-gray-light">
+             <div className="bg-dhl-gray-light border-l-4 border-green-500 p-3 mb-4">
                 <p className="text-xs text-green-800">
                   <strong>Valda Kriterier:</strong> Dessa SNI-koder och sökord är nu <strong>krav</strong> för sökningen.
                 </p>
               </div>
               
               <textarea
-                className="flex-1 w-full p-3 text-xs border border-slate-300 focus:border-red-600 focus:ring-red-600 rounded-sm font-mono resize-none mb-2"
+                className="flex-1 w-full p-3 text-xs border border-dhl-gray-medium focus:border-red-600 focus:ring-red-600 rounded-sm font-mono resize-none mb-2"
                 placeholder="Exempel:&#10;SNI 47.91&#10;Sportartiklar&#10;SNI 46.73"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
@@ -228,7 +228,7 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
           {/* Right: Database Search */}
           <div className="flex-1 p-4 overflow-hidden flex flex-col bg-white">
              <div className="mb-4">
-                <h3 className="text-xs font-bold text-slate-700 uppercase mb-2 flex items-center gap-2">
+                <h3 className="text-xs font-bold text-dhl-gray-dark uppercase mb-2 flex items-center gap-2">
                   Sök i SNI 2007 Databas (Alla Sektorer)
                 </h3>
                 <div className="relative">
@@ -238,12 +238,12 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
                     placeholder="Sök på bransch (t.ex. 'Bygg', 'IT', 'Vård', 'Handel')..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 focus:border-red-600 focus:ring-red-600 rounded-sm"
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-dhl-gray-medium focus:border-red-600 focus:ring-red-600 rounded-sm"
                   />
                 </div>
              </div>
 
-             <div className="flex-1 overflow-y-auto space-y-2 border border-slate-100 p-2 bg-slate-50/50">
+             <div className="flex-1 overflow-y-auto space-y-2 border border-slate-100 p-2 bg-dhl-gray-light/50">
                {filteredSuggestions.length === 0 ? (
                  <div className="text-center py-8 text-slate-400 text-xs italic">
                    Inga SNI-koder matchade din sökning.
@@ -260,14 +260,14 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
                        className={`w-full text-left text-xs px-3 py-2 border rounded-sm flex items-center justify-between group transition-all ${
                          isActive 
                            ? 'bg-green-100 border-green-300 text-green-800 cursor-default' 
-                           : 'bg-white border-slate-200 hover:border-red-600 hover:text-red-600 shadow-sm'
+                           : 'bg-white border-dhl-gray-medium hover:border-red-600 hover:text-red-600 shadow-sm'
                        }`}
                      >
                        <div className="flex flex-col">
-                         <span className="font-bold text-slate-900">SNI {item.code}</span>
+                         <span className="font-bold text-dhl-black">SNI {item.code}</span>
                          <span className="text-[10px] text-slate-500">{item.label}</span>
                        </div>
-                       {isActive ? <Check className="w-3 h-3 text-green-600" /> : <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 text-red-600" />}
+                       {isActive ? <Check className="w-3 h-3 text-dhl-yellow" /> : <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 text-red-600" />}
                      </button>
                    );
                  })
@@ -277,7 +277,7 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+        <div className="p-4 bg-dhl-gray-light border-t border-dhl-gray-medium flex justify-between items-center">
             <button 
                onClick={() => setTextInput('')}
                className="text-xs text-slate-500 hover:text-red-600 font-bold uppercase"
@@ -296,3 +296,4 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
     </div>
   );
 };
+

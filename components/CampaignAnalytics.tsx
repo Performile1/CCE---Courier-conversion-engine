@@ -101,14 +101,14 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-indigo-600" />
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+        <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-dhl-red" />
           {campaignName} Analytics
         </h3>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-4">
+          <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm text-sm text-dhl-red mb-4">
             {error}
           </div>
         )}
@@ -117,24 +117,24 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
           {metrics.map((metric) => {
             const Icon = metric.icon;
             const colorClasses = {
-              blue: 'text-blue-600 bg-blue-50',
-              green: 'text-green-600 bg-green-50',
-              purple: 'text-purple-600 bg-purple-50',
-              amber: 'text-amber-600 bg-amber-50',
+              blue: 'text-dhl-red bg-dhl-gray-light',
+              green: 'text-dhl-red bg-dhl-gray-light',
+              purple: 'text-dhl-red bg-dhl-gray-light',
+              amber: 'text-dhl-red bg-dhl-gray-light',
             };
 
             return (
               <div
                 key={metric.label}
-                className="border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+                className="border border-dhl-gray-medium rounded-sm p-3 hover:shadow-md transition-shadow"
               >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClasses[metric.color as keyof typeof colorClasses]} mb-2`}>
+                <div className={`w-8 h-8 rounded-sm flex items-center justify-center ${colorClasses[metric.color as keyof typeof colorClasses]} mb-2`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                <p className="text-xs text-slate-600 mb-1">{metric.label}</p>
-                <p className="text-2xl font-bold text-slate-900">{metric.value}</p>
+                <p className="text-xs text-dhl-gray-dark mb-1">{metric.label}</p>
+                <p className="text-2xl font-bold text-dhl-black">{metric.value}</p>
                 {metric.subtext && (
-                  <p className="text-xs text-slate-600 mt-1">{metric.subtext}</p>
+                  <p className="text-xs text-dhl-gray-dark mt-1">{metric.subtext}</p>
                 )}
               </div>
             );
@@ -144,24 +144,24 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Key Metrics */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h4 className="font-bold text-slate-900 mb-3">Key Metrics</h4>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+          <h4 className="font-bold text-dhl-black mb-3">Key Metrics</h4>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
-              <span className="text-slate-600">Open Rate</span>
-              <span className="font-bold text-slate-900">{analytics.openRate}%</span>
+            <div className="flex justify-between items-center p-2 bg-dhl-gray-light rounded-sm">
+              <span className="text-dhl-gray-dark">Open Rate</span>
+              <span className="font-bold text-dhl-black">{analytics.openRate}%</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
-              <span className="text-slate-600">Click Rate</span>
-              <span className="font-bold text-slate-900">{analytics.clickRate}%</span>
+            <div className="flex justify-between items-center p-2 bg-dhl-gray-light rounded-sm">
+              <span className="text-dhl-gray-dark">Click Rate</span>
+              <span className="font-bold text-dhl-black">{analytics.clickRate}%</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
-              <span className="text-slate-600">Bounce Rate</span>
-              <span className="font-bold text-slate-900">{analytics.bounceRate}%</span>
+            <div className="flex justify-between items-center p-2 bg-dhl-gray-light rounded-sm">
+              <span className="text-dhl-gray-dark">Bounce Rate</span>
+              <span className="font-bold text-dhl-black">{analytics.bounceRate}%</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-green-50 rounded">
-              <span className="text-slate-600">Conversion Rate</span>
-              <span className="font-bold text-green-600">
+            <div className="flex justify-between items-center p-2 bg-dhl-gray-light rounded-sm">
+              <span className="text-dhl-gray-dark">Conversion Rate</span>
+              <span className="font-bold text-dhl-red">
                 {analytics.totalSent > 0
                   ? ((analytics.conversions / analytics.totalSent) * 100).toFixed(1)
                   : 0}
@@ -172,28 +172,28 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
         </div>
 
         {/* Top Links */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h4 className="font-bold text-slate-900 mb-3">Top Clicked Links</h4>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+          <h4 className="font-bold text-dhl-black mb-3">Top Clicked Links</h4>
           <div className="space-y-2 text-sm">
             {analytics.topLinks && analytics.topLinks.length > 0 ? (
               analytics.topLinks.slice(0, 5).map((link, idx) => (
-                <div key={idx} className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                <div key={idx} className="flex justify-between items-center p-2 bg-dhl-gray-light rounded-sm">
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-indigo-600 hover:underline truncate"
+                    className="text-dhl-red hover:underline truncate"
                     title={link.url}
                   >
                     {link.url.substring(0, 35)}...
                   </a>
-                  <span className="font-bold text-slate-900 whitespace-nowrap ml-2">
+                  <span className="font-bold text-dhl-black whitespace-nowrap ml-2">
                     {link.clicks} clicks
                   </span>
                 </div>
               ))
             ) : (
-              <p className="text-slate-600">No clicks yet</p>
+              <p className="text-dhl-gray-dark">No clicks yet</p>
             )}
           </div>
         </div>
@@ -207,16 +207,16 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
             {analytics.recipientBreakdown && analytics.recipientBreakdown.length > 0 ? (
               analytics.recipientBreakdown.slice(0, 20).map((recipient, idx) => {
                 const statusColors = {
-                  sent: 'bg-blue-50 text-blue-700',
-                  opened: 'bg-green-50 text-green-700',
-                  clicked: 'bg-purple-50 text-purple-700',
-                  bounced: 'bg-red-50 text-red-700',
+                  sent: 'bg-dhl-gray-light text-dhl-red',
+                  opened: 'bg-dhl-gray-light text-dhl-yellow',
+                  clicked: 'bg-dhl-gray-light text-purple-700',
+                  bounced: 'bg-dhl-gray-light text-red-700',
                 };
 
                 return (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-2 hover:bg-slate-50 rounded"
+                    className="flex items-center justify-between p-2 hover:bg-dhl-gray-light rounded"
                   >
                     <span className="text-slate-600 truncate">{recipient.email}</span>
                     <span
@@ -238,7 +238,7 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
 
       <button
         onClick={loadAnalytics}
-        className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-all text-sm"
+        className="w-full py-2 px-4 bg-slate-100 hover:bg-dhl-gray-medium text-slate-900 font-semibold rounded-lg transition-all text-sm"
       >
         🔄 Refresh Analytics
       </button>
@@ -247,3 +247,4 @@ export const CampaignAnalytics: React.FC<CampaignAnalyticsProps> = ({
 };
 
 export default CampaignAnalytics;
+

@@ -185,7 +185,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
   return (
     <div className="w-full">
-      <div className="bg-slate-100 p-1 border-t-4 border-red-600 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-dhl-gray-light p-1 border-t-4 border-red-600 border-b border-dhl-gray-medium flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -194,14 +194,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 placeholder="Filtrera lista..."
                 value={filters.global}
                 onChange={(e) => setFilters({...filters, global: e.target.value})}
-                className="pl-9 pr-3 py-2 w-64 text-xs border border-slate-300 rounded-sm focus:ring-red-600 focus:border-red-600 shadow-sm"
+                className="pl-9 pr-3 py-2 w-64 text-xs border border-dhl-gray-medium rounded-sm focus:ring-red-600 focus:border-red-600 shadow-sm"
               />
             </div>
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => onDownloadSelected?.(data.filter(l => selectedIds.has(l.id)))}
-                  className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-2 text-[10px] font-bold uppercase hover:bg-green-700 transition-colors shadow-sm rounded-sm"
+                  className="flex items-center gap-1.5 bg-dhl-yellow text-white px-3 py-2 text-[10px] font-bold uppercase hover:bg-dhl-yellow transition-colors shadow-sm rounded-sm"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Exportera ({selectedIds.size})
@@ -252,13 +252,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 <div className="text-center">Handlingar</div>
             </div>
 
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-dhl-gray-medium">
             {paginatedData.map((lead) => {
                 const isAnalyzed = !!lead.analysisDate && lead.analysisDate !== "";
                 return (
                     <div 
                         key={lead.id} 
-                        className={`grid grid-cols-[50px_120px_100px_minmax(200px,3fr)_minmax(120px,1fr)_130px_70px_minmax(150px,2fr)_160px] hover:bg-slate-50 transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-red-50 border-red-600' : 'border-transparent'}`}
+                        className={`grid grid-cols-[50px_120px_100px_minmax(200px,3fr)_minmax(120px,1fr)_130px_70px_minmax(150px,2fr)_160px] hover:bg-dhl-gray-light transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-dhl-gray-light border-red-600' : 'border-transparent'}`}
                         onClick={() => onSelectLead?.(lead)}
                     >
                         <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -266,37 +266,37 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             type="checkbox" 
                             checked={selectedIds.has(lead.id)} 
                             onChange={() => toggleSelect(lead.id)}
-                            className="rounded-sm border-slate-300 text-red-600 w-4 h-4" 
+                            className="rounded-sm border-dhl-gray-medium text-red-600 w-4 h-4" 
                           />
                         </div>
                         <div className="pl-4 text-[10px] font-mono font-bold text-slate-500">{lead.orgNumber || "-"}</div>
                         <div className="text-[10px] font-black text-red-600">{lead.sniCode || "-"}</div>
                         <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-2 truncate">
-                                <span className="text-xs font-normal text-slate-900 uppercase tracking-tight">{lead.companyName}</span>
+                                <span className="text-xs font-normal text-dhl-black uppercase tracking-tight">{lead.companyName}</span>
                                 {threePLProviders.some(p => p.address && lead.warehouseAddress && p.address.toLowerCase().trim() === lead.warehouseAddress.toLowerCase().trim()) && (
                                     <span className="bg-red-600 text-white text-[8px] font-black px-1 rounded-sm flex items-center gap-0.5">
                                         <Package className="w-2 h-2" /> 3PL
                                     </span>
                                 )}
                             </div>
-                            {!isAnalyzed && <span className="text-[8px] font-black text-orange-600 uppercase flex items-center gap-0.5"><AlertCircle className="w-2 h-2"/> DeepScan Required</span>}
+                            {!isAnalyzed && <span className="text-[8px] font-black text-dhl-yellow uppercase flex items-center gap-0.5"><AlertCircle className="w-2 h-2"/> DeepScan Required</span>}
                         </div>
-                        <div className="text-xs font-bold text-slate-600 truncate flex items-center gap-1.5">
+                        <div className="text-xs font-bold text-dhl-gray-dark truncate flex items-center gap-1.5">
                             <MapPin className="w-3.5 h-3.5 text-red-600" />
                             {extractCity(lead.address)}
                         </div>
-                        <div className="text-xs font-black text-slate-800 font-mono">{formatFinancialCompact(lead.revenue)}</div>
+                        <div className="text-xs font-black text-dhl-black font-mono">{formatFinancialCompact(lead.revenue)}</div>
                         <div>
                             <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-sm border shadow-sm ${
                                 lead.segment === 'KAM' ? 'bg-[#D40511] text-white border-[#D40511]' : 
                                 lead.segment === 'FS' ? 'bg-[#FFCC00] text-black border-[#FFCC00]' : 
-                                lead.segment === 'TS' ? 'bg-slate-800 text-white border-slate-800' :
-                                'bg-slate-100 text-slate-600 border-slate-300'
+                                lead.segment === 'TS' ? 'bg-dhl-black text-white border-slate-800' :
+                                'bg-dhl-gray-light text-dhl-gray-dark border-dhl-gray-medium'
                             }`}>{lead.segment}</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-800 truncate">{lead.decisionMakers?.[0]?.name || "Ingen kontakt"}</span>
+                            <span className="text-xs font-bold text-dhl-black truncate">{lead.decisionMakers?.[0]?.name || "Ingen kontakt"}</span>
                             {lead.decisionMakers?.[0]?.title && <span className="text-[9px] text-slate-400 font-black uppercase truncate">{lead.decisionMakers[0].title}</span>}
                         </div>
                         <div className="flex justify-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -312,7 +312,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                 title={isAnalyzed ? "Öppna Analys" : "Kör Djupanalys"}
                                 className={`p-2 rounded-sm shadow-sm transition-all flex items-center justify-center ${
                                     isAnalyzed 
-                                    ? 'bg-slate-800 text-white hover:bg-black' 
+                                    ? 'bg-dhl-black text-white hover:bg-black' 
                                     : 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 animate-pulse'
                                 }`}
                             >
@@ -321,14 +321,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <button 
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onDownloadSingle?.(lead); }} 
-                                className="p-2 bg-white border border-slate-300 text-green-600 hover:bg-green-600 hover:text-white rounded-sm shadow-sm transition-all"
+                                className="p-2 bg-white border border-dhl-gray-medium text-dhl-yellow hover:bg-dhl-yellow hover:text-white rounded-sm shadow-sm transition-all"
                             >
                                 <Download className="w-3.5 h-3.5" />
                             </button>
                             <button 
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); initiateRemoval([lead]); }} 
-                                className="p-2 bg-white border border-slate-300 text-red-600 hover:bg-red-600 hover:text-white rounded-sm shadow-sm transition-all"
+                                className="p-2 bg-white border border-dhl-gray-medium text-red-600 hover:bg-red-600 hover:text-white rounded-sm shadow-sm transition-all"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -341,7 +341,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       </div>
 
       {/* Pagination Controls */}
-      <div className="bg-slate-50 border-t border-slate-200 p-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-dhl-gray-light border-t border-dhl-gray-medium p-3 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase">Visa:</span>
@@ -351,7 +351,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="text-[10px] font-bold border border-slate-300 rounded-sm px-2 py-1 focus:ring-red-600 focus:border-red-600 outline-none bg-white"
+              className="text-[10px] font-bold border border-dhl-gray-medium rounded-sm px-2 py-1 focus:ring-red-600 focus:border-red-600 outline-none bg-white"
             >
               {[10, 25, 50, 100].map(size => (
                 <option key={size} value={size}>{size} per sida</option>
@@ -367,7 +367,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <button 
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            className="px-3 py-1.5 border border-slate-300 rounded-sm text-[10px] font-bold uppercase hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1.5 border border-dhl-gray-medium rounded-sm text-[10px] font-bold uppercase hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Föregående
           </button>
@@ -387,7 +387,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   className={`w-8 h-8 flex items-center justify-center rounded-sm text-[10px] font-bold transition-all ${
                     currentPage === pageNum 
                       ? 'bg-red-600 text-white shadow-md' 
-                      : 'bg-white border border-slate-200 text-slate-600 hover:border-red-300'
+                      : 'bg-white border border-dhl-gray-medium text-dhl-gray-dark hover:border-red-300'
                   }`}
                 >
                   {pageNum}
@@ -399,7 +399,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <button 
             disabled={currentPage === totalPages || totalPages === 0}
             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            className="px-3 py-1.5 border border-slate-300 rounded-sm text-[10px] font-bold uppercase hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1.5 border border-dhl-gray-medium rounded-sm text-[10px] font-bold uppercase hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Nästa
           </button>
@@ -415,3 +415,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     </div>
   );
 };
+
+
+

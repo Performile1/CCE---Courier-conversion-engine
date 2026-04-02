@@ -156,7 +156,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-3xl shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-[#ffcc00]">
+        <div className="p-4 border-b border-dhl-gray-medium flex justify-between items-center bg-[#ffcc00]">
           <h2 className="text-lg font-black italic uppercase flex items-center gap-2 text-black">
             <Mail className="w-5 h-5 text-red-600" />
             Mailmotor & Inställningar
@@ -166,7 +166,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
 
         <div className="p-6 overflow-y-auto space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="bg-red-50 p-4 border-l-4 border-red-500 space-y-2 shadow-sm">
+             <div className="bg-dhl-gray-light p-4 border-l-4 border-dhl-red space-y-2 shadow-sm">
                 <div className="flex items-center gap-3">
                   <Calendar className="w-5 h-5 text-red-600" />
                   <label className="text-xs font-black uppercase text-red-900 tracking-widest">Min Kalenderlänk</label>
@@ -176,14 +176,14 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                   value={localCalendarUrl}
                   onChange={(e) => setLocalCalendarUrl(e.target.value)}
                   placeholder="https://outlook.office365.com/..."
-                  className="w-full p-2 text-xs border border-red-200 rounded-sm focus:ring-1 focus:ring-red-500 outline-none"
+                  className="w-full p-2 text-xs border border-dhl-gray-medium rounded-sm focus:ring-1 focus:ring-red-500 outline-none"
                 />
              </div>
              
-             <div className="bg-slate-50 p-4 border border-slate-200 space-y-2 shadow-sm">
+             <div className="bg-dhl-gray-light p-4 border border-dhl-gray-medium space-y-2 shadow-sm">
                 <div className="flex items-center gap-3 mb-1">
-                  <Database className="w-5 h-5 text-slate-600" />
-                  <label className="text-xs font-black uppercase text-slate-800 tracking-widest">Dynamiska Taggar</label>
+                  <Database className="w-5 h-5 text-dhl-gray-dark" />
+                  <label className="text-xs font-black uppercase text-dhl-black tracking-widest">Dynamiska Taggar</label>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                    {TAGS.map(t => (
@@ -192,10 +192,10 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                        onClick={() => insertTag(t.tag)}
                        className="group relative block w-full"
                      >
-                        <span className="block bg-white border border-slate-200 text-[8px] font-bold text-red-600 p-1 rounded-sm text-center truncate hover:border-red-600 hover:bg-red-50 transition-colors">
+                        <span className="block bg-white border border-dhl-gray-medium text-[8px] font-bold text-red-600 p-1 rounded-sm text-center truncate hover:border-red-600 hover:bg-dhl-gray-light transition-colors">
                           {t.tag}
                         </span>
-                        <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-slate-800 text-white text-[8px] p-1 rounded whitespace-nowrap z-50">
+                        <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-dhl-black text-white text-[8px] p-1 rounded whitespace-nowrap z-50">
                           {t.desc} (Klicka för att infoga)
                         </div>
                      </button>
@@ -206,7 +206,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
 
           <div>
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-xs flex justify-between items-center">
+              <div className="mb-4 p-3 bg-dhl-gray-light border-l-4 border-dhl-red text-red-700 text-xs flex justify-between items-center">
                 <span>{error}</span>
                 <button onClick={() => setError(null)}><X className="w-4 h-4" /></button>
               </div>
@@ -224,7 +224,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                       }
                       setEditLanguage('sv');
                     }}
-                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-sm border ${editLanguage === 'sv' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-500 border-slate-200'}`}
+                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-sm border ${editLanguage === 'sv' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-500 border-dhl-gray-medium'}`}
                   >
                     SV
                   </button>
@@ -236,7 +236,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                       }
                       setEditLanguage('en');
                     }}
-                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-sm border ${editLanguage === 'en' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-500 border-slate-200'}`}
+                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-sm border ${editLanguage === 'en' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-500 border-dhl-gray-medium'}`}
                   >
                     EN
                   </button>
@@ -247,11 +247,11 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
               </button>
             </div>
             
-            <div className="border border-slate-300 rounded-sm bg-slate-50 overflow-hidden shadow-inner">
-               <div className="flex gap-1 p-2 border-b border-slate-200 bg-white">
-                  <button onClick={() => handleCommand('bold')} className="p-1 hover:bg-slate-200 rounded"><Bold className="w-4 h-4" /></button>
-                  <button onClick={() => handleCommand('italic')} className="p-1 hover:bg-slate-200 rounded"><Italic className="w-4 h-4" /></button>
-                  <button onClick={() => handleCommand('insertUnorderedList')} className="p-1 hover:bg-slate-200 rounded"><List className="w-4 h-4" /></button>
+            <div className="border border-dhl-gray-medium rounded-sm bg-dhl-gray-light overflow-hidden shadow-inner">
+               <div className="flex gap-1 p-2 border-b border-dhl-gray-medium bg-white">
+                  <button onClick={() => handleCommand('bold')} className="p-1 hover:bg-dhl-gray-medium rounded"><Bold className="w-4 h-4" /></button>
+                  <button onClick={() => handleCommand('italic')} className="p-1 hover:bg-dhl-gray-medium rounded"><Italic className="w-4 h-4" /></button>
+                  <button onClick={() => handleCommand('insertUnorderedList')} className="p-1 hover:bg-dhl-gray-medium rounded"><List className="w-4 h-4" /></button>
                </div>
                <div ref={templateRef} contentEditable className="p-4 min-h-[150px] outline-none text-sm bg-white font-sans leading-relaxed" />
             </div>
@@ -261,11 +261,11 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
             <label className="block text-xs font-black uppercase text-slate-500 mb-2 flex items-center gap-2 tracking-widest">
               <Paperclip className="w-3 h-3 text-red-600" /> Bilagor (PDF/Länkar)
             </label>
-            <div className="border border-slate-300 rounded-sm p-3 bg-slate-50 shadow-inner">
+            <div className="border border-dhl-gray-medium rounded-sm p-3 bg-dhl-gray-light shadow-inner">
               <div className="space-y-2 mb-3">
                 {attachments.map((url, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-white p-2 border border-slate-200 rounded-sm shadow-sm">
-                    <span className="text-[10px] truncate max-w-[90%] text-slate-600">{url}</span>
+                  <div key={idx} className="flex items-center justify-between bg-white p-2 border border-dhl-gray-medium rounded-sm shadow-sm">
+                    <span className="text-[10px] truncate max-w-[90%] text-dhl-gray-dark">{url}</span>
                     <button onClick={() => removeAttachment(url)} className="text-red-500 hover:text-red-700">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -281,11 +281,11 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                   value={newAttachmentUrl} 
                   onChange={(e) => setNewAttachmentUrl(e.target.value)} 
                   placeholder="Klistra in länk till PDF/prospekt..." 
-                  className="flex-1 text-xs border-slate-200 rounded-sm p-2 shadow-sm" 
+                  className="flex-1 text-xs border-dhl-gray-medium rounded-sm p-2 shadow-sm" 
                 />
                 <button 
                   onClick={addAttachment}
-                  className="bg-slate-800 text-white p-2 rounded-sm hover:bg-slate-900 transition-colors"
+                  className="bg-dhl-black text-white p-2 rounded-sm hover:bg-dhl-black transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -295,7 +295,7 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
 
           <div>
             <label className="block text-xs font-black uppercase text-slate-500 mb-2 flex items-center gap-2 tracking-widest"><Tag className="w-3 h-3 text-red-600" /> Strategiska Fokusord</label>
-            <div className="border border-slate-300 rounded-sm p-3 bg-slate-50 shadow-inner">
+            <div className="border border-dhl-gray-medium rounded-sm p-3 bg-dhl-gray-light shadow-inner">
               <div className="flex flex-wrap gap-2 mb-3">
                 {focusWords.map((word, idx) => (
                   <span key={idx} className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
@@ -303,19 +303,19 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
                   </span>
                 ))}
               </div>
-              <input type="text" value={newFocusWord} onChange={(e) => setNewFocusWord(e.target.value)} onKeyDown={addFocusWord} placeholder="Lägg till ord (t.ex. Paketskåp, Klimatsmart)..." className="w-full text-xs border-slate-200 rounded-sm p-2 shadow-sm" />
+              <input type="text" value={newFocusWord} onChange={(e) => setNewFocusWord(e.target.value)} onKeyDown={addFocusWord} placeholder="Lägg till ord (t.ex. Paketskåp, Klimatsmart)..." className="w-full text-xs border-dhl-gray-medium rounded-sm p-2 shadow-sm" />
             </div>
           </div>
           
           <div>
             <label className="block text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Signatur</label>
-            <div className="border border-slate-300 rounded-sm bg-white shadow-inner">
+            <div className="border border-dhl-gray-medium rounded-sm bg-white shadow-inner">
                <div ref={signatureRef} contentEditable className="p-4 min-h-[80px] outline-none text-sm font-sans" dangerouslySetInnerHTML={{ __html: signature }} />
             </div>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <div className="p-4 bg-dhl-gray-light border-t border-dhl-gray-medium flex justify-end">
           <button onClick={handleSave} className="bg-red-600 text-white px-8 py-2.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-red-700 transition-all shadow-md">
             <Save className="w-4 h-4" /> Spara inställningar
           </button>
@@ -324,3 +324,5 @@ export const MailTemplateManager: React.FC<MailTemplateManagerProps> = ({
     </div>
   );
 };
+
+

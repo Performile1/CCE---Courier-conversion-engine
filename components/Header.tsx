@@ -122,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Market Intelligence Center</span>
@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
                     
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Protokoll & Sökning</div>
 
-                    <button onClick={() => { onOpenInclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenInclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Search className="w-4 h-4 text-[#D40511]" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Riktad Sökning (SNI)</span>
@@ -141,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCache(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCache(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Database className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Lead Reservoir (Cachen)</span>
@@ -151,32 +151,32 @@ export const Header: React.FC<HeaderProps> = ({
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Sälj & Kommunikation</div>
 
-                    <button onClick={() => { onOpenMailTemplate(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <Mail className="w-4 h-4 text-amber-600" />
+                    <button onClick={() => { onOpenMailTemplate(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <Mail className="w-4 h-4 text-dhl-yellow" />
                        <span className="text-xs font-black text-slate-800 uppercase">Mailmotor & Mallar</span>
                     </button>
 
-                    <button onClick={() => { onOpenSNISettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenSNISettings(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Percent className="w-4 h-4 text-red-600" />
                        <span className="text-xs font-black text-slate-800 uppercase">Fraktpotential per SNI</span>
                     </button>
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">System & Drift</div>
 
-                    <button onClick={() => { onOpenExclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenExclusions(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <ShieldBan className="w-4 h-4 text-slate-400" />
                        <span className="text-xs font-black text-slate-800 uppercase">Exkluderingar</span>
                     </button>
 
-                    <button onClick={() => { onOpenBackups(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <History className="w-4 h-4 text-orange-600" />
+                    <button onClick={() => { onOpenBackups(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <History className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">System Backup</span>
                           <span className="text-[9px] text-slate-400 font-medium">Importera/Exportera data</span>
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenThreePL(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenThreePL(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Package className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">3PL Manager</span>
@@ -186,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Analytics & Rapporter</div>
 
-                    <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenModelSelector?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <TrendingUp className="w-4 h-4 text-indigo-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">AI Model Selection</span>
@@ -194,31 +194,31 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCampaignAnalytics?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <TrendingUp className="w-4 h-4 text-green-600" />
+                    <button onClick={() => { onOpenCampaignAnalytics?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Kampanj Analytics</span>
                           <span className="text-[9px] text-slate-400 font-medium">Detaljerade kampanjstatistik</span>
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCampaignPerformance?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <button onClick={() => { onOpenCampaignPerformance?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Performance Dashboard</span>
                           <span className="text-[9px] text-slate-400 font-medium">Kampanjprestanda i realtid</span>
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCostAnalysis?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <TrendingUp className="w-4 h-4 text-purple-600" />
+                    <button onClick={() => { onOpenCostAnalysis?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <TrendingUp className="w-4 h-4 text-dhl-red" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Kostnadsanalys</span>
                           <span className="text-[9px] text-slate-400 font-medium">Kostnad per kampanj & segment</span>
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenExportManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenExportManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Download className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Export Manager</span>
@@ -228,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Integrations & Webhooks</div>
 
-                    <button onClick={() => { onOpenCustomAPI?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCustomAPI?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Settings className="w-4 h-4 text-cyan-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom API Builder</span>
@@ -236,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCustomIntegration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCustomIntegration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-teal-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom Integration</span>
@@ -244,15 +244,15 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenWebhookManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
-                       <Layers className="w-4 h-4 text-orange-600" />
+                    <button onClick={() => { onOpenWebhookManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
+                       <Layers className="w-4 h-4 text-dhl-yellow" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Webhook System</span>
                           <span className="text-[9px] text-slate-400 font-medium">Hantera webhooks & events</span>
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenSlackManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenSlackManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-slate-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Slack Integration</span>
@@ -260,7 +260,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCRMManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCRMManager?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Database className="w-4 h-4 text-yellow-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">CRM Manager</span>
@@ -268,7 +268,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenPhase9Integration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenPhase9Integration?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Layers className="w-4 h-4 text-pink-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Phase 9 Integrations</span>
@@ -278,7 +278,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                     <div className="px-4 py-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">Kampanjer & Mail</div>
 
-                    <button onClick={() => { onOpenEmailCampaignBuilder?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenEmailCampaignBuilder?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Mail className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Email Campaign Builder</span>
@@ -286,7 +286,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenEventTriggers?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenEventTriggers?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Settings className="w-4 h-4 text-red-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Event Triggers</span>
@@ -294,7 +294,7 @@ export const Header: React.FC<HeaderProps> = ({
                        </div>
                     </button>
 
-                    <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 group">
+                    <button onClick={() => { onOpenCustomReport?.(); setIsToolsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group">
                        <Download className="w-4 h-4 text-indigo-600" />
                        <div className="flex flex-col">
                           <span className="text-xs font-black text-slate-800 uppercase">Custom Report Builder</span>
@@ -310,7 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
              {onOpenUserProfile && (
                <button 
                  onClick={() => { onOpenUserProfile(); setIsToolsOpen(false); }} 
-                 className="p-2 hover:bg-slate-200 text-slate-700 rounded-sm transition-all shadow-sm group" 
+                 className="p-2 hover:bg-dhl-gray-medium text-slate-700 rounded-sm transition-all shadow-sm group" 
                  title="Profil"
                >
                  <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -336,3 +336,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

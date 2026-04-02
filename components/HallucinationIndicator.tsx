@@ -22,7 +22,7 @@ export const HallucinationIndicator: React.FC<HallucinationIndicatorProps> = ({
 
   // Determine color and icon based on score
   let icon = CheckCircle;
-  let bgColor = 'bg-green-50';
+  let bgColor = 'bg-dhl-gray-light';
   let borderColor = 'border-green-300';
   let textColor = 'text-green-900';
   let badgeColor = 'bg-green-200';
@@ -30,21 +30,21 @@ export const HallucinationIndicator: React.FC<HallucinationIndicatorProps> = ({
 
   if (score > 70) {
     icon = AlertTriangle;
-    bgColor = 'bg-red-50';
+    bgColor = 'bg-dhl-gray-light';
     borderColor = 'border-red-300';
     textColor = 'text-red-900';
-    badgeColor = 'bg-red-200';
+    badgeColor = 'bg-dhl-gray-light';
     statusLabel = '🔴 Likely Hallucinated';
   } else if (score > 40) {
     icon = AlertCircle;
-    bgColor = 'bg-amber-50';
+    bgColor = 'bg-dhl-gray-light';
     borderColor = 'border-amber-300';
     textColor = 'text-amber-900';
     badgeColor = 'bg-amber-200';
     statusLabel = '⚠️ Partially Verified';
   } else if (score > 0) {
     icon = AlertCircle;
-    bgColor = 'bg-blue-50';
+    bgColor = 'bg-dhl-gray-light';
     borderColor = 'border-blue-300';
     textColor = 'text-blue-900';
     badgeColor = 'bg-blue-200';
@@ -55,7 +55,7 @@ export const HallucinationIndicator: React.FC<HallucinationIndicatorProps> = ({
 
   return (
     <div
-      className={`border rounded-lg p-3 ${bgColor} ${borderColor} border-2 cursor-pointer transition-all`}
+      className={`border rounded-sm p-3 ${bgColor} ${borderColor} border-2 cursor-pointer transition-all`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <div className="flex items-center justify-between">
@@ -160,3 +160,5 @@ export const HallucinationIndicator: React.FC<HallucinationIndicatorProps> = ({
 };
 
 export default HallucinationIndicator;
+
+

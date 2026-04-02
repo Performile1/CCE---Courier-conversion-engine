@@ -33,18 +33,18 @@ export const RateLimitOverlay: React.FC<RateLimitOverlayProps> = ({ onComplete }
   // Removed `const isCustom = !!customWaitSeconds;` as `customWaitSeconds` is not a prop in RateLimitOverlay
 
   return (
-    <div className="bg-orange-50 border-l-4 border-orange-500 p-6 shadow-md rounded-sm animate-fadeIn my-4">
+    <div className="bg-dhl-gray-light border-l-4 border-orange-500 p-6 shadow-md rounded-sm animate-fadeIn my-4">
       <div className="flex items-start gap-4">
         <div className="p-3 bg-orange-100 rounded-full animate-pulse">
-          <TrafficCone className="w-8 h-8 text-orange-600" />
+          <TrafficCone className="w-8 h-8 text-dhl-yellow" />
         </div>
         
         <div className="flex-1">
-          <h3 className="text-lg font-black uppercase text-slate-800 mb-1 flex items-center gap-2">
+          <h3 className="text-lg font-black uppercase text-dhl-black mb-1 flex items-center gap-2">
             Tillfällig Trafikstockning (API Rate Limit)
           </h3>
           
-          <p className="text-xs text-slate-600 mb-4 max-w-md">
+          <p className="text-xs text-dhl-gray-dark mb-4 max-w-md">
             Vi har gjort många anrop på kort tid. För att garantera datakvalitet och undvika blockering tar systemet en kort paus. 
           </p>
 
@@ -52,11 +52,11 @@ export const RateLimitOverlay: React.FC<RateLimitOverlayProps> = ({ onComplete }
             <div className="mb-4">
               <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
                 <span>Tid till återställning:</span>
-                <span className="font-mono text-lg text-orange-600">{seconds} sek</span>
+                <span className="font-mono text-lg text-dhl-yellow">{seconds} sek</span>
               </div>
-              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-dhl-gray-medium h-2 rounded-full overflow-hidden">
                  <div 
-                  className="bg-orange-500 h-full transition-all duration-1000 ease-linear"
+                  className="bg-dhl-yellow h-full transition-all duration-1000 ease-linear"
                   style={{ width: `${(seconds / 60) * 100}%` }}
                 ></div>
               </div>
@@ -64,7 +64,7 @@ export const RateLimitOverlay: React.FC<RateLimitOverlayProps> = ({ onComplete }
           ) : (
             <button
               onClick={onComplete}
-              className="flex items-center gap-2 bg-green-600 text-white px-6 py-2 text-sm font-bold uppercase tracking-wider hover:bg-green-700 transition-colors shadow-sm rounded-sm animate-bounce"
+              className="flex items-center gap-2 bg-dhl-yellow text-white px-6 py-2 text-sm font-bold uppercase tracking-wider hover:bg-dhl-yellow transition-colors shadow-sm rounded-sm animate-bounce"
             >
               Fortsätt Söka
             </button>
@@ -74,3 +74,4 @@ export const RateLimitOverlay: React.FC<RateLimitOverlayProps> = ({ onComplete }
     </div>
   );
 };
+

@@ -84,7 +84,7 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
   };
 
   if (loading) {
-    return <div className="bg-white rounded-lg p-6 text-center">Loading ROI data...</div>;
+    return <div className="bg-white rounded-sm p-6 text-center">Loading ROI data...</div>;
   }
 
   const filteredCampaigns = campaigns.filter(
@@ -104,64 +104,64 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Total Revenue</p>
-          <p className="text-2xl font-bold text-slate-900 mb-2">${totalRevenue.toLocaleString()}</p>
-          <p className="text-xs text-slate-600">{filteredCampaigns.length} campaigns</p>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <p className="text-sm text-dhl-gray-dark mb-1">Total Revenue</p>
+          <p className="text-2xl font-bold text-dhl-black mb-2">${totalRevenue.toLocaleString()}</p>
+          <p className="text-xs text-dhl-gray-dark">{filteredCampaigns.length} campaigns</p>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Total Cost</p>
-          <p className="text-2xl font-bold text-slate-900 mb-2">${totalCost.toFixed(2)}</p>
-          <p className="text-xs text-slate-600">API + Email cost</p>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <p className="text-sm text-dhl-gray-dark mb-1">Total Cost</p>
+          <p className="text-2xl font-bold text-dhl-black mb-2">${totalCost.toFixed(2)}</p>
+          <p className="text-xs text-dhl-gray-dark">API + Email cost</p>
         </div>
 
         <div
-          className={`rounded-lg border p-4 ${
+          className={`rounded-sm border p-4 ${
             totalROI >= 0
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
+              ? 'bg-dhl-gray-light border-green-200'
+              : 'bg-dhl-gray-light border-dhl-gray-medium'
           }`}
         >
-          <p className="text-sm text-slate-600 mb-1">Total ROI</p>
+          <p className="text-sm text-dhl-gray-dark mb-1">Total ROI</p>
           <p
             className={`text-2xl font-bold mb-2 ${
-              totalROI >= 0 ? 'text-green-600' : 'text-red-600'
+              totalROI >= 0 ? 'text-dhl-yellow' : 'text-red-600'
             }`}
           >
             ${totalROI.toFixed(2)}
           </p>
           <p
             className={`text-xs ${
-              totalROI >= 0 ? 'text-green-700' : 'text-red-700'
+              totalROI >= 0 ? 'text-dhl-yellow' : 'text-red-700'
             }`}
           >
             {roiPercentage.toFixed(1)}% return
           </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Average ROI/Campaign</p>
-          <p className="text-2xl font-bold text-slate-900 mb-2">${avgROI.toFixed(2)}</p>
-          <p className="text-xs text-slate-600">Per campaign avg</p>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <p className="text-sm text-dhl-gray-dark mb-1">Average ROI/Campaign</p>
+          <p className="text-2xl font-bold text-dhl-black mb-2">${avgROI.toFixed(2)}</p>
+          <p className="text-xs text-dhl-gray-dark">Per campaign avg</p>
         </div>
       </div>
 
       {/* Performance Insights */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {bestPerformer && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="bg-dhl-gray-light border border-green-200 rounded-sm p-4">
             <div className="flex items-start gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
+              <TrendingUp className="w-5 h-5 text-dhl-yellow" />
               <div>
-                <p className="text-sm font-medium text-slate-900">Best Performer</p>
-                <p className="text-xs text-slate-600">{bestPerformer.campaignName}</p>
+                <p className="text-sm font-medium text-dhl-black">Best Performer</p>
+                <p className="text-xs text-dhl-gray-dark">{bestPerformer.campaignName}</p>
               </div>
             </div>
-            <p className="text-2xl font-bold text-green-600 mb-1">
+            <p className="text-2xl font-bold text-dhl-yellow mb-1">
               {bestPerformer.roiPercentage.toFixed(1)}%
             </p>
-            <p className="text-xs text-green-700">
+            <p className="text-xs text-dhl-yellow">
               ROI: ${bestPerformer.roi.toFixed(2)}
             </p>
           </div>
@@ -171,20 +171,20 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
           <div
             className={`${
               worstPerformer.roi >= 0
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-red-50 border-red-200'
-            } border rounded-lg p-4`}
+                ? 'bg-dhl-gray-light border-amber-200'
+                : 'bg-dhl-gray-light border-dhl-gray-medium'
+            } border rounded-sm p-4`}
           >
             <div className="flex items-start gap-3 mb-2">
-              <Target className="w-5 h-5 text-amber-600" />
+              <Target className="w-5 h-5 text-dhl-yellow" />
               <div>
-                <p className="text-sm font-medium text-slate-900">Needs Improvement</p>
-                <p className="text-xs text-slate-600">{worstPerformer.campaignName}</p>
+                <p className="text-sm font-medium text-dhl-black">Needs Improvement</p>
+                <p className="text-xs text-dhl-gray-dark">{worstPerformer.campaignName}</p>
               </div>
             </div>
             <p
               className={`text-2xl font-bold mb-1 ${
-                worstPerformer.roi >= 0 ? 'text-amber-600' : 'text-red-600'
+                worstPerformer.roi >= 0 ? 'text-dhl-yellow' : 'text-red-600'
               }`}
             >
               {worstPerformer.roiPercentage.toFixed(1)}%
@@ -206,10 +206,10 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-4 py-2 rounded-sm font-medium transition-all ${
               filterStatus === status
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-dhl-red text-white'
+                : 'bg-dhl-gray-light text-dhl-gray-dark hover:bg-dhl-gray-medium'
             }`}
           >
             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -218,45 +218,45 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
       </div>
 
       {/* Campaign Details */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-indigo-600" />
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+        <h3 className="font-bold text-dhl-black mb-4 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-dhl-red" />
           Campaign ROI Breakdown
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-2 px-2 text-slate-600 font-medium">Campaign</th>
-                <th className="text-right py-2 px-2 text-slate-600 font-medium">Cost</th>
-                <th className="text-right py-2 px-2 text-slate-600 font-medium">Revenue</th>
-                <th className="text-right py-2 px-2 text-slate-600 font-medium">ROI</th>
-                <th className="text-right py-2 px-2 text-slate-600 font-medium">%</th>
+              <tr className="border-b border-dhl-gray-medium">
+                <th className="text-left py-2 px-2 text-dhl-gray-dark font-medium">Campaign</th>
+                <th className="text-right py-2 px-2 text-dhl-gray-dark font-medium">Cost</th>
+                <th className="text-right py-2 px-2 text-dhl-gray-dark font-medium">Revenue</th>
+                <th className="text-right py-2 px-2 text-dhl-gray-dark font-medium">ROI</th>
+                <th className="text-right py-2 px-2 text-dhl-gray-dark font-medium">%</th>
               </tr>
             </thead>
             <tbody>
               {filteredCampaigns.map((campaign) => (
-                <tr key={campaign.campaignId} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-2 px-2 font-medium text-slate-900">
+                <tr key={campaign.campaignId} className="border-b border-slate-100 hover:bg-dhl-gray-light">
+                  <td className="py-2 px-2 font-medium text-dhl-black">
                     {campaign.campaignName}
                   </td>
-                  <td className="text-right py-2 px-2 text-slate-600">
+                  <td className="text-right py-2 px-2 text-dhl-gray-dark">
                     ${campaign.costInvested.toFixed(2)}
                   </td>
-                  <td className="text-right py-2 px-2 text-slate-600">
+                  <td className="text-right py-2 px-2 text-dhl-gray-dark">
                     ${campaign.revenueGenerated.toLocaleString()}
                   </td>
                   <td
                     className={`text-right py-2 px-2 font-bold ${
-                      campaign.roi >= 0 ? 'text-green-600' : 'text-red-600'
+                      campaign.roi >= 0 ? 'text-dhl-yellow' : 'text-red-600'
                     }`}
                   >
                     ${campaign.roi.toFixed(2)}
                   </td>
                   <td
                     className={`text-right py-2 px-2 font-bold ${
-                      campaign.roiPercentage >= 0 ? 'text-green-600' : 'text-red-600'
+                      campaign.roiPercentage >= 0 ? 'text-dhl-yellow' : 'text-red-600'
                     }`}
                   >
                     {campaign.roiPercentage.toFixed(1)}%
@@ -268,13 +268,13 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
         </div>
 
         {filteredCampaigns.length === 0 && (
-          <p className="text-center text-slate-600 py-8">No campaigns in this filter</p>
+          <p className="text-center text-dhl-gray-dark py-8">No campaigns in this filter</p>
         )}
       </div>
 
       {/* Recommendation */}
       {roiPercentage > 500 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-dhl-gray-light border border-green-200 rounded-sm p-4">
           <p className="text-sm text-green-900">
             ✅ <strong>Excellent Performance:</strong> Your campaigns are generating{' '}
             <strong>${totalROI.toFixed(2)}</strong> in profit. Consider scaling up successful
@@ -284,7 +284,7 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
       )}
 
       {roiPercentage < 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
           <p className="text-sm text-red-900">
             ⚠️ <strong>Negative ROI:</strong> Your campaigns are losing money. Review targeting,
             messaging, and audience selection.
@@ -296,3 +296,5 @@ export const ROICalculator: React.FC<ROICalculatorProps> = ({ userId }) => {
 };
 
 export default ROICalculator;
+
+

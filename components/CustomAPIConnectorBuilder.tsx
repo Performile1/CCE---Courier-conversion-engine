@@ -190,15 +190,15 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-        <Code2 className="w-5 h-5 text-green-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+        <Code2 className="w-5 h-5 text-dhl-yellow" />
         Custom API Connector Builder
       </h3>
 
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+          className="w-full py-2 px-4 bg-dhl-yellow hover:bg-dhl-yellow text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Build Custom Connector
@@ -206,11 +206,11 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
       )}
 
       {showForm && (
-        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
+        <div className="border border-dhl-gray-medium rounded-sm p-4 space-y-4 bg-dhl-gray-light">
           {/* Basic Info */}
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Connector Name
               </label>
               <input
@@ -218,12 +218,12 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                 value={connectorName}
                 onChange={(e) => setConnectorName(e.target.value)}
                 placeholder="e.g., Salesforce CRM"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Base URL
               </label>
               <input
@@ -231,12 +231,12 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder="https://api.example.com"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-1">
+              <label className="block text-sm font-medium text-dhl-black mb-1">
                 Description
               </label>
               <textarea
@@ -244,20 +244,20 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                 onChange={(e) => setConnectorDescription(e.target.value)}
                 placeholder="What does this connector do?"
                 rows={2}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
               />
             </div>
           </div>
 
           {/* Authentication */}
-          <div className="border-t border-slate-300 pt-3">
-            <label className="block text-sm font-medium text-slate-900 mb-2">
+          <div className="border-t border-dhl-gray-medium pt-3">
+            <label className="block text-sm font-medium text-dhl-black mb-2">
               Authentication Type
             </label>
             <select
               value={authType}
               onChange={(e) => setAuthType(e.target.value as any)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black"
             >
               {AUTH_TYPES.map((auth) => (
                 <option key={auth.id} value={auth.id}>
@@ -271,7 +271,7 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                 type="password"
                 placeholder="API Key"
                 onChange={(e) => setAuthConfig({ ...authConfig, apiKey: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 mt-2"
+                className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black mt-2"
               />
             )}
 
@@ -281,46 +281,46 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                   type="text"
                   placeholder="Username"
                   onChange={(e) => setAuthConfig({ ...authConfig, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 mt-2"
+                  className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black mt-2"
                 />
                 <input
                   type="password"
                   placeholder="Password"
                   onChange={(e) => setAuthConfig({ ...authConfig, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 mt-2"
+                  className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black mt-2"
                 />
               </>
             )}
           </div>
 
           {/* Endpoints */}
-          <div className="border-t border-slate-300 pt-3">
-            <h4 className="font-medium text-slate-900 mb-2">API Endpoints ({endpoints.length})</h4>
+          <div className="border-t border-dhl-gray-medium pt-3">
+            <h4 className="font-medium text-dhl-black mb-2">API Endpoints ({endpoints.length})</h4>
 
             {!showEndpointForm && (
               <button
                 onClick={() => setShowEndpointForm(true)}
-                className="w-full py-1 px-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-sm font-medium"
+                className="w-full py-1 px-3 bg-dhl-gray-light hover:bg-blue-200 text-dhl-red rounded text-sm font-medium"
               >
                 + Add Endpoint
               </button>
             )}
 
             {showEndpointForm && (
-              <div className="border border-slate-300 p-3 rounded bg-white space-y-2 mb-2">
+              <div className="border border-dhl-gray-medium p-3 rounded bg-white space-y-2 mb-2">
                 <input
                   type="text"
                   value={currentEndpoint.name || ''}
                   onChange={(e) => setCurrentEndpoint({ ...currentEndpoint, name: e.target.value })}
                   placeholder="Endpoint name"
-                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                  className="w-full px-2 py-1 border border-dhl-gray-medium rounded text-sm"
                 />
 
                 <div className="flex gap-2">
                   <select
                     value={currentEndpoint.method}
                     onChange={(e) => setCurrentEndpoint({ ...currentEndpoint, method: e.target.value as any })}
-                    className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
+                    className="w-20 px-2 py-1 border border-dhl-gray-medium rounded text-sm"
                   >
                     {HTTP_METHODS.map((m) => (
                       <option key={m} value={m}>
@@ -333,7 +333,7 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                     value={currentEndpoint.path || ''}
                     onChange={(e) => setCurrentEndpoint({ ...currentEndpoint, path: e.target.value })}
                     placeholder="/api/resource"
-                    className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm"
+                    className="flex-1 px-2 py-1 border border-dhl-gray-medium rounded text-sm"
                   />
                 </div>
 
@@ -342,19 +342,19 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                   onChange={(e) => setCurrentEndpoint({ ...currentEndpoint, description: e.target.value })}
                   placeholder="Description"
                   rows={2}
-                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                  className="w-full px-2 py-1 border border-dhl-gray-medium rounded text-sm"
                 />
 
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddEndpoint}
-                    className="flex-1 py-1 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+                    className="flex-1 py-1 px-2 bg-dhl-red hover:bg-dhl-red text-white rounded text-sm"
                   >
                     Add
                   </button>
                   <button
                     onClick={() => setShowEndpointForm(false)}
-                    className="flex-1 py-1 px-2 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded text-sm"
+                    className="flex-1 py-1 px-2 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black rounded text-sm"
                   >
                     Cancel
                   </button>
@@ -364,7 +364,7 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
 
             <div className="space-y-2">
               {endpoints.map((ep, idx) => (
-                <div key={ep.id} className="flex items-center justify-between bg-white p-2 rounded border border-slate-300">
+                <div key={ep.id} className="flex items-center justify-between bg-white p-2 rounded border border-dhl-gray-medium">
                   <span className="text-xs font-mono">
                     <strong>{ep.method}</strong> {ep.path}
                   </span>
@@ -379,11 +379,11 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-300 pt-4">
+          <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
             <button
               onClick={handleAddConnector}
               disabled={!connectorName || !baseUrl}
-              className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white font-semibold rounded-lg"
+              className="flex-1 py-2 px-4 bg-dhl-yellow hover:bg-dhl-yellow disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm"
             >
               Create Connector
             </button>
@@ -393,7 +393,7 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
                 setConnectorName('');
                 setEndpoints([]);
               }}
-              className="flex-1 py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg"
+              className="flex-1 py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm"
             >
               Cancel
             </button>
@@ -404,30 +404,30 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
       {/* Connectors List */}
       <div className="space-y-2">
         {connectors.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-4">No custom connectors created</p>
+          <p className="text-sm text-dhl-gray-dark text-center py-4">No custom connectors created</p>
         ) : (
           connectors.map((connector) => (
-            <div key={connector.id} className="border border-slate-300 rounded-lg p-3 bg-white">
+            <div key={connector.id} className="border border-dhl-gray-medium rounded-sm p-3 bg-white">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <h4 className="font-semibold text-slate-900">{connector.name}</h4>
-                  <p className="text-xs text-slate-600 mt-1">
+                  <h4 className="font-semibold text-dhl-black">{connector.name}</h4>
+                  <p className="text-xs text-dhl-gray-dark mt-1">
                     Base URL: {connector.baseUrl} • Auth: {connector.authType}
                   </p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-dhl-gray-dark">
                     Endpoints: {connector.endpoints.length}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleExportConnector(connector)}
-                    className="p-1 hover:bg-blue-50 text-blue-600"
+                    className="p-1 hover:bg-dhl-gray-light text-dhl-red"
                   >
                     <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteConnector(connector.id)}
-                    className="p-1 hover:bg-red-50 text-red-600"
+                    className="p-1 hover:bg-dhl-gray-light text-red-600"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -438,8 +438,8 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
               <div className="space-y-1">
                 {connector.endpoints.map((ep) => (
                   <div key={ep.id} className="flex items-center gap-2 text-xs pl-2">
-                    <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{ep.method}</span>
-                    <span className="font-mono text-slate-700">{ep.path}</span>
+                    <span className="font-mono bg-dhl-gray-light px-1.5 py-0.5 rounded">{ep.method}</span>
+                    <span className="font-mono text-dhl-gray-dark">{ep.path}</span>
                   </div>
                 ))}
               </div>
@@ -449,7 +449,7 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
       </div>
 
       {/* Documentation */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-green-200 rounded-sm p-4">
         <p className="text-sm text-green-900 font-semibold mb-2">💻 Features</p>
         <ul className="text-xs text-green-900 space-y-1">
           <li>• Define API endpoints with HTTP methods</li>
@@ -464,3 +464,5 @@ export default ${connector.name.replace(/\s+/g, '')}Connector;
 };
 
 export default CustomAPIConnectorBuilder;
+
+

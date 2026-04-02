@@ -69,7 +69,7 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-md shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-[#ffcc00]">
+        <div className="p-4 border-b border-dhl-gray-medium flex justify-between items-center bg-[#ffcc00]">
           <h2 className="text-sm font-black italic uppercase flex items-center gap-2 text-black">
             <Layers className="w-5 h-5 text-red-600" />
             Integrationsmöjligheter
@@ -86,9 +86,9 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
                 value={newSystemName}
                 onChange={(e) => setNewSystemName(e.target.value)}
                 placeholder="Systemnamn..."
-                className="flex-1 text-xs border-slate-300 rounded-sm p-2"
+                className="flex-1 text-xs border-dhl-gray-medium rounded-sm p-2"
               />
-              <button onClick={addCustomSystem} className="bg-slate-900 text-white p-2 rounded-sm hover:bg-red-600 transition-colors">
+              <button onClick={addCustomSystem} className="bg-dhl-black text-white p-2 rounded-sm hover:bg-red-600 transition-colors">
                 <Plus className="w-4 h-4" />
               </button>
             </div>
@@ -102,7 +102,7 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
                 return (
                   <div
                     key={sys.id}
-                    className={`flex items-center justify-between p-3 border rounded-sm transition-all bg-white ${isActive ? 'border-green-500 ring-1 ring-green-100' : 'border-slate-200'}`}
+                    className={`flex items-center justify-between p-3 border rounded-sm transition-all bg-white ${isActive ? 'border-green-500 ring-1 ring-green-100' : 'border-dhl-gray-medium'}`}
                   >
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="text-xs font-black uppercase truncate">{sys.name}</div>
@@ -110,11 +110,11 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={() => toggle(sys.id)} className="flex items-center gap-2 group">
-                        <span className={`text-[10px] font-black uppercase ${isActive ? 'text-green-600' : 'text-slate-400'}`}>
+                        <span className={`text-[10px] font-black uppercase ${isActive ? 'text-dhl-yellow' : 'text-slate-400'}`}>
                           {isActive ? 'Ja' : 'Nej'}
                         </span>
                         {isActive ? (
-                          <ToggleRight className="w-6 h-6 text-green-600" />
+                          <ToggleRight className="w-6 h-6 text-dhl-yellow" />
                         ) : (
                           <ToggleLeft className="w-6 h-6 text-slate-300" />
                         )}
@@ -132,7 +132,7 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
           </div>
         </div>
 
-        <div className="p-4 bg-slate-50 border-t flex justify-end">
+        <div className="p-4 bg-dhl-gray-light border-t flex justify-end">
           <button onClick={handleSave} className="bg-red-600 text-white px-6 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-red-700 transition-all shadow-md">
             <Save className="w-4 h-4" /> Spara inställningar
           </button>
@@ -141,3 +141,5 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
     </div>
   );
 };
+
+

@@ -59,7 +59,7 @@ export const QuotaTimer: React.FC<QuotaTimerProps> = ({ onComplete, customWaitSe
   const isCustom = !!customWaitSeconds;
 
   return (
-    <div className="bg-orange-50 border-l-4 border-[#ffb700] p-6 shadow-md rounded-sm animate-fadeIn my-4">
+    <div className="bg-dhl-gray-light border-l-4 border-[#ffb700] p-6 shadow-md rounded-sm animate-fadeIn my-4">
       <div className="flex items-start gap-4">
         <div className="p-3 bg-orange-100 rounded-full">
           {isReady ? (
@@ -70,11 +70,11 @@ export const QuotaTimer: React.FC<QuotaTimerProps> = ({ onComplete, customWaitSe
         </div>
         
         <div className="flex-1">
-          <h3 className="text-lg font-black uppercase text-slate-800 mb-1 flex items-center gap-2">
+          <h3 className="text-lg font-black uppercase text-dhl-black mb-1 flex items-center gap-2">
             {isReady ? "System Redo" : "API-Kvoten Pausad"}
           </h3>
           
-          <p className="text-xs text-slate-600 mb-4 max-w-md">
+          <p className="text-xs text-dhl-gray-dark mb-4 max-w-md">
             {isReady 
               ? "Väntetiden är över. Du kan nu fortsätta söka." 
               : isCustom 
@@ -88,7 +88,7 @@ export const QuotaTimer: React.FC<QuotaTimerProps> = ({ onComplete, customWaitSe
                 <span>Tid till återställning:</span>
                 <span className="font-mono text-lg text-red-600">{formatTime(seconds)}</span>
               </div>
-              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-dhl-gray-medium h-2 rounded-full overflow-hidden">
                  <div 
                   className="bg-[#ffb700] h-full animate-pulse"
                   style={{ width: '100%' }}
@@ -111,3 +111,4 @@ export const QuotaTimer: React.FC<QuotaTimerProps> = ({ onComplete, customWaitSe
     </div>
   );
 };
+

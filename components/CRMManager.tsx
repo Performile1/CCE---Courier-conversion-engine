@@ -91,17 +91,17 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+    <div className="bg-white rounded-sm border border-dhl-gray-medium p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-indigo-600" />
+        <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+          <Settings className="w-5 h-5 text-dhl-red" />
           CRM Integration
         </h3>
-        {isConnected && <CheckCircle className="w-5 h-5 text-green-600" />}
+        {isConnected && <CheckCircle className="w-5 h-5 text-dhl-yellow" />}
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
@@ -109,14 +109,14 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
 
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-slate-900 mb-1">
+          <label className="block text-sm font-medium text-dhl-black mb-1">
             CRM Platform
           </label>
           <select
             value={crmType}
             onChange={(e) => setCrmType(e.target.value as any)}
             disabled={isConnected}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+            className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
           >
             <option value="hubspot">HubSpot</option>
             <option value="pipedrive">Pipedrive</option>
@@ -126,7 +126,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
 
         {!isConnected && (
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-1">
+            <label className="block text-sm font-medium text-dhl-black mb-1">
               API Token
             </label>
             <input
@@ -134,7 +134,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
               value={apiToken}
               onChange={(e) => setApiToken(e.target.value)}
               placeholder="Enter your API token"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
             />
           </div>
         )}
@@ -145,7 +145,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
           <button
             onClick={handleConnect}
             disabled={loading || !apiToken}
-            className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
           >
             {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Connect
@@ -155,7 +155,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
             <button
               onClick={handleSync}
               disabled={syncing || leads.length === 0}
-              className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2 px-4 bg-dhl-yellow hover:bg-dhl-yellow disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
             >
               {syncing ? <Loader className="w-4 h-4 animate-spin" /> : '📤'}
               Sync {leads.length} Leads
@@ -163,7 +163,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
             <button
               onClick={handleDisconnect}
               disabled={loading}
-              className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all"
+              className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm transition-all"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -172,7 +172,7 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
       </div>
 
       {syncStatus && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm text-sm text-blue-900">
           <Loader className="w-4 h-4 inline animate-spin mr-2" />
           {syncStatus}
         </div>
@@ -182,3 +182,6 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
 };
 
 export default CRMManager;
+
+
+

@@ -70,7 +70,7 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
       <div className="bg-white w-full max-md shadow-2xl border-t-4 border-red-600 relative">
         <button 
           onClick={onClose}
-          className="absolute top-3 right-3 p-1 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
+          className="absolute top-3 right-3 p-1 hover:bg-dhl-gray-light rounded-full text-slate-500 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -85,7 +85,7 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+            <label className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
               <Building2 className="w-3 h-3 text-red-600" />
               Företagsnamn (Krav)
             </label>
@@ -95,14 +95,14 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
               value={formData.companyName}
               onChange={(e) => setFormData({...formData, companyName: e.target.value})}
               placeholder="T.ex. Nya Bolaget AB"
-              className="w-full text-sm border-slate-300 rounded-sm focus:border-red-600 focus:ring-red-600"
+              className="w-full text-sm border-dhl-gray-medium rounded-sm focus:border-red-600 focus:ring-red-600"
               autoFocus
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
                 <Hash className="w-3 h-3 text-slate-400" />
                 Org.nr (Valfritt)
                 </label>
@@ -111,11 +111,11 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
                 value={formData.orgNumber}
                 onChange={(e) => setFormData({...formData, orgNumber: e.target.value})}
                 placeholder="556XXX-XXXX"
-                className="w-full text-sm border-slate-300 rounded-sm focus:border-red-600 focus:ring-red-600"
+                className="w-full text-sm border-dhl-gray-medium rounded-sm focus:border-red-600 focus:ring-red-600"
                 />
             </div>
             <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-slate-400" />
                 Ort (Valfritt)
                 </label>
@@ -124,14 +124,14 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
                 value={formData.city}
                 onChange={(e) => setFormData({...formData, city: e.target.value})}
                 placeholder="T.ex. Örebro"
-                className="w-full text-sm border-slate-300 rounded-sm focus:border-red-600 focus:ring-red-600"
+                className="w-full text-sm border-dhl-gray-medium rounded-sm focus:border-red-600 focus:ring-red-600"
                 />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-dhl-black mb-1 flex items-center gap-1">
                 <DollarSign className="w-3 h-3 text-slate-400" />
                 Omsättning (tkr)
                 </label>
@@ -140,17 +140,17 @@ export const ManualAddModal: React.FC<ManualAddModalProps> = ({ isOpen, onClose,
                 value={formData.revenue}
                 onChange={(e) => setFormData({...formData, revenue: e.target.value})}
                 placeholder="T.ex. 10000"
-                className="w-full text-sm border-slate-300 rounded-sm focus:border-red-600 focus:ring-red-600"
+                className="w-full text-sm border-dhl-gray-medium rounded-sm focus:border-red-600 focus:ring-red-600"
                 />
             </div>
             <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
+                <label className="block text-xs font-bold text-dhl-black mb-1">
                 Segment
                 </label>
                 <select
                 value={formData.segment}
                 onChange={(e) => setFormData({...formData, segment: e.target.value})}
-                className="w-full text-sm border-slate-300 rounded-sm focus:border-red-600 focus:ring-red-600"
+                className="w-full text-sm border-dhl-gray-medium rounded-sm focus:border-red-600 focus:ring-red-600"
                 >
                     <option value="UNKNOWN">Välj...</option>
                     <option value="TS">TS</option>

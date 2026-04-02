@@ -103,17 +103,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl">
+    <div className="bg-white rounded-sm shadow-md p-8 max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <User className="h-6 w-6 text-indigo-600" />
+        <h2 className="text-2xl font-bold text-dhl-black flex items-center gap-2">
+          <User className="h-6 w-6 text-dhl-red" />
           My Profile
         </h2>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-dhl-gray-dark hover:text-dhl-gray-dark text-2xl"
           >
             ×
           </button>
@@ -122,7 +122,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+        <div className="mb-4 p-4 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{error}</p>
         </div>
@@ -130,9 +130,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
       {/* Success Message */}
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-green-700">{success}</p>
+        <div className="mb-4 p-4 bg-dhl-gray-light border border-green-200 rounded-sm flex items-start gap-3">
+          <Check className="h-5 w-5 text-dhl-yellow flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-dhl-yellow">{success}</p>
         </div>
       )}
 
@@ -140,24 +140,24 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
       <div className="space-y-6">
         {/* Email (Read-only) */}
         <div className="border-b pb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
             <Mail className="h-4 w-4 inline mr-2" />
             Email Address
           </label>
-          <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center p-3 bg-dhl-gray-light rounded-sm">
             <input
               type="email"
               value={formData.email}
               disabled
-              className="flex-1 bg-transparent focus:outline-none text-gray-700"
+              className="flex-1 bg-transparent focus:outline-none text-dhl-gray-dark"
             />
-            <span className="text-xs text-gray-500 ml-2">Read-only</span>
+            <span className="text-xs text-dhl-gray-dark ml-2">Read-only</span>
           </div>
         </div>
 
         {/* Username */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
             Username
           </label>
           {editField === 'username' ? (
@@ -166,12 +166,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               value={formData.username}
               onChange={(e) => handleInputChange('username', e.target.value)}
               placeholder="Choose a username"
-              className="w-full px-4 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-dhl-gray-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-dhl-red"
             />
           ) : (
             <div
               onClick={() => setEditField('username')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition text-gray-700"
+              className="p-3 bg-dhl-gray-light rounded-sm cursor-pointer hover:bg-dhl-gray-light transition text-dhl-gray-dark"
             >
               {formData.username || 'Click to add username'}
             </div>
@@ -180,7 +180,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
         {/* Full Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
             Full Name
           </label>
           {editField === 'full_name' ? (
@@ -189,12 +189,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               value={formData.full_name}
               onChange={(e) => handleInputChange('full_name', e.target.value)}
               placeholder="Your full name"
-              className="w-full px-4 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-dhl-gray-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-dhl-red"
             />
           ) : (
             <div
               onClick={() => setEditField('full_name')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition text-gray-700"
+              className="p-3 bg-dhl-gray-light rounded-sm cursor-pointer hover:bg-dhl-gray-light transition text-dhl-gray-dark"
             >
               {formData.full_name || 'Click to add name'}
             </div>
@@ -203,7 +203,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
         {/* Phone */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
             <Phone className="h-4 w-4 inline mr-2" />
             Phone Number
           </label>
@@ -213,12 +213,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               value={formData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
               placeholder="+1 (555) 000-0000"
-              className="w-full px-4 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-dhl-gray-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-dhl-red"
             />
           ) : (
             <div
               onClick={() => setEditField('phone')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition text-gray-700"
+              className="p-3 bg-dhl-gray-light rounded-sm cursor-pointer hover:bg-dhl-gray-light transition text-dhl-gray-dark"
             >
               {formData.phone || 'Click to add phone'}
             </div>
@@ -227,7 +227,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
 
         {/* Company */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
             <Building2 className="h-4 w-4 inline mr-2" />
             Company Name
           </label>
@@ -237,12 +237,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               value={formData.company_name}
               onChange={(e) => handleInputChange('company_name', e.target.value)}
               placeholder="Your company name"
-              className="w-full px-4 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-dhl-gray-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-dhl-red"
             />
           ) : (
             <div
               onClick={() => setEditField('company_name')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition text-gray-700"
+              className="p-3 bg-dhl-gray-light rounded-sm cursor-pointer hover:bg-dhl-gray-light transition text-dhl-gray-dark"
             >
               {formData.company_name || 'Click to add company'}
             </div>
@@ -250,16 +250,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
         </div>
 
         {/* Subscription Info */}
-        <div className="grid grid-cols-2 gap-4 p-4 bg-indigo-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-4 p-4 bg-dhl-gray-light rounded-sm">
           <div>
-            <p className="text-sm text-gray-600 font-medium">Subscription</p>
-            <p className="text-lg font-bold text-indigo-600 capitalize">
+            <p className="text-sm text-dhl-gray-dark font-medium">Subscription</p>
+            <p className="text-lg font-bold text-dhl-red capitalize">
               {formData.subscription_tier}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600 font-medium">Credits Remaining</p>
-            <p className="text-lg font-bold text-indigo-600">
+            <p className="text-sm text-dhl-gray-dark font-medium">Credits Remaining</p>
+            <p className="text-lg font-bold text-dhl-red">
               {formData.credits_remaining}
             </p>
           </div>
@@ -271,14 +271,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => setEditField(null)}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+            className="flex-1 px-4 py-2 border border-dhl-gray-medium text-dhl-gray-dark rounded-sm hover:bg-dhl-gray-light transition"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-dhl-red text-white rounded-sm hover:bg-red-800 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
           >
             {saving ? (
               <>
@@ -297,3 +297,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
     </div>
   );
 };
+
+
+

@@ -240,26 +240,26 @@ const LeadCard: React.FC<LeadCardProps> = ({
       s.includes('konkursansökan') || 
       s.includes('konkursansäkan')
     ) {
-      return 'bg-red-50 border-red-100 text-red-700';
+      return 'bg-dhl-gray-light border-red-100 text-red-700';
     }
     return 'bg-emerald-50 border-emerald-100 text-emerald-700';
   };
 
   const getDebtEquityColor = (ratioStr: string) => {
     const ratio = parseFloat(ratioStr.replace(',', '.'));
-    if (isNaN(ratio)) return 'bg-white border-slate-100 text-slate-700';
+    if (isNaN(ratio)) return 'bg-white border-slate-100 text-dhl-gray-dark';
     if (ratio <= 1.0) return 'bg-emerald-50 border-emerald-100 text-emerald-700';
-    if (ratio < 2.0) return 'bg-orange-50 border-orange-100 text-orange-700';
-    return 'bg-red-50 border-red-100 text-red-700';
+    if (ratio < 2.0) return 'bg-dhl-gray-light border-orange-100 text-orange-700';
+    return 'bg-dhl-gray-light border-red-100 text-red-700';
   };
 
   const getSegmentBadgeStyle = (segment: string) => {
     const s = segment?.toUpperCase() || '';
     if (s.includes('KAM')) return 'bg-black text-[#FFCC00] border border-black';
     if (s.includes('FS')) return 'bg-[#D40511] text-white';
-    if (s.includes('TS')) return 'bg-blue-700 text-white';
+    if (s.includes('TS')) return 'bg-dhl-red text-white';
     if (s.includes('DM')) return 'bg-emerald-700 text-white';
-    return 'bg-slate-700 text-white';
+    return 'bg-dhl-black text-white';
   };
 
   const handleDownloadPdf = async () => {
@@ -305,12 +305,12 @@ const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const getLiquidityStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
     const hasPercent = valStr.includes('%');
     // Strip symbols like < or > before parsing
     let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
     let val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
     
     // If it's a ratio (e.g. 1.5) instead of percentage (e.g. 150)
     if (!hasPercent && val < 10) val = val * 100;
@@ -319,37 +319,37 @@ const LeadCard: React.FC<LeadCardProps> = ({
     if (val >= 150) return { className: 'bg-emerald-600 text-white border-emerald-700', label: 'Bra' };
     if (val >= 100) return { className: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Tillfredsställande' };
     if (val >= 50) return { className: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Svag' };
-    return { className: 'bg-red-100 text-red-800 border-red-200', label: 'Inte tillfredsställande' };
+    return { className: 'bg-red-100 text-red-800 border-dhl-gray-medium', label: 'Inte tillfredsställande' };
   };
 
   const getProfitMarginStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
     let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
     const val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
 
     if (val >= 15) return { className: 'bg-emerald-800 text-white border-emerald-900', label: 'Mycket bra' };
     if (val >= 10) return { className: 'bg-emerald-600 text-white border-emerald-700', label: 'Bra' };
     if (val >= 6) return { className: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Tillfredsställande' };
     if (val >= 1) return { className: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Svag' };
-    return { className: 'bg-red-100 text-red-800 border-red-200', label: 'Inte tillfredsställande' };
+    return { className: 'bg-red-100 text-red-800 border-dhl-gray-medium', label: 'Inte tillfredsställande' };
   };
 
   const getSolidityStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
     let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
     const val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-slate-50 border-slate-100 text-slate-700', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
 
     if (val >= 40) return { className: 'bg-emerald-800 text-white border-emerald-900', label: 'Mycket bra' };
     if (val >= 18) return { className: 'bg-emerald-600 text-white border-emerald-700', label: 'Bra' };
     if (val >= 10) return { className: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Tillfredsställande' };
     if (val >= 3) return { className: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Svag' };
-    return { className: 'bg-red-100 text-red-800 border-red-200', label: 'Inte tillfredsställande' };
+    return { className: 'bg-red-100 text-red-800 border-dhl-gray-medium', label: 'Inte tillfredsställande' };
   };
 
   return (
-    <div ref={cardRef} className="bg-white rounded-none border border-slate-200 shadow-sm flex flex-col">
+    <div ref={cardRef} className="bg-white rounded-none border border-dhl-gray-medium shadow-sm flex flex-col">
       {/* Header Section */}
       <div className="p-1 border-b-2 border-[#D40511] bg-[#FFCC00]">
         {editData.isBankruptOrLiquidated && (
@@ -359,7 +359,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
         )}
         <div className="flex justify-between items-center ml-2">
           <div className="flex gap-2 items-center">
-            <div className="w-8 h-8 bg-white rounded-none border border-slate-200 flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 bg-white rounded-none border border-dhl-gray-medium flex items-center justify-center shadow-sm">
               <Building className="w-4 h-4 text-[#D40511]" />
             </div>
             <div>
@@ -390,7 +390,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
                   activeTab === 'overview' 
                     ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
                 }`}
               >
                 <Layout className="w-3 h-3" /> Översikt
@@ -400,7 +400,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
                   activeTab === 'analysis' 
                     ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
                 }`}
               >
                 <Microscope className="w-3 h-3" /> Surgical Analysis
@@ -410,7 +410,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
                   activeTab === 'mail' 
                     ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
                 }`}
               >
                 <Mail className="w-3 h-3" /> Mail Engine
@@ -429,7 +429,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
               </button>
               <button 
                 onClick={() => setFeedback('down')}
-                className={`p-1 rounded-none transition-all border ${feedback === 'down' ? 'bg-red-100 border-red-200 text-red-600' : 'text-black/40 hover:text-red-600 hover:bg-red-50 border-transparent hover:border-red-100'}`}
+                className={`p-1 rounded-none transition-all border ${feedback === 'down' ? 'bg-red-100 border-dhl-gray-medium text-red-600' : 'text-black/40 hover:text-red-600 hover:bg-dhl-gray-light border-transparent hover:border-red-100'}`}
                 title="Dålig lead"
               >
                 <ThumbsDown className="w-3.5 h-3.5" />
@@ -465,7 +465,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
               </button>
               <button 
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-1 text-black/50 hover:text-red-600 hover:bg-red-50 rounded-none transition-all border border-transparent hover:border-red-100"
+                className="p-1 text-black/50 hover:text-red-600 hover:bg-dhl-gray-light rounded-none transition-all border border-transparent hover:border-red-100"
                 title="Radera"
               >
                 <Trash2 className="w-4 h-4" />
@@ -490,7 +490,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
               <div className="grid grid-cols-3 gap-6">
                 {/* Kolumn 1: Finansiellt */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <BarChart3 className="w-4 h-4 text-[#D40511]" /> Finansiellt
                   </h3>
                   <div className="grid grid-cols-1 gap-3">
@@ -505,18 +505,18 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Omsättning & Resultat (3 år)</p>
-                      <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase mb-1 px-1 border-b border-slate-200/50 pb-1">
+                      <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase mb-1 px-1 border-b border-dhl-gray-medium/50 pb-1">
                         <span className="w-12">År</span>
                         <span className="flex-1 text-center">Omsättning</span>
                         <span className="w-16 text-right">Resultat</span>
                       </div>
                       <div className="space-y-2 mt-1">
                         {editData.financialHistory?.slice(0, 3).map((h, i) => (
-                          <div key={i} className="flex justify-between items-center text-xs border-b border-slate-200/50 pb-1 last:border-0">
+                          <div key={i} className="flex justify-between items-center text-xs border-b border-dhl-gray-medium/50 pb-1 last:border-0">
                             <span className="text-slate-500 font-medium w-12">{h.year}</span>
-                            <span className="text-slate-900 font-bold flex-1 text-center">{h.revenue}</span>
+                            <span className="text-dhl-black font-bold flex-1 text-center">{h.revenue}</span>
                             <span className={`font-bold w-16 text-right ${(h.profit || '').includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>{h.profit}</span>
                           </div>
                         ))}
@@ -540,13 +540,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Kreditbetyg</p>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-xs font-black px-2 py-0.5 rounded-none ${
                           ['AAA', 'AA', 'A'].includes(editData.creditRatingLabel) ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                           ['B'].includes(editData.creditRatingLabel) ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                          'bg-red-100 text-red-700 border border-red-200'
+                          'bg-red-100 text-red-700 border border-dhl-gray-medium'
                         }`}>
                           {editData.creditRatingLabel}
                         </span>
@@ -562,14 +562,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         )}
                       </div>
                       {editData.creditRatingMotivation && (
-                        <p className="text-[10px] text-slate-600 leading-relaxed italic border-t border-slate-200 pt-1 mt-1">
+                        <p className="text-[10px] text-dhl-gray-dark leading-relaxed italic border-t border-dhl-gray-medium pt-1 mt-1">
                           {editData.creditRatingMotivation}
                         </p>
                       )}
                     </div>
 
                     {/* Risk Analysis Section */}
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-200">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-dhl-gray-medium">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
                         <ShieldAlert className="w-3 h-3 text-[#D40511]" /> Risk-analys & Status
                       </p>
@@ -586,7 +586,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                            editData.paymentRemarks.toLowerCase().includes('inga') || 
                            editData.paymentRemarks.toLowerCase().includes('saknas')) 
                             ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                            : 'bg-red-50 border-red-100 text-red-700'
+                            : 'bg-dhl-gray-light border-red-100 text-red-700'
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Betalningsanm.</span>
                           <span className="text-xs font-black uppercase">{editData.paymentRemarks || 'Inga'}</span>
@@ -600,7 +600,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                            (editData.debtBalance && editData.debtBalance.toLowerCase().includes('saknas')) || 
                            (editData.debtBalance && editData.debtBalance.toLowerCase().includes('inga'))) 
                             ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                            : 'bg-red-50 border-red-100 text-red-700'
+                            : 'bg-dhl-gray-light border-red-100 text-red-700'
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Skuldsaldo (KFM)</span>
                           <span className="text-xs font-black uppercase">{editData.debtBalance || '0 kr'}</span>
@@ -618,39 +618,39 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                 {/* Kolumn 2: Logistik & Infrastruktur */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <Truck className="w-4 h-4 text-[#D40511]" /> Logistik & Infrastruktur
                   </h3>
                   
-                  <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                  <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Huvudadress</p>
                     {isEditing ? (
                       <input 
                         type="text" 
                         value={editData.address} 
                         onChange={(e) => setEditData({...editData, address: e.target.value})}
-                        className="text-xs font-bold text-slate-900 w-full bg-white border border-slate-200 p-1 outline-none focus:border-[#D40511]"
+                        className="text-xs font-bold text-dhl-black w-full bg-white border border-dhl-gray-medium p-1 outline-none focus:border-[#D40511]"
                       />
                     ) : (
-                      <p className="text-xs font-bold text-slate-900">{editData.address}</p>
+                      <p className="text-xs font-bold text-dhl-black">{editData.address}</p>
                     )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Besöksadress</p>
                       {isEditing ? (
                         <input 
                           type="text" 
                           value={editData.visitingAddress || ''} 
                           onChange={(e) => setEditData({...editData, visitingAddress: e.target.value})}
-                          className="text-xs font-bold text-slate-900 w-full bg-white border border-slate-200 p-1 outline-none focus:border-[#D40511]"
+                          className="text-xs font-bold text-dhl-black w-full bg-white border border-dhl-gray-medium p-1 outline-none focus:border-[#D40511]"
                         />
                       ) : (
-                        <p className="text-xs font-bold text-slate-900">{editData.visitingAddress || '-'}</p>
+                        <p className="text-xs font-bold text-dhl-black">{editData.visitingAddress || '-'}</p>
                       )}
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100 relative group">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100 relative group">
                       <div className="flex justify-between items-start mb-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lageradress</p>
                         {!isEditing && editData.warehouseAddress && editData.warehouseAddress !== '-' && (
@@ -668,13 +668,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                           type="text" 
                           value={editData.warehouseAddress || ''} 
                           onChange={(e) => setEditData({...editData, warehouseAddress: e.target.value})}
-                          className="text-xs font-bold text-slate-900 w-full bg-white border border-slate-200 p-1 outline-none focus:border-[#D40511]"
+                          className="text-xs font-bold text-dhl-black w-full bg-white border border-dhl-gray-medium p-1 outline-none focus:border-[#D40511]"
                         />
                       ) : (
                         <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-900">{editData.warehouseAddress || '-'}</p>
+                          <p className="text-xs font-bold text-dhl-black">{editData.warehouseAddress || '-'}</p>
                           {matched3PL && (
-                            <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 px-2 py-1 rounded-sm">
+                            <div className="flex items-center gap-1.5 bg-dhl-gray-light border border-red-100 px-2 py-1 rounded-sm">
                               <Package className="w-3 h-3 text-red-600" />
                               <span className="text-[10px] font-black text-red-700 uppercase italic">3PL: {matched3PL.name}</span>
                             </div>
@@ -689,63 +689,63 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="space-y-2">
                       {editData.checkoutOptions?.map((opt, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-2 text-slate-600">
-                            <span className="w-4 h-4 bg-slate-100 rounded-none flex items-center justify-center text-[9px] font-bold">{opt.position}</span>
+                          <span className="flex items-center gap-2 text-dhl-gray-dark">
+                            <span className="w-4 h-4 bg-dhl-gray-light rounded-none flex items-center justify-center text-[9px] font-bold">{opt.position}</span>
                             {opt.carrier}
                           </span>
-                          <span className="font-bold text-slate-900">{opt.price}</span>
+                          <span className="font-bold text-dhl-black">{opt.price}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                  <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Teknisk Stack</p>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Plattform:</span>
-                        <span className="font-bold text-slate-900">{editData.ecommercePlatform}</span>
+                        <span className="font-bold text-dhl-black">{editData.ecommercePlatform}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">TA-System:</span>
-                        <span className="font-bold text-slate-900">{editData.taSystem}</span>
+                        <span className="font-bold text-dhl-black">{editData.taSystem}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Betalning:</span>
-                        <span className="font-bold text-slate-900">{editData.paymentProvider}</span>
+                        <span className="font-bold text-dhl-black">{editData.paymentProvider}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                  <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Marknader</p>
                     <div className="flex flex-wrap gap-1">
                       {editData.activeMarkets?.map((m, i) => (
-                        <span key={i} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-slate-600 uppercase">
+                        <span key={i} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">
                           {m}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                  <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Volymfördelning</p>
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-[10px] mb-1">
                           <span className="text-slate-500">B2C</span>
-                          <span className="font-bold text-slate-900">{editData.b2cPercentage}%</span>
+                          <span className="font-bold text-dhl-black">{editData.b2cPercentage}%</span>
                         </div>
-                        <div className="w-full bg-slate-200 h-1 rounded-none overflow-hidden">
+                        <div className="w-full bg-dhl-gray-medium h-1 rounded-none overflow-hidden">
                           <div className="bg-[#D40511] h-full" style={{ width: `${editData.b2cPercentage}%` }} />
                         </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-[10px] mb-1">
                           <span className="text-slate-500">B2B</span>
-                          <span className="font-bold text-slate-900">{editData.b2bPercentage}%</span>
+                          <span className="font-bold text-dhl-black">{editData.b2bPercentage}%</span>
                         </div>
-                        <div className="w-full bg-slate-200 h-1 rounded-none overflow-hidden">
+                        <div className="w-full bg-dhl-gray-medium h-1 rounded-none overflow-hidden">
                           <div className="bg-emerald-600 h-full" style={{ width: `${editData.b2bPercentage}%` }} />
                         </div>
                       </div>
@@ -755,7 +755,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                 {/* Kolumn 3: Beslutsfattare / Pitch / Potential */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <Layout className="w-4 h-4 text-[#D40511]" /> Beslutsfattare / Pitch / Potential
                   </h3>
 
@@ -789,7 +789,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                     newDMs[idx].name = e.target.value;
                                     setEditData(prev => ({ ...prev, decisionMakers: newDMs }));
                                   }}
-                                  className="text-xs font-bold text-slate-900 w-full border-b border-slate-200 focus:border-[#D40511] outline-none"
+                                  className="text-xs font-bold text-dhl-black w-full border-b border-dhl-gray-medium focus:border-[#D40511] outline-none"
                                 />
                                 <input 
                                   type="text" 
@@ -799,7 +799,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                     newDMs[idx].title = e.target.value;
                                     setEditData(prev => ({ ...prev, decisionMakers: newDMs }));
                                   }}
-                                  className="text-[10px] text-slate-500 w-full border-b border-slate-200 focus:border-[#D40511] outline-none"
+                                  className="text-[10px] text-slate-500 w-full border-b border-dhl-gray-medium focus:border-[#D40511] outline-none"
                                 />
                                 <input 
                                   type="text" 
@@ -810,7 +810,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                     newDMs[idx].email = e.target.value;
                                     setEditData(prev => ({ ...prev, decisionMakers: newDMs }));
                                   }}
-                                  className="text-[10px] text-slate-500 w-full border-b border-slate-200 focus:border-[#D40511] outline-none"
+                                  className="text-[10px] text-slate-500 w-full border-b border-dhl-gray-medium focus:border-[#D40511] outline-none"
                                 />
                                 <input 
                                   type="text" 
@@ -821,12 +821,12 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                     newDMs[idx].linkedin = e.target.value;
                                     setEditData(prev => ({ ...prev, decisionMakers: newDMs }));
                                   }}
-                                  className="text-[10px] text-slate-500 w-full border-b border-slate-200 focus:border-[#D40511] outline-none"
+                                  className="text-[10px] text-slate-500 w-full border-b border-dhl-gray-medium focus:border-[#D40511] outline-none"
                                 />
                               </div>
                             ) : (
                               <>
-                                <p className="text-xs font-bold text-slate-900">{contact.name}</p>
+                                <p className="text-xs font-bold text-dhl-black">{contact.name}</p>
                                 <p className="text-[10px] text-slate-500 mb-2">{contact.title}</p>
                               </>
                             )}
@@ -835,14 +835,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                 href={contact.linkedin} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="p-1.5 bg-slate-50 border border-slate-200 rounded-none text-slate-400 hover:text-[#D40511] hover:border-red-200 transition-all"
+                                className="p-1.5 bg-dhl-gray-light border border-dhl-gray-medium rounded-none text-slate-400 hover:text-[#D40511] hover:border-dhl-gray-medium transition-all"
                                 title="LinkedIn"
                               >
                                 <Linkedin className="w-3.5 h-3.5" />
                               </a>
                               <a 
                                 href={`mailto:${contact.email}`}
-                                className="p-1.5 bg-slate-50 border border-slate-200 rounded-none text-slate-400 hover:text-[#D40511] hover:border-red-200 transition-all"
+                                className="p-1.5 bg-dhl-gray-light border border-dhl-gray-medium rounded-none text-slate-400 hover:text-[#D40511] hover:border-dhl-gray-medium transition-all"
                                 title="Mail"
                               >
                                 <Mail className="w-3.5 h-3.5" />
@@ -862,7 +862,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                 const newDMs = editData.decisionMakers.filter((_, i) => i !== idx);
                                 setEditData(prev => ({ ...prev, decisionMakers: newDMs }));
                               }}
-                              className="p-2 bg-slate-100 text-slate-400 rounded-none hover:bg-red-50 hover:text-red-600 transition-all opacity-0 group-hover:opacity-100"
+                              className="p-2 bg-dhl-gray-light text-slate-400 rounded-none hover:bg-dhl-gray-light hover:text-red-600 transition-all opacity-0 group-hover:opacity-100"
                               title="Ta bort kontakt"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -875,23 +875,23 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                   <div className="p-3 bg-yellow-50/30 rounded-none border border-yellow-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Strategisk Pitch</p>
-                    <p className="text-xs text-slate-700 leading-relaxed italic">"{editData.strategicPitch}"</p>
+                    <p className="text-xs text-dhl-gray-dark leading-relaxed italic">"{editData.strategicPitch}"</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Affärsmodell</p>
-                      <p className="text-xs font-bold text-slate-900">{editData.businessModel}</p>
+                      <p className="text-xs font-bold text-dhl-black">{editData.businessModel}</p>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Antal Butiker</p>
-                      <p className="text-xs font-bold text-slate-900">{editData.storeCount || 0}</p>
+                      <p className="text-xs font-bold text-dhl-black">{editData.storeCount || 0}</p>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-none border border-slate-100 col-span-2">
+                    <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bransch & Beskrivning</p>
-                      <p className="text-xs font-bold text-slate-900 mb-1">{editData.industry || 'N/A'}</p>
+                      <p className="text-xs font-bold text-dhl-black mb-1">{editData.industry || 'N/A'}</p>
                       {editData.industryDescription && (
-                        <p className="text-[10px] text-slate-600 leading-relaxed">{editData.industryDescription}</p>
+                        <p className="text-[10px] text-dhl-gray-dark leading-relaxed">{editData.industryDescription}</p>
                       )}
                     </div>
                   </div>
@@ -915,11 +915,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                           onClick={() => setSelectedContactIndex(idx)}
                           className={`w-full p-2.5 text-left rounded-none border transition-all ${
                             selectedContactIndex === idx 
-                              ? 'bg-red-50 border-red-200 ring-1 ring-red-200' 
-                              : 'bg-white border-slate-100 hover:border-slate-200'
+                              ? 'bg-dhl-gray-light border-dhl-gray-medium ring-1 ring-red-200' 
+                              : 'bg-white border-slate-100 hover:border-dhl-gray-medium'
                           }`}
                         >
-                          <p className={`text-xs font-bold ${selectedContactIndex === idx ? 'text-[#D40511]' : 'text-slate-900'}`}>{contact.name}</p>
+                          <p className={`text-xs font-bold ${selectedContactIndex === idx ? 'text-[#D40511]' : 'text-dhl-black'}`}>{contact.name}</p>
                           <p className="text-[10px] text-slate-500 truncate">{contact.title}</p>
                         </button>
                         <div className="flex gap-1 px-1">
@@ -947,13 +947,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="flex gap-2">
                       <button 
                         onClick={() => setMailLanguage('sv')}
-                        className={`flex-1 py-1.5 text-[10px] font-bold border transition-all ${mailLanguage === 'sv' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                        className={`flex-1 py-1.5 text-[10px] font-bold border transition-all ${mailLanguage === 'sv' ? 'bg-dhl-black text-white border-slate-900' : 'bg-white text-slate-500 border-dhl-gray-medium hover:border-dhl-gray-medium'}`}
                       >
                         Svenska
                       </button>
                       <button 
                         onClick={() => setMailLanguage('en')}
-                        className={`flex-1 py-1.5 text-[10px] font-bold border transition-all ${mailLanguage === 'en' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                        className={`flex-1 py-1.5 text-[10px] font-bold border transition-all ${mailLanguage === 'en' ? 'bg-dhl-black text-white border-slate-900' : 'bg-white text-slate-500 border-dhl-gray-medium hover:border-dhl-gray-medium'}`}
                       >
                         Engelska
                       </button>
@@ -970,9 +970,9 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         Redigera Mall
                       </button>
                     </div>
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-none">
+                    <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-none">
                       <div 
-                        className="text-[10px] text-slate-600 leading-relaxed"
+                        className="text-[10px] text-dhl-gray-dark leading-relaxed"
                         dangerouslySetInnerHTML={{ 
                           __html: (mailLanguage === 'sv' ? customTemplateSv : customTemplateEn) || 
                                   (mailLanguage === 'sv' ? 'Ingen anpassad mall sparad.' : 'No custom template saved.') 
@@ -998,12 +998,12 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <Mail className="w-5 h-5 text-[#D40511]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">Mail-förslag till {editData.decisionMakers[selectedContactIndex]?.name}</h3>
+                        <h3 className="text-sm font-bold text-dhl-black">Mail-förslag till {editData.decisionMakers[selectedContactIndex]?.name}</h3>
                         <p className="text-xs text-slate-500">Baserat på Surgical Analysis v25.1</p>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1.5 bg-white border border-slate-200 rounded-none text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                      <button className="px-3 py-1.5 bg-white border border-dhl-gray-medium rounded-none text-xs font-bold text-dhl-gray-dark hover:bg-dhl-gray-light transition-all">
                         Redigera
                       </button>
                       <button className="px-3 py-1.5 bg-[#D40511] text-white rounded-none text-xs font-bold hover:bg-red-700 transition-all shadow-sm shadow-red-100 flex items-center gap-1.5">
@@ -1012,7 +1012,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex-1 bg-slate-50 rounded-none border border-slate-200 p-8 min-h-[400px]">
+                  <div className="flex-1 bg-dhl-gray-light rounded-none border border-dhl-gray-medium p-8 min-h-[400px]">
                     {isGenerating ? (
                       <div className="h-full flex flex-col items-center justify-center space-y-4">
                         <Loader2 className="w-8 h-8 text-[#D40511] animate-spin" />
@@ -1026,7 +1026,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                           <Zap className="w-8 h-8 text-slate-300" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-900">Ingen mail genererad än</p>
+                          <p className="text-sm font-bold text-dhl-black">Ingen mail genererad än</p>
                           <p className="text-xs text-slate-500 max-w-[240px] mx-auto mt-1">
                             Välj en beslutsfattare till vänster och klicka på "Generera Förslag".
                           </p>
@@ -1058,7 +1058,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
                   
                   <div className="max-w-xs">
-                    <h3 className="text-lg font-bold text-slate-900 mb-2">Surgical QuickScan AI</h3>
+                    <h3 className="text-lg font-bold text-dhl-black mb-2">Surgical QuickScan AI</h3>
                     <p className="text-sm text-slate-500 leading-relaxed">
                       Kör en djupanalys av bolagets logistikflöden, DMT-påslag och potentiella Revenue Recovery.
                     </p>
@@ -1110,14 +1110,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                   <div className="grid grid-cols-2 gap-6">
                     {editData.dmtMatrix && editData.dmtMatrix.length > 0 ? (
-                      <div className="p-6 bg-slate-50 rounded-none border border-slate-200">
-                        <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <div className="p-6 bg-dhl-gray-light rounded-none border border-dhl-gray-medium">
+                        <h4 className="text-sm font-bold text-dhl-black mb-4 flex items-center gap-2">
                           <BarChart3 className="w-4 h-4 text-[#D40511]" /> DMT Matrix
                         </h4>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-slate-400 uppercase tracking-wider border-b border-slate-200">
+                              <tr className="text-slate-400 uppercase tracking-wider border-b border-dhl-gray-medium">
                                 <th className="text-left py-2">Segment</th>
                                 <th className="text-right py-2">Nuvarande</th>
                                 <th className="text-right py-2">Mål</th>
@@ -1127,8 +1127,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
                             <tbody className="divide-y divide-slate-100">
                               {editData.dmtMatrix.map((row, i) => (
                                 <tr key={i}>
-                                  <td className="py-2 text-slate-700">{row.segment}</td>
-                                  <td className="py-2 text-right text-slate-900 font-medium">{row.currentCost}%</td>
+                                  <td className="py-2 text-dhl-gray-dark">{row.segment}</td>
+                                  <td className="py-2 text-right text-dhl-black font-medium">{row.currentCost}%</td>
                                   <td className="py-2 text-right text-emerald-600 font-bold">{row.targetCost}%</td>
                                   <td className="py-2 text-right text-[#D40511] font-bold">-{row.savingPercentage}%</td>
                                 </tr>
@@ -1138,16 +1138,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="p-6 bg-slate-50 rounded-none border border-slate-200">
-                        <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <div className="p-6 bg-dhl-gray-light rounded-none border border-dhl-gray-medium">
+                        <h4 className="text-sm font-bold text-dhl-black mb-4 flex items-center gap-2">
                           <BarChart3 className="w-4 h-4 text-[#D40511]" /> DMT & Bränsleanalys
                         </h4>
                         <div className="space-y-4">
                           <div className="flex justify-between items-end">
                             <span className="text-xs text-slate-500">Nuvarande snittpåslag (est):</span>
-                            <span className="text-sm font-bold text-slate-900">21.8%</span>
+                            <span className="text-sm font-bold text-dhl-black">21.8%</span>
                           </div>
-                          <div className="w-full bg-slate-200 h-2 rounded-none overflow-hidden">
+                          <div className="w-full bg-dhl-gray-medium h-2 rounded-none overflow-hidden">
                             <motion.div 
                               initial={{ width: 0 }} animate={{ width: '70%' }}
                               className="bg-[#D40511] h-full"
@@ -1160,20 +1160,20 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     )}
 
-                    <div className="p-6 bg-slate-50 rounded-none border border-slate-200">
-                      <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <div className="p-6 bg-dhl-gray-light rounded-none border border-dhl-gray-medium">
+                      <h4 className="text-sm font-bold text-dhl-black mb-4 flex items-center gap-2">
                         <ShieldAlert className="w-4 h-4 text-red-500" /> Friktionsanalys
                       </h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Antal klick till köp:</span>
-                          <span className="font-bold text-slate-900">{editData.frictionAnalysis?.companyClicks || 5}</span>
+                          <span className="font-bold text-dhl-black">{editData.frictionAnalysis?.companyClicks || 5}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Benchmark:</span>
                           <span className="font-bold text-emerald-600">{editData.frictionAnalysis?.benchmarkClicks || 3}</span>
                         </div>
-                        <p className="text-xs text-slate-600 mt-2 bg-white p-2 rounded-none border border-slate-100">
+                        <p className="text-xs text-dhl-gray-dark mt-2 bg-white p-2 rounded-none border border-slate-100">
                           {editData.frictionAnalysis?.frictionNote || 'Hög friktion vid val av utlämningsställe.'}
                         </p>
                       </div>
@@ -1187,17 +1187,17 @@ const LeadCard: React.FC<LeadCardProps> = ({
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+      <div className="p-4 border-t border-slate-100 bg-dhl-gray-light/50 flex justify-between items-center">
         <div className="flex gap-2">
           <button 
             onClick={() => onRefreshAnalysis && onRefreshAnalysis(editData.companyName)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-none text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-dhl-gray-medium rounded-none text-xs font-bold text-dhl-gray-dark hover:bg-dhl-gray-light transition-all"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Uppdatera Data
           </button>
           <button 
             onClick={() => onDownloadSingle && onDownloadSingle(editData)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-none text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-dhl-gray-medium rounded-none text-xs font-bold text-dhl-gray-dark hover:bg-dhl-gray-light transition-all"
           >
             <ArrowDownRight className="w-3.5 h-3.5" /> Exportera PDF
           </button>
@@ -1208,7 +1208,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
             href={editData.websiteUrl} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-none text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-dhl-gray-medium rounded-none text-xs font-bold text-dhl-gray-dark hover:bg-dhl-gray-light transition-all"
           >
             <ExternalLink className="w-3.5 h-3.5" /> Besök Webbplats
           </a>
@@ -1228,7 +1228,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
         {showDeleteConfirm && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-dhl-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -1239,7 +1239,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 <h3 className="text-xl font-bold uppercase tracking-tight">Radera Lead?</h3>
               </div>
               
-              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              <p className="text-sm text-dhl-gray-dark mb-6 leading-relaxed">
                 Är du säker på att du vill radera <strong>{editData.companyName}</strong>? 
                 Detta går inte att ångra. Vänligen ange anledning nedan för vår statistik.
               </p>
@@ -1250,7 +1250,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   <select 
                     value={deleteReason}
                     onChange={(e) => setDeleteReason(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
+                    className="w-full px-4 py-2.5 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
                   >
                     <option value="">Välj anledning...</option>
                     <option value="NOT_RELEVANT">Ej relevant bransch</option>
@@ -1264,14 +1264,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 {deleteReason === 'OTHER' && (
                   <textarea 
                     placeholder="Beskriv anledningen..."
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm h-24 resize-none"
+                    className="w-full px-4 py-2.5 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm h-24 resize-none"
                   />
                 )}
 
                 <div className="flex gap-3 pt-4">
                   <button 
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-none hover:bg-slate-200 transition-all text-sm"
+                    className="flex-1 py-3 bg-dhl-gray-light text-dhl-gray-dark font-bold rounded-none hover:bg-dhl-gray-medium transition-all text-sm"
                   >
                     Avbryt
                   </button>
@@ -1301,8 +1301,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
           >
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-bold text-slate-900">Redigera Lead</h2>
-                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-100 rounded-none transition-all">
+                <h2 className="text-2xl font-bold text-dhl-black">Redigera Lead</h2>
+                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-dhl-gray-light rounded-none transition-all">
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
@@ -1314,7 +1314,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.companyName} 
                     onChange={e => setEditData({...editData, companyName: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1323,7 +1323,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.orgNumber} 
                     onChange={e => setEditData({...editData, orgNumber: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1332,7 +1332,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.address} 
                     onChange={e => setEditData({...editData, address: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1341,7 +1341,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.revenue} 
                     onChange={e => setEditData({...editData, revenue: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1350,7 +1350,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.freightBudget} 
                     onChange={e => setEditData({...editData, freightBudget: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1359,7 +1359,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.annualPackages} 
                     onChange={e => setEditData({...editData, annualPackages: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1368,7 +1368,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.ecommercePlatform} 
                     onChange={e => setEditData({...editData, ecommercePlatform: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1377,7 +1377,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.taSystem} 
                     onChange={e => setEditData({...editData, taSystem: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1386,7 +1386,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.businessModel} 
                     onChange={e => setEditData({...editData, businessModel: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1395,7 +1395,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.storeCount} 
                     onChange={e => setEditData({...editData, storeCount: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1404,7 +1404,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.phoneNumber || ''} 
                     onChange={e => setEditData({...editData, phoneNumber: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1413,7 +1413,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.industry || ''} 
                     onChange={e => setEditData({...editData, industry: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1422,7 +1422,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.warehouseAddress || ''} 
                     onChange={e => setEditData({...editData, warehouseAddress: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1431,7 +1431,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.websiteUrl || ''} 
                     onChange={e => setEditData({...editData, websiteUrl: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1440,7 +1440,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.solidity || ''} 
                     onChange={e => setEditData({...editData, solidity: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1449,7 +1449,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.liquidityRatio || ''} 
                     onChange={e => setEditData({...editData, liquidityRatio: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1458,7 +1458,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.profitMargin || ''} 
                     onChange={e => setEditData({...editData, profitMargin: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1467,7 +1467,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.debtEquityRatio || ''} 
                     onChange={e => setEditData({...editData, debtEquityRatio: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1476,7 +1476,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.debtBalance || ''} 
                     onChange={e => setEditData({...editData, debtBalance: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1485,7 +1485,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.paymentRemarks || ''} 
                     onChange={e => setEditData({...editData, paymentRemarks: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1494,7 +1494,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.b2cPercentage || 0} 
                     onChange={e => setEditData({...editData, b2cPercentage: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1503,7 +1503,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.b2bPercentage || 0} 
                     onChange={e => setEditData({...editData, b2bPercentage: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1512,7 +1512,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.revenueYear || ''} 
                     onChange={e => setEditData({...editData, revenueYear: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1521,7 +1521,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.profit || ''} 
                     onChange={e => setEditData({...editData, profit: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1530,7 +1530,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.employeesCount || 0} 
                     onChange={e => setEditData({...editData, employeesCount: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1539,7 +1539,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.estimatedAOV || 0} 
                     onChange={e => setEditData({...editData, estimatedAOV: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1548,7 +1548,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.potentialSek || 0} 
                     onChange={e => setEditData({...editData, potentialSek: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1557,7 +1557,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.activeMarkets || ''} 
                     onChange={e => setEditData({...editData, activeMarkets: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1566,7 +1566,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="text" 
                     value={editData.recoveryPotentialSek || ''} 
                     onChange={e => setEditData({...editData, recoveryPotentialSek: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1575,7 +1575,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     type="number" 
                     value={editData.conversionScore || 0} 
                     onChange={e => setEditData({...editData, conversionScore: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -1586,14 +1586,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   rows={4}
                   value={editData.strategicPitch} 
                   onChange={e => setEditData({...editData, strategicPitch: e.target.value})}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none"
+                  className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none"
                 />
               </div>
 
               <div className="pt-6 flex justify-end gap-3">
                 <button 
                   onClick={() => setIsEditing(false)}
-                  className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-none hover:bg-slate-200 transition-all"
+                  className="px-6 py-2.5 bg-dhl-gray-light text-dhl-gray-dark font-bold rounded-none hover:bg-dhl-gray-medium transition-all"
                 >
                   Avbryt
                 </button>
@@ -1620,7 +1620,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
           <div>
             <div className="flex items-center gap-3 mb-1">
               <span className={`text-sm font-black px-2 py-0.5 rounded-none ${getSegmentBadgeStyle(editData.segment)}`}>{editData.segment}</span>
-              <h1 className="text-3xl font-black text-slate-900">{editData.companyName}</h1>
+              <h1 className="text-3xl font-black text-dhl-black">{editData.companyName}</h1>
             </div>
             <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Surgical Analysis Report | {activeCarrier}</p>
           </div>
@@ -1636,24 +1636,24 @@ const LeadCard: React.FC<LeadCardProps> = ({
           <div className="space-y-6">
             <h2 className="text-lg font-black uppercase tracking-wider text-[#D40511] border-b border-slate-100 pb-2">Finansiell Status & Risk</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Omsättning</p>
                 <p className="text-sm font-black">{editData.revenue}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Resultat</p>
                 <p className="text-sm font-black">{editData.profit}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Soliditet</p>
                 <p className="text-sm font-black">{editData.solidity}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Likviditet</p>
                 <p className="text-sm font-black">{editData.liquidityRatio}</p>
               </div>
             </div>
-            <div className="p-4 bg-red-50 border border-red-100">
+            <div className="p-4 bg-dhl-gray-light border border-red-100">
               <p className="text-[10px] font-bold text-red-400 uppercase">Kreditvärdighet</p>
               <p className="text-sm font-black text-red-700">{editData.creditRatingLabel}</p>
             </div>
@@ -1663,19 +1663,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
           <div className="space-y-6">
             <h2 className="text-lg font-black uppercase tracking-wider text-[#D40511] border-b border-slate-100 pb-2">Logistik & Potential</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Segment</p>
                 <p className="text-sm font-black">{editData.segment}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Fraktpotential</p>
                 <p className="text-sm font-black">{editData.freightBudget}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Årliga Paket</p>
                 <p className="text-sm font-black">{editData.annualPackages}</p>
               </div>
-              <div className="p-4 bg-slate-50 border border-slate-100">
+              <div className="p-4 bg-dhl-gray-light border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">B2C %</p>
                 <p className="text-sm font-black">{editData.b2cPercentage}%</p>
               </div>
@@ -1714,14 +1714,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
               <p className="text-xs font-bold text-emerald-800 uppercase mb-2">Revenue Recovery Potential</p>
               <p className="text-3xl font-black text-emerald-700">{editData.recoveryPotentialSek || 'N/A'}</p>
             </div>
-            <div className="p-6 bg-red-50 border border-red-100">
+            <div className="p-6 bg-dhl-gray-light border border-red-100">
               <p className="text-xs font-bold text-red-800 uppercase mb-2">Conversion Impact</p>
               <p className="text-3xl font-black text-red-700">+{editData.conversionScore || '0'}%</p>
             </div>
           </div>
-          <div className="p-6 bg-slate-50 border border-slate-100">
+          <div className="p-6 bg-dhl-gray-light border border-slate-100">
             <p className="text-xs font-bold text-slate-400 uppercase mb-2">Strategisk Pitch</p>
-            <p className="text-sm text-slate-700 leading-relaxed italic">"{editData.strategicPitch}"</p>
+            <p className="text-sm text-dhl-gray-dark leading-relaxed italic">"{editData.strategicPitch}"</p>
           </div>
         </div>
 
@@ -1765,13 +1765,13 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     value={new3PLName}
                     onChange={e => setNew3PLName(e.target.value)}
                     placeholder="t.ex. Shelfless, PostNord TPL..."
-                    className="w-full text-xs font-bold border-slate-200 p-2 focus:border-red-600 outline-none"
+                    className="w-full text-xs font-bold border-dhl-gray-medium p-2 focus:border-red-600 outline-none"
                     autoFocus
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Adress (Lager)</label>
-                  <div className="text-xs font-bold text-slate-900 bg-slate-50 p-2 border border-slate-100 flex items-center gap-2">
+                  <div className="text-xs font-bold text-dhl-black bg-dhl-gray-light p-2 border border-slate-100 flex items-center gap-2">
                     <MapPin className="w-3 h-3 text-slate-400" />
                     {editData.warehouseAddress}
                   </div>
@@ -1780,10 +1780,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   Genom att spara denna adress i 3PL-biblioteket kommer framtida leads med samma lageradress automatiskt flaggas som 3PL-kunder.
                 </p>
               </div>
-              <div className="p-4 bg-slate-50 border-t flex gap-2">
+              <div className="p-4 bg-dhl-gray-light border-t flex gap-2">
                 <button 
                   onClick={() => setIs3PLModalOpen(false)}
-                  className="flex-1 px-4 py-2 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="flex-1 px-4 py-2 text-[10px] font-black uppercase text-dhl-gray-dark hover:bg-dhl-gray-light transition-colors"
                 >
                   Avbryt
                 </button>
@@ -1815,3 +1815,5 @@ const LeadCard: React.FC<LeadCardProps> = ({
 };
 
 export default LeadCard;
+
+

@@ -185,31 +185,31 @@ export const ExportManager: React.FC<ExportManagerProps> = ({ userId }) => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-        <Download className="w-5 h-5 text-indigo-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+        <Download className="w-5 h-5 text-dhl-red" />
         Export Data
       </h3>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <p className="text-sm text-green-600">{success}</p>
+        <div className="p-3 bg-dhl-gray-light border border-green-200 rounded-sm flex gap-2">
+          <CheckCircle className="w-5 h-5 text-dhl-yellow flex-shrink-0" />
+          <p className="text-sm text-dhl-yellow">{success}</p>
         </div>
       )}
 
       {/* Data Selection */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <p className="text-sm font-medium text-slate-900 mb-3">Select data to export:</p>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+        <p className="text-sm font-medium text-dhl-black mb-3">Select data to export:</p>
         <div className="space-y-2">
           {Object.entries(selectedItems).map(([key, value]) => (
-            <label key={key} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer">
+            <label key={key} className="flex items-center gap-2 p-2 hover:bg-dhl-gray-light rounded cursor-pointer">
               <input
                 type="checkbox"
                 checked={value}
@@ -221,7 +221,7 @@ export const ExportManager: React.FC<ExportManagerProps> = ({ userId }) => {
                 }
                 className="w-4 h-4"
               />
-              <span className="text-sm text-slate-700">
+              <span className="text-sm text-dhl-gray-dark">
                 {key.charAt(0).toUpperCase() + key.slice(1)}
               </span>
             </label>
@@ -234,54 +234,54 @@ export const ExportManager: React.FC<ExportManagerProps> = ({ userId }) => {
         <button
           onClick={downloadJSON}
           disabled={exporting !== null}
-          className="flex items-center justify-center gap-2 p-4 border border-slate-200 rounded-lg hover:shadow-md transition-all disabled:opacity-50"
+          className="flex items-center justify-center gap-2 p-4 border border-dhl-gray-medium rounded-sm hover:shadow-md transition-all disabled:opacity-50"
         >
           {exporting === 'json' ? (
             <Loader className="w-5 h-5 animate-spin" />
           ) : (
-            <FileJson className="w-5 h-5 text-blue-600" />
+            <FileJson className="w-5 h-5 text-dhl-red" />
           )}
           <div className="text-left">
-            <p className="font-medium text-slate-900">JSON</p>
-            <p className="text-xs text-slate-600">Structured data format</p>
+            <p className="font-medium text-dhl-black">JSON</p>
+            <p className="text-xs text-dhl-gray-dark">Structured data format</p>
           </div>
         </button>
 
         <button
           onClick={downloadExcel}
           disabled={exporting !== null}
-          className="flex items-center justify-center gap-2 p-4 border border-slate-200 rounded-lg hover:shadow-md transition-all disabled:opacity-50"
+          className="flex items-center justify-center gap-2 p-4 border border-dhl-gray-medium rounded-sm hover:shadow-md transition-all disabled:opacity-50"
         >
           {exporting === 'excel' ? (
             <Loader className="w-5 h-5 animate-spin" />
           ) : (
-            <FileText className="w-5 h-5 text-green-600" />
+            <FileText className="w-5 h-5 text-dhl-yellow" />
           )}
           <div className="text-left">
-            <p className="font-medium text-slate-900">Excel</p>
-            <p className="text-xs text-slate-600">Multi-sheet workbook</p>
+            <p className="font-medium text-dhl-black">Excel</p>
+            <p className="text-xs text-dhl-gray-dark">Multi-sheet workbook</p>
           </div>
         </button>
 
         <button
           onClick={downloadCSV}
           disabled={exporting !== null}
-          className="flex items-center justify-center gap-2 p-4 border border-slate-200 rounded-lg hover:shadow-md transition-all disabled:opacity-50"
+          className="flex items-center justify-center gap-2 p-4 border border-dhl-gray-medium rounded-sm hover:shadow-md transition-all disabled:opacity-50"
         >
           {exporting === 'csv' ? (
             <Loader className="w-5 h-5 animate-spin" />
           ) : (
-            <FileText className="w-5 h-5 text-orange-600" />
+            <FileText className="w-5 h-5 text-dhl-yellow" />
           )}
           <div className="text-left">
-            <p className="font-medium text-slate-900">CSV</p>
-            <p className="text-xs text-slate-600">Campaign metrics</p>
+            <p className="font-medium text-dhl-black">CSV</p>
+            <p className="text-xs text-dhl-gray-dark">Campaign metrics</p>
           </div>
         </button>
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
         <p className="text-sm text-blue-900">
           💡 <strong>Tip:</strong> Export your data regularly for backup and analysis purposes.
           Data is encrypted during export.
@@ -292,3 +292,5 @@ export const ExportManager: React.FC<ExportManagerProps> = ({ userId }) => {
 };
 
 export default ExportManager;
+
+

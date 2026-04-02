@@ -13,10 +13,10 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 w-full max-w-lg shadow-2xl border-t-4 border-red-600 relative text-slate-300 font-mono">
+      <div className="bg-dhl-black w-full max-w-lg shadow-2xl border-t-4 border-red-600 relative text-slate-300 font-mono">
         <button 
           onClick={onClose}
-          className="absolute top-3 right-3 p-1 hover:bg-slate-800 rounded-sm text-slate-500 hover:text-white transition-colors"
+          className="absolute top-3 right-3 p-1 hover:bg-dhl-black rounded-sm text-slate-500 hover:text-white transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -31,7 +31,7 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
           </div>
 
           <div className="space-y-4 mb-6">
-             <div className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700 rounded-sm">
+             <div className="flex justify-between items-center p-3 bg-dhl-black/50 border border-slate-700 rounded-sm">
                 <span className="text-xs uppercase font-bold flex items-center gap-2">
                   <Activity className="w-4 h-4 text-green-500" />
                   API Uppkoppling
@@ -39,7 +39,7 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
                 <span className="text-xs text-green-400 font-bold">ONLINE</span>
              </div>
 
-             <div className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700 rounded-sm">
+             <div className="flex justify-between items-center p-3 bg-dhl-black/50 border border-slate-700 rounded-sm">
                 <span className="text-xs uppercase font-bold flex items-center gap-2">
                    <ShieldCheck className="w-4 h-4 text-red-500" />
                    Säkerhetsprotokoll
@@ -47,7 +47,7 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
                 <span className="text-xs text-red-400 font-bold">AKTIV (v8.2)</span>
              </div>
 
-             <div className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700 rounded-sm">
+             <div className="flex justify-between items-center p-3 bg-dhl-black/50 border border-slate-700 rounded-sm">
                 <span className="text-xs uppercase font-bold text-slate-400">
                    Lead Reservoir (Cache)
                 </span>
@@ -70,3 +70,4 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
     </div>
   );
 };
+

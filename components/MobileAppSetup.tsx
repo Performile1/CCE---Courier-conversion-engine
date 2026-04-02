@@ -34,40 +34,40 @@ export const MobileAppSetup: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-        <Smartphone className="w-6 h-6 text-indigo-600" />
+      <h2 className="text-2xl font-bold text-dhl-black flex items-center gap-2">
+        <Smartphone className="w-6 h-6 text-dhl-red" />
         Phase 8: Mobile App Setup
       </h2>
 
       {/* Quick Overview */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
         <p className="text-sm text-blue-900">
           📱 <strong>Phase 8 brings CCE to iOS & Android</strong> with React Native. Users can browse leads, manage campaigns, and receive push notifications on their phones.
         </p>
       </div>
 
       {/* Architecture */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4">Mobile Architecture</h3>
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+        <h3 className="font-bold text-dhl-black mb-4">Mobile Architecture</h3>
         <div className="space-y-3 text-sm">
           <p className="flex items-start gap-2">
-            <span className="text-indigo-600 font-bold">📲</span>
+            <span className="text-dhl-red font-bold">📲</span>
             <span><strong>Frontend:</strong> React Native (iOS + Android shared codebase)</span>
           </p>
           <p className="flex items-start gap-2">
-            <span className="text-indigo-600 font-bold">🔐</span>
+            <span className="text-dhl-red font-bold">🔐</span>
             <span><strong>Auth:</strong> Supabase Auth with biometric login (Face ID, Touch ID)</span>
           </p>
           <p className="flex items-start gap-2">
-            <span className="text-indigo-600 font-bold">📡</span>
+            <span className="text-dhl-red font-bold">📡</span>
             <span><strong>Real-time:</strong> Supabase subscriptions for instant lead updates</span>
           </p>
           <p className="flex items-start gap-2">
-            <span className="text-indigo-600 font-bold">🔔</span>
+            <span className="text-dhl-red font-bold">🔔</span>
             <span><strong>Notifications:</strong> Push notifications for campaigns, leads, alerts</span>
           </p>
           <p className="flex items-start gap-2">
-            <span className="text-indigo-600 font-bold">💾</span>
+            <span className="text-dhl-red font-bold">💾</span>
             <span><strong>Offline:</strong> Local storage with sync queue for offline-first</span>
           </p>
         </div>
@@ -75,17 +75,17 @@ export const MobileAppSetup: React.FC = () => {
 
       {/* Setup Steps */}
       <div className="space-y-4">
-        <h3 className="font-bold text-slate-900">Setup Instructions</h3>
+        <h3 className="font-bold text-dhl-black">Setup Instructions</h3>
 
         {commands.map((cmd, idx) => (
-          <div key={cmd.id} className="bg-white rounded-lg border border-slate-200 p-4">
+          <div key={cmd.id} className="bg-white rounded-sm border border-dhl-gray-medium p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <p className="font-medium text-slate-900">Step {idx + 1}: {cmd.label}</p>
+                <p className="font-medium text-dhl-black">Step {idx + 1}: {cmd.label}</p>
               </div>
               <button
                 onClick={() => copyToClipboard(cmd.command, cmd.id)}
-                className="text-indigo-600 hover:text-indigo-700"
+                className="text-dhl-red hover:text-indigo-700"
               >
                 {copied === cmd.id ? (
                   <CheckCircle className="w-5 h-5" />
@@ -94,7 +94,7 @@ export const MobileAppSetup: React.FC = () => {
                 )}
               </button>
             </div>
-            <code className="block bg-slate-900 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+            <code className="block bg-dhl-black text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
               {cmd.command}
             </code>
           </div>
@@ -102,9 +102,9 @@ export const MobileAppSetup: React.FC = () => {
       </div>
 
       {/* File Structure */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4">Project Structure</h3>
-        <code className="block bg-slate-50 p-4 rounded font-mono text-sm overflow-x-auto">
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+        <h3 className="font-bold text-dhl-black mb-4">Project Structure</h3>
+        <code className="block bg-dhl-gray-light p-4 rounded font-mono text-sm overflow-x-auto">
           {`CCEMobileApp/
 ├── src/
 │   ├── navigation/
@@ -147,9 +147,9 @@ export const MobileAppSetup: React.FC = () => {
 
       {/* Key Features */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="font-bold text-slate-900 mb-3">📱 Mobile Features</p>
-          <ul className="space-y-2 text-sm text-slate-600">
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <p className="font-bold text-dhl-black mb-3">📱 Mobile Features</p>
+          <ul className="space-y-2 text-sm text-dhl-gray-dark">
             <li>✅ Lead browsing with swipe filters</li>
             <li>✅ Real-time push notifications</li>
             <li>✅ Biometric authentication</li>
@@ -159,9 +159,9 @@ export const MobileAppSetup: React.FC = () => {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="font-bold text-slate-900 mb-3">🔧 Tech Stack</p>
-          <ul className="space-y-2 text-sm text-slate-600">
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <p className="font-bold text-dhl-black mb-3">🔧 Tech Stack</p>
+          <ul className="space-y-2 text-sm text-dhl-gray-dark">
             <li>✅ React Native 0.72+</li>
             <li>✅ TypeScript</li>
             <li>✅ Supabase SDK</li>
@@ -173,12 +173,12 @@ export const MobileAppSetup: React.FC = () => {
       </div>
 
       {/* Environment Variables */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Code2 className="w-5 h-5 text-indigo-600" />
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-6">
+        <h3 className="font-bold text-dhl-black mb-4 flex items-center gap-2">
+          <Code2 className="w-5 h-5 text-dhl-red" />
           Mobile Environment (.env)
         </h3>
-        <code className="block bg-slate-50 p-4 rounded font-mono text-sm overflow-x-auto">
+        <code className="block bg-dhl-gray-light p-4 rounded font-mono text-sm overflow-x-auto">
           {`REACT_APP_SUPABASE_URL=https://your-project.supabase.co
 REACT_APP_SUPABASE_ANON_KEY=eyJ...
 REACT_APP_API_BASE_URL=https://your-app.vercel.app
@@ -188,7 +188,7 @@ FCM_SENDER_ID=your-fcm-sender-id`}
       </div>
 
       {/* Next Steps */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-green-200 rounded-sm p-4">
         <p className="text-sm text-green-900">
           ✅ <strong>Next Steps:</strong>
         </p>
@@ -203,7 +203,7 @@ FCM_SENDER_ID=your-fcm-sender-id`}
       </div>
 
       {/* Estimation */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-amber-200 rounded-sm p-4">
         <p className="text-sm text-amber-900">
           ⏱️ <strong>Estimated Timeline:</strong> 4-6 weeks for full mobile app (2 weeks core, 2-4 weeks polish + testing)
         </p>
@@ -213,3 +213,5 @@ FCM_SENDER_ID=your-fcm-sender-id`}
 };
 
 export default MobileAppSetup;
+
+

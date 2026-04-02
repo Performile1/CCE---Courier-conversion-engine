@@ -17,7 +17,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   registry: 'bg-purple-100 text-purple-800',
-  news: 'bg-blue-100 text-blue-800',
+  news: 'bg-dhl-gray-light text-blue-800',
   financial: 'bg-green-100 text-green-800',
   directory: 'bg-orange-100 text-orange-800'
 };
@@ -58,8 +58,8 @@ export const SourcesList: React.FC<SourcesListProps> = ({
 
   return (
     <div className="w-full space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-        <Globe className="w-5 h-5 text-blue-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+        <Globe className="w-5 h-5 text-dhl-red" />
         Sources for {
           // Get country name
           ({ SE: 'Sweden', DK: 'Denmark', NO: 'Norway', FI: 'Finland', GB: 'United Kingdom', DE: 'Germany', FR: 'France', NL: 'Netherlands', BE: 'Belgium', AT: 'Austria', CH: 'Switzerland', US: 'United States' } as Record<string, string>)[countryCode] || countryCode
@@ -74,7 +74,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
 
           return (
             <div key={type} className="space-y-2">
-              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-dhl-gray-dark flex items-center gap-2">
                 <span>{TYPE_ICONS[type]}</span>
                 {getTypeLabel(type)} ({typeSources.length})
               </h4>
@@ -83,7 +83,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                 {typeSources.map((source) => (
                   <div
                     key={source.id}
-                    className="border border-slate-300 rounded-lg overflow-hidden hover:shadow-md transition-all"
+                    className="border border-dhl-gray-medium rounded-sm overflow-hidden hover:shadow-md transition-all"
                   >
                     {/* Source Header */}
                     <button
@@ -93,11 +93,11 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                         );
                         onSourceClick?.(source);
                       }}
-                      className="w-full p-3 flex items-center justify-between gap-2 hover:bg-slate-50 bg-white"
+                      className="w-full p-3 flex items-center justify-between gap-2 hover:bg-dhl-gray-light bg-white"
                     >
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2 mb-1">
-                          <h5 className="font-semibold text-slate-900">
+                          <h5 className="font-semibold text-dhl-black">
                             {source.name}
                           </h5>
                           <span
@@ -108,13 +108,13 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                             {source.type}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-600">{source.domain}</p>
+                        <p className="text-xs text-dhl-gray-dark">{source.domain}</p>
                       </div>
 
                       {showReliabilityScore && (
                         <div className="flex items-center gap-1">
                           <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                          <span className="text-sm font-semibold text-slate-900">
+                          <span className="text-sm font-semibold text-dhl-black">
                             {source.reliability}%
                           </span>
                         </div>
@@ -123,15 +123,15 @@ export const SourcesList: React.FC<SourcesListProps> = ({
 
                     {/* Expanded Content */}
                     {expandedSource === source.id && (
-                      <div className="border-t border-slate-200 p-3 bg-slate-50 space-y-2 text-sm">
-                        <p className="text-slate-700">{source.description}</p>
+                      <div className="border-t border-dhl-gray-medium p-3 bg-dhl-gray-light space-y-2 text-sm">
+                        <p className="text-dhl-gray-dark">{source.description}</p>
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1">
                           {source.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-xs"
+                              className="px-2 py-0.5 bg-dhl-gray-medium text-dhl-gray-dark rounded text-xs"
                             >
                               {tag}
                             </span>
@@ -144,7 +144,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                             href={`https://${source.domain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
+                            className="flex-1 px-3 py-1 bg-dhl-red hover:bg-dhl-red text-white rounded text-xs font-medium flex items-center justify-center gap-1"
                           >
                             <ExternalLink className="w-3 h-3" />
                             Visit
@@ -154,7 +154,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                               navigator.clipboard.writeText(`https://${source.domain}`);
                               alert('URL copied to clipboard');
                             }}
-                            className="flex-1 px-3 py-1 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded text-xs font-medium flex items-center justify-center gap-1"
+                            className="flex-1 px-3 py-1 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black rounded text-xs font-medium flex items-center justify-center gap-1"
                           >
                             <Link2 className="w-3 h-3" />
                             Copy
@@ -162,16 +162,16 @@ export const SourcesList: React.FC<SourcesListProps> = ({
                         </div>
 
                         {/* Stats */}
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-300">
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dhl-gray-medium">
                           <div className="text-xs">
-                            <p className="text-slate-600">Reliability</p>
-                            <p className="font-bold text-slate-900">
+                            <p className="text-dhl-gray-dark">Reliability</p>
+                            <p className="font-bold text-dhl-black">
                               {source.reliability}%
                             </p>
                           </div>
                           <div className="text-xs">
-                            <p className="text-slate-600">Type</p>
-                            <p className="font-bold text-slate-900 capitalize">
+                            <p className="text-dhl-gray-dark">Type</p>
+                            <p className="font-bold text-dhl-black capitalize">
                               {source.type}
                             </p>
                           </div>
@@ -187,7 +187,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
       </div>
 
       {/* Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-3">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
           <TrendingUp className="w-4 h-4" />
           Summary
@@ -201,7 +201,7 @@ export const SourcesList: React.FC<SourcesListProps> = ({
       </div>
 
       {/* Usage Info */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+      <div className="bg-dhl-gray-light border border-amber-200 rounded-sm p-3 text-sm text-amber-900">
         <p className="font-semibold mb-1">💡 How to use these sources:</p>
         <ol className="list-decimal list-inside space-y-1">
           <li>Primary research: Start with <strong>Official Registries</strong></li>
@@ -215,3 +215,5 @@ export const SourcesList: React.FC<SourcesListProps> = ({
 };
 
 export default SourcesList;
+
+

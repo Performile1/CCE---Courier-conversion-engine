@@ -107,10 +107,10 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-sm text-slate-600 mb-1">{card.label}</p>
-            <p className="text-2xl font-bold text-slate-900 mb-2">{card.value}</p>
-            <p className="text-xs text-green-600 flex items-center gap-1">
+          <div key={card.label} className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+            <p className="text-sm text-dhl-gray-dark mb-1">{card.label}</p>
+            <p className="text-2xl font-bold text-dhl-black mb-2">{card.value}</p>
+            <p className="text-xs text-dhl-red flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
               {card.trend}
             </p>
@@ -119,10 +119,10 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
       </div>
 
       {/* Metric Selector */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
+      <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-slate-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-600" />
+          <h3 className="font-bold text-dhl-black flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-dhl-red" />
             Performance Over Time
           </h3>
           <div className="flex gap-2">
@@ -130,10 +130,10 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
               <button
                 key={metric}
                 onClick={() => setSelectedMetric(metric)}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                className={`px-3 py-1 rounded-sm text-sm font-medium transition-all ${
                   selectedMetric === metric
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-dhl-red text-white'
+                    : 'bg-dhl-gray-light text-dhl-gray-dark hover:bg-dhl-gray-medium'
                 }`}
               >
                 {metric.charAt(0).toUpperCase() + metric.slice(1)}
@@ -153,22 +153,22 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
               <Line
                 type="monotone"
                 dataKey={selectedMetric}
-                stroke="#4f46e5"
-                dot={{ fill: '#4f46e5' }}
+                stroke="#D00000"
+                dot={{ fill: '#D00000' }}
                 name={selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}
               />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-center text-slate-600 py-8">No data available</p>
+          <p className="text-center text-dhl-gray-dark py-8">No data available</p>
         )}
       </div>
 
       {/* Top Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Opens vs Clicks */}
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <h4 className="font-bold text-slate-900 mb-4">Opens vs Clicks</h4>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <h4 className="font-bold text-dhl-black mb-4">Opens vs Clicks</h4>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={metrics.slice(-7)}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -176,53 +176,53 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="opens" fill="#3b82f6" />
-              <Bar dataKey="clicks" fill="#10b981" />
+              <Bar dataKey="opens" fill="#D00000" />
+              <Bar dataKey="clicks" fill="#FFCC00" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Conversion Funnel */}
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <h4 className="font-bold text-slate-900 mb-4">Conversion Funnel (Last 30 days)</h4>
+        <div className="bg-white rounded-sm border border-dhl-gray-medium p-4">
+          <h4 className="font-bold text-dhl-black mb-4">Conversion Funnel (Last 30 days)</h4>
           <div className="space-y-3">
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-slate-600">Sent</span>
-                <span className="text-sm font-bold text-slate-900">{(totalOpens * 5).toLocaleString()}</span>
+                <span className="text-sm font-medium text-dhl-gray-dark">Sent</span>
+                <span className="text-sm font-bold text-dhl-black">{(totalOpens * 5).toLocaleString()}</span>
               </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-slate-600">Opened</span>
-                <span className="text-sm font-bold text-slate-900">{totalOpens.toLocaleString()} (20%)</span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-green-600 h-2 rounded-full" style={{ width: '20%' }}></div>
+              <div className="w-full bg-dhl-gray-medium rounded-full h-2">
+                <div className="bg-dhl-red h-2 rounded-full" style={{ width: '100%' }}></div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-slate-600">Clicked</span>
-                <span className="text-sm font-bold text-slate-900">{totalClicks.toLocaleString()} (6%)</span>
+                <span className="text-sm font-medium text-dhl-gray-dark">Opened</span>
+                <span className="text-sm font-bold text-dhl-black">{totalOpens.toLocaleString()} (20%)</span>
               </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-purple-600 h-2 rounded-full" style={{ width: '6%' }}></div>
+              <div className="w-full bg-dhl-gray-medium rounded-full h-2">
+                <div className="bg-dhl-yellow h-2 rounded-full" style={{ width: '20%' }}></div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-slate-600">Converted</span>
-                <span className="text-sm font-bold text-slate-900">{totalConversions.toLocaleString()} (1.8%)</span>
+                <span className="text-sm font-medium text-dhl-gray-dark">Clicked</span>
+                <span className="text-sm font-bold text-dhl-black">{totalClicks.toLocaleString()} (6%)</span>
               </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-amber-600 h-2 rounded-full" style={{ width: '1.8%' }}></div>
+              <div className="w-full bg-dhl-gray-medium rounded-full h-2">
+                <div className="bg-dhl-red h-2 rounded-full" style={{ width: '6%' }}></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-dhl-gray-dark">Converted</span>
+                <span className="text-sm font-bold text-dhl-black">{totalConversions.toLocaleString()} (1.8%)</span>
+              </div>
+              <div className="w-full bg-dhl-gray-medium rounded-full h-2">
+                <div className="bg-dhl-yellow h-2 rounded-full" style={{ width: '1.8%' }}></div>
               </div>
             </div>
           </div>
@@ -230,28 +230,28 @@ export const CampaignPerformanceDashboard: React.FC<CampaignPerformanceDashboard
       </div>
 
       {/* Average Metrics */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200 p-4">
-        <h4 className="font-bold text-slate-900 mb-3">Average Metrics</h4>
+      <div className="bg-gradient-to-r from-dhl-gray-light to-dhl-gray-light rounded-sm border border-dhl-gray-medium p-4">
+        <h4 className="font-bold text-dhl-black mb-3">Average Metrics</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-slate-600 mb-1">Avg Open Rate</p>
-            <p className="text-2xl font-bold text-indigo-600">{avgOpenRate}%</p>
+            <p className="text-xs text-dhl-gray-dark mb-1">Avg Open Rate</p>
+            <p className="text-2xl font-bold text-dhl-red">{avgOpenRate}%</p>
           </div>
           <div>
-            <p className="text-xs text-slate-600 mb-1">Emails/Day</p>
-            <p className="text-2xl font-bold text-indigo-600">
+            <p className="text-xs text-dhl-gray-dark mb-1">Emails/Day</p>
+            <p className="text-2xl font-bold text-dhl-red">
               {(metrics.reduce((sum, m) => sum + m.campaigns, 0) / Math.max(metrics.length, 1)).toFixed(1)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-600 mb-1">Revenue/Day</p>
-            <p className="text-2xl font-bold text-indigo-600">
+            <p className="text-xs text-dhl-gray-dark mb-1">Revenue/Day</p>
+            <p className="text-2xl font-bold text-dhl-red">
               ${(totalRevenue / Math.max(metrics.length, 1)).toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-600 mb-1">Latest Update</p>
-            <p className="text-sm font-bold text-indigo-600">{new Date().toLocaleDateString('sv-SE')}</p>
+            <p className="text-xs text-dhl-gray-dark mb-1">Latest Update</p>
+            <p className="text-sm font-bold text-dhl-red">{new Date().toLocaleDateString('sv-SE')}</p>
           </div>
         </div>
       </div>

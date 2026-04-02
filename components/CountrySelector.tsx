@@ -37,19 +37,19 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
       {/* Selected Country Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 flex items-center justify-between gap-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-all"
+        className="w-full px-4 py-2 flex items-center justify-between gap-2 bg-white border border-dhl-gray-medium rounded-sm hover:bg-dhl-gray-light transition-all"
       >
         <div className="flex items-center gap-2">
           {showFlags && (
             <span className="text-xl">{FLAG_EMOJIS[selectedCountry] || '🌍'}</span>
           )}
           <div className="text-left">
-            <div className="text-xs text-slate-600">Country</div>
-            <div className="font-semibold text-slate-900">{currentCountry?.name}</div>
+            <div className="text-xs text-dhl-gray-dark">Country</div>
+            <div className="font-semibold text-dhl-black">{currentCountry?.name}</div>
           </div>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-slate-600 transition-transform ${
+          className={`w-4 h-4 text-dhl-gray-dark transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -57,19 +57,19 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-white border border-dhl-gray-medium rounded-sm shadow-lg max-h-96 overflow-y-auto">
           {/* Search input */}
-          <div className="sticky top-0 p-2 bg-slate-50 border-b border-slate-200">
+          <div className="sticky top-0 p-2 bg-dhl-gray-light border-b border-dhl-gray-medium">
             <input
               type="text"
               placeholder="Search countries..."
-              className="w-full px-3 py-1 border border-slate-300 rounded text-sm"
+              className="w-full px-3 py-1 border border-dhl-gray-medium rounded text-sm"
               onChange={(e) => e.stopPropagation()}
             />
           </div>
 
           {/* Country list */}
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-dhl-gray-medium">
             {countryList.map((country) => (
               <button
                 key={country.code}
@@ -77,24 +77,24 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
                   onCountryChange(country.code);
                   setIsOpen(false);
                 }}
-                className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-blue-50 transition-colors text-left group"
+                className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-dhl-gray-light transition-colors text-left group"
               >
                 <div className="flex items-center gap-3 flex-1">
                   {showFlags && (
                     <span className="text-xl">{FLAG_EMOJIS[country.code] || '🌍'}</span>
                   )}
                   <div>
-                    <div className="font-medium text-slate-900 group-hover:text-blue-700">
+                    <div className="font-medium text-dhl-black group-hover:text-dhl-red">
                       {country.name}
                     </div>
-                    <div className="text-xs text-slate-600">
+                    <div className="text-xs text-dhl-gray-dark">
                       {country.registryType}
                     </div>
                   </div>
                 </div>
 
                 {selectedCountry === country.code && (
-                  <Check className="w-5 h-5 text-green-600" />
+                  <Check className="w-5 h-5 text-dhl-yellow" />
                 )}
               </button>
             ))}
@@ -104,9 +104,9 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 
       {/* Info about selected country */}
       {currentCountry && (
-        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+        <div className="mt-2 p-2 bg-dhl-gray-light border border-dhl-gray-medium rounded text-xs text-blue-900">
           <p className="font-medium mb-1">Official Registry: {currentCountry.registryType}</p>
-          <p className="text-blue-700 truncate">
+          <p className="text-dhl-red truncate">
             <a href={currentCountry.registryUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
               {currentCountry.registryUrl}
             </a>
@@ -137,7 +137,7 @@ export const CountrySelectorMini: React.FC<CountrySelectorProps> = ({
     <select
       value={selectedCountry}
       onChange={(e) => onCountryChange(e.target.value)}
-      className="px-2 py-1 text-sm border border-slate-300 rounded bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="px-2 py-1 text-sm border border-dhl-gray-medium rounded bg-white hover:border-dhl-gray-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       {Object.values(COUNTRIES)
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -152,3 +152,6 @@ export const CountrySelectorMini: React.FC<CountrySelectorProps> = ({
 };
 
 export default CountrySelector;
+
+
+

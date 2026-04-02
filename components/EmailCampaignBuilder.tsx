@@ -134,16 +134,16 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+    <div className="bg-white rounded-sm border border-dhl-gray-medium p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <Mail className="w-5 h-5 text-indigo-600" />
+        <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2">
+          <Mail className="w-5 h-5 text-dhl-red" />
           Email Campaigns
         </h3>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2"
+            className="py-2 px-4 bg-dhl-red hover:bg-red-800 text-white font-semibold rounded-sm transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Campaign
@@ -152,35 +152,35 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {showForm && (
-        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
-          <h4 className="font-bold text-slate-900">Campaign Templates</h4>
+        <div className="border border-dhl-gray-medium rounded-sm p-4 space-y-4 bg-dhl-gray-light">
+          <h4 className="font-bold text-dhl-black">Campaign Templates</h4>
           <div className="grid grid-cols-1 gap-2">
             {templates.map((template) => (
               <button
                 key={template.name}
                 onClick={() => handleTemplateSelect(template)}
-                className="text-left p-3 border border-slate-300 rounded-lg hover:bg-indigo-50 transition-all"
+                className="text-left p-3 border border-dhl-gray-medium rounded-sm hover:bg-dhl-gray-light transition-all"
               >
-                <p className="font-medium text-slate-900">{template.name}</p>
-                <p className="text-sm text-slate-600">{template.subject}</p>
+                <p className="font-medium text-dhl-black">{template.name}</p>
+                <p className="text-sm text-dhl-gray-dark">{template.subject}</p>
               </button>
             ))}
           </div>
 
-          <div className="space-y-3 border-t border-slate-300 pt-4">
+          <div className="space-y-3 border-t border-dhl-gray-medium pt-4">
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Campaign Name"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
             />
 
             <input
@@ -188,7 +188,7 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
               value={formData.subject}
               onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
               placeholder="Email Subject"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
             />
 
             <textarea
@@ -196,39 +196,39 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
               onChange={(e) => setFormData({ ...formData, body: e.target.value })}
               placeholder="Email Body"
               rows={6}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
             />
 
             <div>
-              <p className="text-sm font-medium text-slate-900 mb-2">Recipients ({formData.selectedLeads.length})</p>
-              <div className="max-h-32 overflow-y-auto border border-slate-300 rounded-lg p-2 space-y-1">
+              <p className="text-sm font-medium text-dhl-black mb-2">Recipients ({formData.selectedLeads.length})</p>
+              <div className="max-h-32 overflow-y-auto border border-dhl-gray-medium rounded-sm p-2 space-y-1">
                 {leads.map((lead) => (
-                  <label key={lead.id} className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded">
+                  <label key={lead.id} className="flex items-center gap-2 p-2 hover:bg-dhl-gray-light rounded">
                     <input
                       type="checkbox"
                       checked={formData.selectedLeads.includes(lead.id)}
                       onChange={() => handleLeadToggle(lead.id)}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm text-slate-900">{lead.companyName}</span>
+                    <span className="text-sm text-dhl-black">{lead.companyName}</span>
                   </label>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-300 pt-4">
+          <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
             <button
               onClick={handleCreateCampaign}
               disabled={loading}
-              className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
             >
               {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="flex-1 py-2 px-4 bg-slate-300 hover:bg-slate-400 text-slate-900 font-semibold rounded-lg transition-all"
+              className="flex-1 py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm transition-all"
             >
               Cancel
             </button>
@@ -238,15 +238,15 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
       <div className="space-y-2">
         {campaigns.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-4">No campaigns yet</p>
+          <p className="text-sm text-dhl-gray-dark text-center py-4">No campaigns yet</p>
         ) : (
           campaigns.map((campaign) => (
-            <div key={campaign.id} className="border border-slate-300 rounded-lg p-3">
+            <div key={campaign.id} className="border border-dhl-gray-medium rounded-sm p-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900">{campaign.name}</p>
-                  <p className="text-sm text-slate-600">{campaign.subject}</p>
-                  <div className="flex gap-4 mt-2 text-xs text-slate-600">
+                  <p className="font-medium text-dhl-black">{campaign.name}</p>
+                  <p className="text-sm text-dhl-gray-dark">{campaign.subject}</p>
+                  <div className="flex gap-4 mt-2 text-xs text-dhl-gray-dark">
                     <span>Recipients: {campaign.recipientCount}</span>
                     <span>Open Rate: {campaign.openRate}%</span>
                     <span>Click Rate: {campaign.clickRate}%</span>
@@ -257,13 +257,13 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                     <button
                       onClick={() => handleSendCampaign(campaign.id)}
                       disabled={sending}
-                      className="py-1 px-3 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition-all flex items-center gap-1"
+                      className="py-1 px-3 bg-dhl-yellow hover:bg-dhl-yellow text-white text-sm font-semibold rounded transition-all flex items-center gap-1"
                     >
                       {sending ? <Loader className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                       Send
                     </button>
                   ) : (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <CheckCircle className="w-5 h-5 text-dhl-yellow" />
                   )}
                 </div>
               </div>
@@ -276,3 +276,6 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 };
 
 export default EmailCampaignBuilder;
+
+
+

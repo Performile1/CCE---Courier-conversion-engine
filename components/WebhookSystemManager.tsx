@@ -141,34 +141,34 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
   };
 
   if (loading) {
-    return <div className="bg-white rounded-lg p-6 text-center">Loading webhooks...</div>;
+    return <div className="bg-white rounded-sm p-6 text-center">Loading webhooks...</div>;
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-        <Zap className="w-5 h-5 text-indigo-600" />
+      <h3 className="text-lg font-bold text-dhl-black flex items-center gap-2 mb-4">
+        <Zap className="w-5 h-5 text-dhl-red" />
         Webhook System
       </h3>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+        <div className="p-3 bg-dhl-gray-light border border-dhl-gray-medium rounded-sm flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <p className="text-sm text-green-600">{success}</p>
+        <div className="p-3 bg-dhl-gray-light border border-green-200 rounded-sm flex gap-2">
+          <CheckCircle className="w-5 h-5 text-dhl-yellow flex-shrink-0" />
+          <p className="text-sm text-dhl-yellow">{success}</p>
         </div>
       )}
 
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+          className="w-full py-2 px-4 bg-dhl-red hover:bg-red-800 text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Add Webhook
@@ -176,9 +176,9 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
       )}
 
       {showForm && (
-        <div className="border border-slate-300 rounded-lg p-4 space-y-4 bg-slate-50">
+        <div className="border border-dhl-gray-medium rounded-sm p-4 space-y-4 bg-dhl-gray-light">
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-1">
+            <label className="block text-sm font-medium text-dhl-black mb-1">
               Webhook URL
             </label>
             <input
@@ -186,26 +186,26 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
               placeholder="https://example.com/webhook"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2 border border-dhl-gray-medium rounded-sm text-dhl-black focus:ring-2 focus:ring-dhl-red"
             />
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-dhl-gray-dark mt-1">
               POST requests will be sent to this URL with event data
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
+            <label className="block text-sm font-medium text-dhl-black mb-2">
               Subscribe to Events
             </label>
-            <div className="space-y-3 max-h-64 overflow-y-auto border border-slate-300 p-3 rounded bg-white">
+            <div className="space-y-3 max-h-64 overflow-y-auto border border-dhl-gray-medium p-3 rounded bg-white">
               {['Leads', 'Campaigns', 'Emails', 'CRM', 'Quality'].map((category) => (
                 <div key={category}>
-                  <p className="text-xs font-bold text-slate-600 mb-2">{category}</p>
+                  <p className="text-xs font-bold text-dhl-gray-dark mb-2">{category}</p>
                   <div className="space-y-1">
                     {AVAILABLE_EVENTS.filter((e) => e.category === category).map((event) => (
                       <label
                         key={event.id}
-                        className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded cursor-pointer"
+                        className="flex items-center gap-2 p-1 hover:bg-dhl-gray-light rounded cursor-pointer"
                       >
                         <input
                           type="checkbox"
@@ -219,7 +219,7 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
                           }
                           className="w-4 h-4"
                         />
-                        <span className="text-sm text-slate-700">{event.label}</span>
+                        <span className="text-sm text-dhl-gray-dark">{event.label}</span>
                       </label>
                     ))}
                   </div>
@@ -228,11 +228,11 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-300 pt-4">
+          <div className="flex gap-2 border-t border-dhl-gray-medium pt-4">
             <button
               onClick={handleAddWebhook}
               disabled={saving}
-              className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2 px-4 bg-dhl-red hover:bg-red-800 disabled:bg-dhl-gray-medium text-white font-semibold rounded-sm transition-all flex items-center justify-center gap-2"
             >
               {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create Webhook
@@ -243,7 +243,7 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
                 setWebhookUrl('');
                 setSelectedEvents([]);
               }}
-              className="flex-1 py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg transition-all"
+              className="flex-1 py-2 px-4 bg-dhl-gray-medium hover:bg-dhl-gray-medium text-dhl-black font-semibold rounded-sm transition-all"
             >
               Cancel
             </button>
@@ -254,36 +254,36 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
       {/* Webhooks List */}
       <div className="space-y-2">
         {webhooks.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center py-4">No webhooks configured</p>
+          <p className="text-sm text-dhl-gray-dark text-center py-4">No webhooks configured</p>
         ) : (
           webhooks.map((webhook) => (
-            <div key={webhook.id} className="border border-slate-300 rounded-lg p-3 bg-white">
+            <div key={webhook.id} className="border border-dhl-gray-medium rounded-sm p-3 bg-white">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     {webhook.active ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <CheckCircle className="w-4 h-4 text-dhl-yellow" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-red-600" />
                     )}
-                    <span className="text-xs font-mono text-slate-600">
+                    <span className="text-xs font-mono text-dhl-gray-dark">
                       {webhook.url.substring(0, 50)}...
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-1">
+                  <p className="text-xs text-dhl-gray-dark mt-1">
                     Events: {webhook.events.join(', ')}
                   </p>
                 </div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => testWebhook(webhook)}
-                    className="p-1 hover:bg-blue-50 rounded text-blue-600 text-xs font-medium"
+                    className="p-1 hover:bg-dhl-gray-light rounded text-dhl-red text-xs font-medium"
                   >
                     Test
                   </button>
                   <button
                     onClick={() => handleDeleteWebhook(webhook.id)}
-                    className="p-1 hover:bg-red-50 rounded"
+                    className="p-1 hover:bg-dhl-gray-light rounded"
                   >
                     <Trash2 className="w-4 h-4 text-red-600" />
                   </button>
@@ -300,7 +300,7 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
       </div>
 
       {/* Documentation */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-dhl-gray-light border border-dhl-gray-medium rounded-sm p-4">
         <p className="text-sm text-blue-900">
           💡 <strong>Webhook Payload Example:</strong>
         </p>
@@ -322,3 +322,6 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
 };
 
 export default WebhookSystemManager;
+
+
+

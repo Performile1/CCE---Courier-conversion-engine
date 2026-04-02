@@ -194,20 +194,20 @@ export const CacheManager: React.FC<CacheManagerProps> = ({
   return (
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-4xl shadow-2xl border-t-8 border-slate-600 flex flex-col max-h-[90vh]">
-        <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700 text-white">
+        <div className="bg-dhl-black p-4 flex justify-between items-center border-b border-slate-700 text-white">
           <div className="flex items-center gap-3">
              <Database className="w-6 h-6" />
              <h2 className="text-lg font-black uppercase">Lead Reservoir (Cache)</h2>
           </div>
           <button onClick={onClose}><X className="w-6 h-6" /></button>
         </div>
-        <div className="flex border-b border-slate-200 bg-slate-100">
+        <div className="flex border-b border-dhl-gray-medium bg-dhl-gray-light">
           <button onClick={() => setActiveTab('view')} className={`flex-1 py-3 text-xs font-bold uppercase ${activeTab === 'view' ? 'bg-white border-b-2 border-slate-900' : ''}`}>Hantering</button>
           <button onClick={() => setActiveTab('import')} className={`flex-1 py-3 text-xs font-bold uppercase ${activeTab === 'import' ? 'bg-white border-b-2 border-slate-900' : ''}`}>Importera</button>
         </div>
 
         {activeTab === 'view' ? (
-          <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
+          <div className="flex-1 overflow-y-auto p-4 bg-dhl-gray-light">
             <div className="flex justify-between mb-4">
                <select value={filterSegment} onChange={e => setFilterSegment(e.target.value)} className="text-xs font-bold border rounded p-1">
                  <option value="ALL">Alla Segment</option>
@@ -229,18 +229,19 @@ export const CacheManager: React.FC<CacheManagerProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 p-6 flex flex-col bg-slate-50">
+          <div className="flex-1 p-6 flex flex-col bg-dhl-gray-light">
              <div className="flex gap-2 mb-4">
                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="cache-excel" />
-                <label htmlFor="cache-excel" className="bg-green-600 text-white px-4 py-2 text-xs font-bold uppercase cursor-pointer">Ladda upp Excel</label>
+                <label htmlFor="cache-excel" className="bg-dhl-yellow text-white px-4 py-2 text-xs font-bold uppercase cursor-pointer">Ladda upp Excel</label>
                 <button onClick={handleDownloadTemplate} className="bg-white border px-4 py-2 text-xs font-bold uppercase">Mall</button>
              </div>
              <p className="text-[10px] text-slate-500 mb-4 italic">Systemet letar automatiskt efter kolumner för Namn, Org.nr och Omsättning.</p>
              <textarea value={importText} readOnly className="flex-1 bg-white border p-3 font-mono text-xs mb-4" placeholder="Förhandsgranskning..." />
-             <button onClick={handleImport} className="bg-slate-900 text-white py-3 font-bold uppercase">Spara till Reservoar</button>
+             <button onClick={handleImport} className="bg-dhl-black text-white py-3 font-bold uppercase">Spara till Reservoar</button>
           </div>
         )}
       </div>
     </div>
   );
 };
+

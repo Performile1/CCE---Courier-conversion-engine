@@ -45,14 +45,14 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
         </div>
 
         <div className="p-6 overflow-x-auto overflow-y-auto">
-          <div className="bg-red-50 p-4 border-l-4 border-red-600 mb-6 text-xs text-red-900 leading-relaxed shadow-sm">
+          <div className="bg-dhl-gray-light p-4 border-l-4 border-red-600 mb-6 text-xs text-red-900 leading-relaxed shadow-sm">
             Här justerar du de parametrar som styr Performile-motorns beräkningar för 2026. 
             Dessa värden påverkar <strong>Revenue Recovery Plan</strong> och marginaljämförelser i LeadCard.
           </div>
 
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="text-[10px] font-black uppercase text-slate-400 bg-slate-50 border-b border-slate-200">
+              <tr className="text-[10px] font-black uppercase text-slate-400 bg-dhl-gray-light border-b border-dhl-gray-medium">
                 <th className="p-3">Transportör</th>
                 <th className="p-3">Marknadsandel (%)</th>
                 <th className="p-3">Snittpris (SEK)</th>
@@ -65,8 +65,8 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {settings.filter(s => s && s.name).map((s, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-3 font-black text-slate-900 text-xs">{s.name}</td>
+                <tr key={idx} className="hover:bg-dhl-gray-light transition-colors">
+                  <td className="p-3 font-black text-dhl-black text-xs">{s.name}</td>
                   <td className="p-3"><input type="number" step="0.1" value={s.marketShare} onChange={e => handleChange(idx, 'marketShare', e.target.value)} className="w-20 p-1 border rounded text-xs font-bold" /></td>
                   <td className="p-3"><input type="number" value={s.avgPrice} onChange={e => handleChange(idx, 'avgPrice', e.target.value)} className="w-20 p-1 border rounded text-xs font-bold" /></td>
                   <td className="p-3"><input type="number" step="0.1" value={s.dmt} onChange={e => handleChange(idx, 'dmt', e.target.value)} className="w-20 p-1 border rounded text-xs font-bold text-red-600" /></td>
@@ -80,7 +80,7 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
           </table>
         </div>
 
-        <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
+        <div className="p-4 bg-dhl-gray-light border-t flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 text-xs font-black uppercase text-slate-400">Avbryt</button>
           <button onClick={handleSave} className="bg-red-600 text-white px-8 py-2.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-red-700 shadow-xl transition-all">
             <Save className="w-4 h-4" /> Spara Marknadsdata
@@ -90,3 +90,5 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
     </div>
   );
 };
+
+
