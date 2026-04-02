@@ -924,9 +924,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     ))}
                   </div>
 
-                  <div className="p-3 bg-yellow-50/30 rounded-none border border-yellow-100">
+                  <div className="p-3 bg-yellow-50 rounded-none border border-yellow-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Strategisk Pitch</p>
-                    <p className="text-xs text-dhl-gray-dark leading-relaxed italic">"{editData.strategicPitch}"</p>
+                    <p className="text-xs text-dhl-gray-dark leading-relaxed italic">
+                      {editData.strategicPitch ? `"${editData.strategicPitch}"` : ''}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -948,6 +950,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
                 </div>
               </div>
+              )}
             </motion.div>
           )}
 
