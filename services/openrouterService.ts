@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
@@ -45,7 +45,7 @@ export function resetCostTracker(): void {
   totalCostAccumulated = 0;
 }
 
-const MIN_INTERVAL = 200; // Rate limit spacing (200ms between requests)
+const MIN_INTERVAL = 1200; // Rate limit spacing to reduce 429 responses
 let lastCallTime = 0;
 const DEFAULT_TRUSTED_DOMAINS = [
   'allabolag.se',
@@ -56,6 +56,16 @@ const DEFAULT_TRUSTED_DOMAINS = [
   'market.se',
   'breakit.se'
 ];
+const FINANCIAL_SOURCE_DOMAINS = ['allabolag.se', 'kreditrapporten.se', 'boolag.se', 'ratsit.se'];
+const ADDRESS_SOURCE_DOMAINS = ['allabolag.se', 'boolag.se', 'ratsit.se', 'bolagsverket.se'];
+const CONTACT_SOURCE_DOMAINS = ['ratsit.se', 'allabolag.se', 'linkedin.com', 'hitta.se'];
+const TECH_SOLUTION_KEYWORDS = {
+  ecommercePlatforms: ['shopify', 'woocommerce', 'magento', 'adobe commerce', 'centra', 'norce', 'prestashop'],
+  checkoutSolutions: ['klarna checkout', 'kco', 'qliro checkout', 'stripe checkout', 'adyen checkout', 'nets easy'],
+  paymentProviders: ['klarna', 'adyen', 'stripe', 'checkout.com', 'nets', 'svea', 'qliro', 'walley', 'payex'],
+  taSystems: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade', 'shipmondo', 'consignor'],
+  logisticsSignals: ['instabox', 'budbee', 'bring', 'postnord', 'dhl', 'db schenker', 'airmee']
+};
 
 function resolveApiBaseUrl(): string {
   const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
@@ -181,6 +191,82 @@ function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sniCode?: 
   return Array.from(new Set(merged));
 }
 
+function getSourcePriorityBlock(preferredDomains: string[]): string {
+  const merged = Array.from(new Set([...preferredDomains, ...DEFAULT_TRUSTED_DOMAINS]));
+  const pickByCategory = (domains: string[]) => domains.filter((d) => merged.includes(d));
+
+  const financial = pickByCategory(FINANCIAL_SOURCE_DOMAINS);
+  const address = pickByCategory(ADDRESS_SOURCE_DOMAINS);
+  const contacts = pickByCategory(CONTACT_SOURCE_DOMAINS);
+
+  return [
+    `Finansiell data: ${financial.join(', ') || FINANCIAL_SOURCE_DOMAINS.join(', ')}`,
+    `Adresser: ${address.join(', ') || ADDRESS_SOURCE_DOMAINS.join(', ')}`,
+    `Kontaktpersoner: ${contacts.join(', ') || CONTACT_SOURCE_DOMAINS.join(', ')}`
+  ].join('\n');
+}
+
+function getTechWatchlistText(): string {
+  return [
+    `E-handelsplattformar: ${TECH_SOLUTION_KEYWORDS.ecommercePlatforms.join(', ')}`,
+    `Checkout-lösningar: ${TECH_SOLUTION_KEYWORDS.checkoutSolutions.join(', ')}`,
+    `Betalproviders: ${TECH_SOLUTION_KEYWORDS.paymentProviders.join(', ')}`,
+    `TA-system: ${TECH_SOLUTION_KEYWORDS.taSystems.join(', ')}`,
+    `Logistiksignaler: ${TECH_SOLUTION_KEYWORDS.logisticsSignals.join(', ')}`
+  ].join('\n');
+}
+
+function detectTechSignals(content: string): string[] {
+  const haystack = (content || '').toLowerCase();
+  if (!haystack) return [];
+
+  const keywords = Object.values(TECH_SOLUTION_KEYWORDS).flat();
+  return keywords.filter((k) => haystack.includes(k.toLowerCase()));
+}
+
+async function fetchTechEvidenceFromCrawl(domain: string): Promise<string> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) return '';
+
+  try {
+    const response = await axios.post(
+      buildApiUrl('/api/crawl'),
+      {
+        url: `https://${normalizedDomain}`,
+        actionType: 'crawl',
+        includeLinks: true,
+        includeImages: false,
+        maxDepth: 1
+      },
+      {
+        timeout: 20000
+      }
+    );
+
+    const content = response.data?.content || '';
+    const hits = detectTechSignals(content);
+    if (!hits.length) return '';
+
+    return `Verifierade tekniska signaler via Crawl4ai: ${hits.slice(0, 8).join(', ')}`;
+  } catch (error) {
+    return '';
+  }
+}
+
+function parseRetryAfterSeconds(error: any): number {
+  const headerValue = error?.response?.headers?.['retry-after'];
+  if (headerValue) {
+    const direct = Number(headerValue);
+    if (!Number.isNaN(direct) && direct > 0) return direct;
+  }
+
+  const msg = String(error?.response?.data?.error || error?.message || '').toLowerCase();
+  const secMatch = msg.match(/(\d+)\s*s/);
+  if (secMatch) return Math.max(5, Number(secMatch[1]));
+
+  return 20;
+}
+
 async function fetchLatestNews(companyName: string, domains: string[]): Promise<string> {
   if (!companyName) return '';
 
@@ -225,7 +311,7 @@ async function callOpenRouterWithRetry(
   config: any = {},
   onStatus?: (msg: string) => void,
   handleWait?: (s: number, type: 'rate' | 'quota') => void,
-  retries = 2
+  retries = 4
 ): Promise<string> {
   const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
   const normalizedBaseUrl = configuredBaseUrl.replace(/\/$/, '');
@@ -242,7 +328,7 @@ async function callOpenRouterWithRetry(
           prompt: prompt,
           systemInstruction: config.systemInstruction || SYSTEM_INSTRUCTION,
           temperature: config.temperature || 0.1,
-          maxTokens: MODEL_CONFIG[model].maxTokens,
+          maxTokens: Math.min(config.maxTokens || 1400, MODEL_CONFIG[model].maxTokens),
           responseMimeType: config.responseMimeType
         }
       );
@@ -268,7 +354,8 @@ async function callOpenRouterWithRetry(
       const isQuotaExceeded = status === 429 || error.message?.includes('quota');
 
       if ((isRateLimit || isQuotaExceeded) && i < retries - 1) {
-        const waitTime = 15;
+        const baseWait = parseRetryAfterSeconds(error);
+        const waitTime = Math.min(baseWait + i * 8, 90);
         if (onStatus) onStatus(`⚠️ Rate limited. Waiting ${waitTime}s...`);
         if (handleWait) handleWait(waitTime, 'rate');
         await new Promise(res => setTimeout(res, waitTime * 1000));
@@ -362,6 +449,11 @@ export async function generateDeepDiveSequential(
 
 ### SOURCE PRIORITY
 Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
+${getSourcePriorityBlock(preferredDomains)}
+
+### TECH WATCHLIST (Tavily + Crawl4ai)
+${getTechWatchlistText()}
+
 Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med kort sammanfattning och URL.`;
 
   try {
@@ -409,6 +501,9 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
       getPreferredDomains(newsSourceMappings, sniCode)
     );
+    const crawlTechEvidence = await fetchTechEvidenceFromCrawl(
+      pickString(companyData?.domain, companyData?.website, companyData?.url)
+    );
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
@@ -446,7 +541,7 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
       checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
       taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: pickString(logistics?.tech_evidence, logistics?.techEvidence),
+      techEvidence: pickString(logistics?.tech_evidence, logistics?.techEvidence) || crawlTechEvidence,
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: latestNewsFromModel || latestNewsFallback, 
