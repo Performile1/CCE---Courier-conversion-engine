@@ -194,6 +194,7 @@ export const App: React.FC = () => {
       } catch (err) {
         console.error('Auth check failed:', err);
       } finally {
+        // Always set authLoading to false after initial check
         setAuthLoading(false);
       }
     };
@@ -699,14 +700,14 @@ export const App: React.FC = () => {
     <>
       {/* Show loading or login based on auth state */}
       {authLoading && (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-600 to-blue-600">
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-400 to-gray-500">
           <div className="text-white text-center">
             <div className="text-4xl font-bold mb-4">Loading...</div>
           </div>
         </div>
       )}
 
-      {!authLoading && !user && <LoginPage onAuthSuccess={() => setAuthLoading(true)} />}
+      {!authLoading && !user && <LoginPage onAuthSuccess={() => setAuthLoading(false)} />}
 
       {!authLoading && user && (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
