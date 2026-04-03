@@ -167,6 +167,14 @@ export interface DataConfidence {
   emailPattern: 'found' | 'inferred' | 'missing';
 }
 
+export interface LeadFieldChange {
+  field: string;
+  label: string;
+  previous: string;
+  current: string;
+  detectedAt: string;
+}
+
 export interface LeadData {
   // Identitet
   id: string;
@@ -267,4 +275,9 @@ export interface LeadData {
   // ── Anti-hallucination: per-field source confidence ──────────────────────
   emailPattern?: string;
   dataConfidence?: DataConfidence;
+
+  // ── Change monitoring (bokslut/risk deltas between scans) ─────────────────
+  changeHighlights?: LeadFieldChange[];
+  hasMonitoredChanges?: boolean;
+  lastMonitoredCheckAt?: string;
 }

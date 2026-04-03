@@ -304,6 +304,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                         <Package className="w-2 h-2" /> 3PL
                                     </span>
                                 )}
+                              {lead.hasMonitoredChanges && (
+                                <span className="bg-orange-100 text-orange-700 border border-orange-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Datadel ändrad
+                                </span>
+                              )}
                             </div>
                             {!isAnalyzed && <span className="text-[8px] font-black text-dhl-yellow uppercase flex items-center gap-0.5"><AlertCircle className="w-2 h-2"/> DeepScan Required</span>}
                         </div>

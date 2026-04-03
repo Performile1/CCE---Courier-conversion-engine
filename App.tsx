@@ -499,6 +499,53 @@ export const App: React.FC = () => {
       .trim();
   };
 
+  const monitoredFieldLabels: Record<string, string> = {
+    revenue: 'Omsättning',
+    profit: 'Resultat',
+    debtBalance: 'Skuldsaldo (KFM)',
+    paymentRemarks: 'Betalningsanmärkningar',
+    debtEquityRatio: 'Skuldsättningsgrad',
+    legalStatus: 'Status',
+    solidity: 'Soliditet',
+    liquidityRatio: 'Likviditet',
+    creditRatingLabel: 'Kreditbetyg'
+  };
+
+  const normalizeMonitoredValue = (field: string, value: unknown): string => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+
+    if (['revenue', 'profit', 'debtBalance', 'debtEquityRatio', 'solidity', 'liquidityRatio'].includes(field)) {
+      const cleaned = raw
+        .toLowerCase()
+        .replace(/tkr|msek|kr|sek|%/g, '')
+        .replace(/\s/g, '')
+        .replace(',', '.');
+      const parsed = Number(cleaned.replace(/[^0-9.-]/g, ''));
+      if (!Number.isNaN(parsed)) return String(parsed);
+    }
+
+    return raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  };
+
+  const buildLeadChanges = (previous: LeadData, next: LeadData) => {
+    const now = new Date().toISOString();
+    return Object.keys(monitoredFieldLabels)
+      .map((field) => {
+        const before = normalizeMonitoredValue(field, (previous as any)[field]);
+        const after = normalizeMonitoredValue(field, (next as any)[field]);
+        if (!before || !after || before === after) return null;
+        return {
+          field,
+          label: monitoredFieldLabels[field],
+          previous: String((previous as any)[field] ?? ''),
+          current: String((next as any)[field] ?? ''),
+          detectedAt: now
+        };
+      })
+      .filter(Boolean);
+  };
+
   const handleUpdateLead = async (updatedLead: LeadData) => {
     if (!updatedLead) return; 
     
@@ -520,11 +567,27 @@ export const App: React.FC = () => {
         if (updatedLead.id?.startsWith('temp_') && !existingId.startsWith('temp_')) {
           finalLead.id = existingId;
         }
+
+        const shouldMonitorChanges =
+          finalLead.source === 'ai' ||
+          (!!updatedLead.analysisDate && updatedLead.analysisDate !== newList[idx].analysisDate);
+
+        if (shouldMonitorChanges) {
+          const detectedChanges = buildLeadChanges(newList[idx], finalLead);
+          if (detectedChanges.length > 0) {
+            finalLead.changeHighlights = detectedChanges;
+            finalLead.hasMonitoredChanges = true;
+          }
+          finalLead.lastMonitoredCheckAt = new Date().toISOString();
+        }
+
         newList[idx] = finalLead;
         if (dbStatus === 'ready') db.leads.put(finalLead);
       } else {
         // Om vi inte har ett ID (t.ex. vid manuell tillägg utan ID), generera ett
         if (!updatedLead.id) updatedLead.id = crypto.randomUUID();
+        updatedLead.hasMonitoredChanges = false;
+        updatedLead.lastMonitoredCheckAt = new Date().toISOString();
         newList = [updatedLead, ...prev];
         if (dbStatus === 'ready') db.leads.put(updatedLead);
       }

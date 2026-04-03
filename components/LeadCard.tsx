@@ -560,6 +560,21 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <BarChart3 className="w-4 h-4 text-[#D40511]" /> Finansiellt
                     <ConfidenceBadge level={editData.dataConfidence?.financial} />
                   </h3>
+                  {editData.hasMonitoredChanges && (editData.changeHighlights?.length || 0) > 0 && (
+                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-none">
+                      <p className="text-[10px] font-bold text-orange-700 uppercase tracking-wider mb-2">
+                        Nya förändringar sedan senaste scan
+                      </p>
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {editData.changeHighlights?.slice(0, 6).map((change, idx) => (
+                          <div key={`${change.field}-${idx}`} className="text-[10px] bg-white border border-orange-100 p-2 rounded-sm">
+                            <div className="font-black text-orange-700">{change.label}</div>
+                            <div className="text-slate-600">{change.previous || '-'}{' -> '}{change.current || '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 gap-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">
