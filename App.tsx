@@ -90,6 +90,7 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   news: ['ehandel.se', 'market.se', 'breakit.se'],
   strictCompanyMatch: true,
+  earliestNewsYear: 2025,
   customCategories: {
     revenue: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
     profit: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],

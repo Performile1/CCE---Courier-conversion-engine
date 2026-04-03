@@ -106,6 +106,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
   const [suggestionTargetCategory, setSuggestionTargetCategory] = useState('news');
   const [sourceSuggestions, setSourceSuggestions] = useState<SourcePerformanceEntry[]>([]);
   const [strictCompanyMatch, setStrictCompanyMatch] = useState(true);
+  const [earliestNewsYear, setEarliestNewsYear] = useState(String(new Date().getFullYear() - 1));
 
   const baseCategories = ['financial', 'addresses', 'decisionMakers', 'payment', 'webSoftware', 'news'];
   const countryOptions = ['global', 'se', 'no', 'dk', 'fi', ...Object.keys(sourcePolicies?.countrySourcePolicies || {})]
@@ -123,6 +124,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         webSoftware: sourcePolicies?.webSoftware || [],
         news: sourcePolicies?.news || [],
         strictCompanyMatch: sourcePolicies?.strictCompanyMatch !== false,
+        earliestNewsYear: sourcePolicies?.earliestNewsYear || (new Date().getFullYear() - 1),
         customCategories: sourcePolicies?.customCategories || {},
         categoryFieldMappings: sourcePolicies?.categoryFieldMappings || {}
       };
@@ -137,6 +139,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
       webSoftware: overrides.webSoftware || sourcePolicies?.webSoftware || [],
       news: overrides.news || sourcePolicies?.news || [],
       strictCompanyMatch: overrides.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
+      earliestNewsYear: overrides.earliestNewsYear || sourcePolicies?.earliestNewsYear || (new Date().getFullYear() - 1),
       customCategories: overrides.customCategories || sourcePolicies?.customCategories || {},
       categoryFieldMappings: overrides.categoryFieldMappings || sourcePolicies?.categoryFieldMappings || {}
     };
@@ -155,6 +158,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         news: (activePolicies.news || []).join(', ')
       });
       setStrictCompanyMatch(activePolicies.strictCompanyMatch !== false);
+      setEarliestNewsYear(String(activePolicies.earliestNewsYear || (new Date().getFullYear() - 1)));
       const custom = activePolicies.customCategories || {};
       const mapped: Record<string, string> = {};
       Object.entries(custom).forEach(([name, sources]) => {
@@ -339,6 +343,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         webSoftware: parse(policyText.webSoftware),
         news: parse(policyText.news),
         strictCompanyMatch,
+        earliestNewsYear: Math.max(2000, Number(earliestNewsYear) || (new Date().getFullYear() - 1)),
         customCategories,
         categoryFieldMappings
       };
@@ -507,6 +512,20 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
                 />
                 Strict Company Match (org.nr + exakt bolagsnamn)
               </label>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Tidigaste nyhetsår</label>
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={earliestNewsYear}
+                onChange={e => setEarliestNewsYear(e.target.value)}
+                className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                placeholder="2025"
+              />
+              <div className="text-[9px] text-slate-500 mt-1">Nyheter äldre än detta år ignoreras. Google/Tavily-fallback används alltid.</div>
             </div>
 
             <div className="pt-2 border-t border-slate-100 space-y-2">

@@ -56,7 +56,7 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
 ### 3. NEWS & TRIGGERS (v25.1)
 - Search Sources: Sok aktivt efter nyheter om bolaget pa: ehandel.se, breakit.se, mynewsdesk.com, dagenslogistik.se, linkedin.com och via Google Search.
 - Direct Links Required: Du MASTE returnera den DIREKTA URL:en till den specifika artikeln. Lanka aldrig till startsidan (t.ex. ehandel.se). Om artikeln kraver prenumeration (paywall), lanka anda till den specifika artikeln sa att anvandaren kan logga in eller betala pa plats.
-- Date Filter: Returnera ENDAST nyheter som publicerats under innevarande ar (2026) eller aret innan (2025). Ignorera allt aldre an 2025-01-01.
+- Date Filter: Folj alltid den news-grans som anges i prompten under SOURCE PRIORITY / runtime-instruktioner. Om ingen explicit grans finns, anvand endast innevarande ar och foregaende ar.
 - Content: Fokusera pa expansion, nya lager, VD-byten, forvarv, eller logistiska utmaningar.
 
 ### 4. STRATEGY
@@ -101,4 +101,8 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
 
 ### IMPORTANT: 429 PROTECTION
 Var extremt koncis i dina interna tankesteg. Leverera JSON-objektet direkt for att minimera token-output och sanka risken for rate-limiting.
+
+### EXTRA RULES
+- "financials.history" ska innehalla de 3 senaste tillgangliga aren med omsattning och resultat, sorterade nyast till aldst.
+- Beslutsfattare ska verifieras mot bolagsnamn + roll + LinkedIn nar sadan URL finns. Om person inte kan verifieras mot bolaget, utelamna personen.
 `;
