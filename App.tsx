@@ -801,30 +801,48 @@ export const App: React.FC = () => {
   const handleImportBackup = async (file: File) => {
     try {
       const text = await file.text();
-      const d = JSON.parse(text);
-      if (d.leads) setLeads(d.leads);
-      if (d.existingCustomers) await persistExclusionList('customer', d.existingCustomers);
-      if (d.downloadedLeads) await persistExclusionList('history', d.downloadedLeads);
-      if (d.includedKeywords) setIncludedKeywords(d.includedKeywords);
-      if (d.integrations) setIntegrations(d.integrations);
-      if (d.sniPercentages) setSNIPercentages(d.sniPercentages);
-      if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
-      if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
-      if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
-      if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
-      if (d.cronJobs) setCronJobs(d.cronJobs);
-      if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
-      if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
-      if (d.mailSignature) setMailSignature(d.mailSignature);
-      if (d.calendarUrl) setCalendarUrl(d.calendarUrl);
-      if (d.activeCarrier) setActiveCarrier(d.activeCarrier);
-      if (d.carriers) setCarriers(d.carriers);
+      const raw = JSON.parse(text);
+      const payload = (raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object') ? raw.data : raw;
+      const leadsFromBackupsArray = Array.isArray(raw?.backups) ? raw.backups.flatMap((b: any) => (Array.isArray(b?.data?.leads) ? b.data.leads : [])) : [];
+      const importedLeads = Array.isArray(payload?.leads) ? payload.leads : leadsFromBackupsArray;
 
-      if (dbStatus === 'ready' && d.leads) {
-        await db.leads.clear();
-        await db.leads.bulkPut(d.leads);
+      if (Array.isArray(importedLeads)) {
+        setLeads(importedLeads);
       }
-      alert("Backup återställd!");
+
+      if (payload?.existingCustomers) await persistExclusionList('customer', payload.existingCustomers);
+      if (payload?.downloadedLeads) await persistExclusionList('history', payload.downloadedLeads);
+      if (payload?.includedKeywords) setIncludedKeywords(payload.includedKeywords);
+      if (payload?.integrations) setIntegrations(payload.integrations);
+      if (payload?.sniPercentages) setSNIPercentages(payload.sniPercentages);
+      if (payload?.threePLProviders) setThreePLProviders(payload.threePLProviders);
+      if (payload?.newsSourceMappings) setNewsSourceMappings(payload.newsSourceMappings);
+      if (payload?.sourcePolicies) setSourcePolicies(payload.sourcePolicies);
+      if (payload?.activeSourceCountry) setActiveSourceCountry(payload.activeSourceCountry);
+      if (payload?.cronJobs) setCronJobs(payload.cronJobs);
+      if (payload?.mailTemplateSv) setMailTemplateSv(payload.mailTemplateSv);
+      if (payload?.mailTemplateEn) setMailTemplateEn(payload.mailTemplateEn);
+      if (payload?.mailSignature) setMailSignature(payload.mailSignature);
+      if (payload?.calendarUrl) setCalendarUrl(payload.calendarUrl);
+      if (payload?.activeCarrier) setActiveCarrier(payload.activeCarrier);
+      if (payload?.carriers) setCarriers(payload.carriers);
+
+      if (dbStatus === 'ready' && Array.isArray(importedLeads)) {
+        await db.leads.clear();
+        if (importedLeads.length) {
+          await db.leads.bulkPut(importedLeads);
+        }
+
+        // Force UI refresh from IndexedDB to avoid stale in-memory state.
+        const persisted = await db.leads.toArray();
+        setLeads(persisted.sort((a, b) => (b.analysisDate || '').localeCompare(a.analysisDate || '')));
+      }
+
+      if (!Array.isArray(importedLeads) || importedLeads.length === 0) {
+        alert("Backup laddades, men inga leads hittades i filen.");
+      } else {
+        alert(`Backup återställd! ${importedLeads.length} leads inlästa.`);
+      }
     } catch (e) {
       alert("Kunde inte läsa backup-filen.");
     }
