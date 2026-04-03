@@ -166,6 +166,8 @@ export interface DataConfidence {
   checkout: 'crawled' | 'estimated' | 'missing';
   contacts: 'verified' | 'estimated' | 'missing';
   addresses: 'verified' | 'estimated' | 'missing';
+  payment?: 'verified' | 'estimated' | 'missing';
+  news?: 'verified' | 'estimated' | 'missing';
   emailPattern: 'found' | 'inferred' | 'missing';
 }
 

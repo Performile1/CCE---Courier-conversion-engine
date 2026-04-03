@@ -95,7 +95,15 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
     revenue: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
     profit: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
     solidity: ['allabolag.se', 'ratsit.se'],
-    liquidityRatio: ['allabolag.se', 'ratsit.se']
+    liquidityRatio: ['allabolag.se', 'ratsit.se'],
+    omsattning: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+    resultat: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+    likviditet: ['allabolag.se', 'ratsit.se'],
+    plattform: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
+    betalning: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
+    checkout: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
+    beslutsfattare: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+    nyheter: ['ehandel.se', 'market.se', 'breakit.se']
   },
   categoryFieldMappings: {
     financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
@@ -103,11 +111,19 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
     profit: ['profit', 'profitMargin'],
     solidity: ['solidity'],
     liquidityRatio: ['liquidityRatio'],
+    omsattning: ['revenue', 'revenueYear', 'financialHistory'],
+    resultat: ['profit', 'profitMargin', 'financialHistory'],
+    likviditet: ['liquidityRatio'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress'],
+    beslutsfattare: ['decisionMakers', 'emailPattern', 'dataConfidence.contacts'],
     decisionMakers: ['decisionMakers'],
-    payment: ['paymentProvider', 'checkoutSolution'],
+    payment: ['paymentProvider', 'checkoutSolution', 'dataConfidence.payment'],
+    betalning: ['paymentProvider', 'checkoutSolution', 'dataConfidence.payment'],
+    checkout: ['checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek', 'dataConfidence.checkout'],
     webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence'],
-    news: ['latestNews']
+    plattform: ['ecommercePlatform', 'techEvidence'],
+    news: ['latestNews', 'sourceCoverage', 'dataConfidence.news'],
+    nyheter: ['latestNews', 'sourceCoverage', 'dataConfidence.news', 'analysisDate']
   }
 };
 const DEFAULT_ROLE_TOOL_ACCESS: Record<UserRole, string[]> = {

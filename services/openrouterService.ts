@@ -99,10 +99,22 @@ const TECH_SOLUTION_KEYWORDS = {
 };
 const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
   financial: ['bokslut', 'omsättning', 'resultat', 'soliditet', 'likviditet', 'annual report'],
+  revenue: ['omsättning', 'nettoomsättning', 'bokslut'],
+  omsattning: ['omsättning', 'nettoomsättning', 'bokslut'],
+  profit: ['resultat', 'årets resultat', 'efter finansnetto'],
+  resultat: ['resultat', 'årets resultat', 'efter finansnetto'],
+  solidity: ['soliditet', 'bokslut', 'årsredovisning'],
+  likviditet: ['likviditet', 'bokslut', 'årsredovisning'],
   addresses: ['adress', 'besöksadress', 'postadress', 'kontakt', 'karta'],
+  adresser: ['adress', 'besöksadress', 'lageradress', 'kontakt'],
   decisionMakers: ['ledning', 'styrelse', 'ceo', 'vd', 'kontaktperson', 'linkedin'],
+  beslutsfattare: ['ledning', 'styrelse', 'vd', 'kontaktperson', 'linkedin'],
   payment: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],
+  betalning: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],
+  checkout: ['checkout', 'leverans', 'frakt', 'betalning'],
   webSoftware: ['platform', 'tech stack', 'shopify', 'woocommerce', 'norce', 'scripts'],
+  plattform: ['platform', 'shopify', 'woocommerce', 'norce', 'centra', 'scripts'],
+  tasystem: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade'],
   news: ['nyheter', 'pressmeddelande', 'expansion', 'förvärv']
 };
 
@@ -419,14 +431,24 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?
   const defaultFieldMappings: Record<string, string[]> = {
     financial: ['revenue', 'revenueYear', 'profit', 'financialHistory', 'solidity', 'liquidityRatio', 'profitMargin', 'creditRatingLabel', 'debtBalance', 'debtEquityRatio', 'paymentRemarks', 'legalStatus', 'financialSource', 'freightBudget'],
     revenue: ['revenue', 'revenueYear'],
+    omsattning: ['revenue', 'revenueYear', 'financialHistory'],
     profit: ['profit', 'profitMargin'],
+    resultat: ['profit', 'profitMargin', 'financialHistory'],
     solidity: ['solidity'],
     liquidityRatio: ['liquidityRatio'],
+    likviditet: ['liquidityRatio'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress', 'segment'],
+    adresser: ['address', 'visitingAddress', 'warehouseAddress'],
     decisionMakers: ['decisionMakers', 'emailPattern', 'strategicPitch'],
-    payment: ['paymentProvider', 'checkoutSolution', 'checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek'],
+    beslutsfattare: ['decisionMakers', 'emailPattern', 'dataConfidence.contacts'],
+    payment: ['paymentProvider', 'checkoutSolution', 'checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek', 'dataConfidence.payment'],
+    betalning: ['paymentProvider', 'checkoutSolution', 'dataConfidence.payment'],
+    checkout: ['checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek', 'dataConfidence.checkout'],
     webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence', 'storeCount', 'activeMarkets', 'marketCount', 'b2bPercentage', 'b2cPercentage'],
-    news: ['latestNews', 'sourceCoverage', 'analysisDate']
+    plattform: ['ecommercePlatform', 'techEvidence'],
+    tasystem: ['taSystem', 'techEvidence'],
+    news: ['latestNews', 'sourceCoverage', 'analysisDate', 'dataConfidence.news'],
+    nyheter: ['latestNews', 'sourceCoverage', 'analysisDate', 'dataConfidence.news']
   };
 
   const countryKey = (activeCountry || '').trim().toLowerCase();
@@ -760,6 +782,100 @@ type VerifiedFinancialEvidence = {
   parsed: VerifiedRegistryFields;
 };
 
+type VerifiedPaymentEvidence = {
+  paymentProvider?: string;
+  checkoutSolution?: string;
+  evidenceSnippet: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+  sourceUrl?: string;
+};
+
+type VerifiedNewsEvidence = {
+  summary: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+  sources: string[];
+};
+
+const PAYMENT_PROVIDER_PATTERNS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Klarna', keywords: ['klarna checkout', 'klarna payments', 'klarna'] },
+  { label: 'Adyen', keywords: ['adyen checkout', 'adyen'] },
+  { label: 'Stripe', keywords: ['stripe checkout', 'stripe'] },
+  { label: 'Qliro', keywords: ['qliro checkout', 'qliro'] },
+  { label: 'Walley', keywords: ['walley checkout', 'walley'] },
+  { label: 'Svea', keywords: ['svea checkout', 'svea'] },
+  { label: 'Nets', keywords: ['nets easy', 'nets'] },
+  { label: 'Checkout.com', keywords: ['checkout.com'] },
+  { label: 'PayEx', keywords: ['payex'] }
+];
+
+const CHECKOUT_SOLUTION_PATTERNS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Klarna Checkout', keywords: ['klarna checkout', 'kco'] },
+  { label: 'Adyen Checkout', keywords: ['adyen checkout'] },
+  { label: 'Stripe Checkout', keywords: ['stripe checkout'] },
+  { label: 'Qliro Checkout', keywords: ['qliro checkout'] },
+  { label: 'Walley Checkout', keywords: ['walley checkout'] },
+  { label: 'Nets Easy', keywords: ['nets easy'] },
+  { label: 'Checkout.com', keywords: ['checkout.com'] }
+];
+
+function findPatternMatch(
+  haystack: string,
+  patterns: Array<{ label: string; keywords: string[] }>
+): { label?: string; keyword?: string } {
+  for (const pattern of patterns) {
+    for (const keyword of pattern.keywords) {
+      if (haystack.includes(keyword.toLowerCase())) {
+        return { label: pattern.label, keyword };
+      }
+    }
+  }
+  return {};
+}
+
+function extractEvidenceSnippet(text: string, keywords: string[]): string {
+  const source = String(text || '');
+  const lowered = source.toLowerCase();
+  for (const keyword of keywords) {
+    const index = lowered.indexOf(keyword.toLowerCase());
+    if (index >= 0) {
+      const start = Math.max(0, index - 120);
+      const end = Math.min(source.length, index + 220);
+      return source.slice(start, end).replace(/\s+/g, ' ').trim();
+    }
+  }
+  return source.slice(0, 280).replace(/\s+/g, ' ').trim();
+}
+
+function extractEmailsFromText(text: string, companyDomain?: string): string[] {
+  const matches: string[] = String(text || '').match(/\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b/gi) || [];
+  const normalizedDomain = normalizeDomain(companyDomain || '');
+  const filtered = normalizedDomain
+    ? matches.filter((email) => normalizeDomain(email.split('@')[1] || '') === normalizedDomain)
+    : matches;
+  return Array.from(new Set(filtered.map((email) => email.toLowerCase())));
+}
+
+function extractPhoneNumbersFromText(text: string): string[] {
+  const matches = String(text || '').match(/(?:\+46|0)\s?(?:\d[\s-]?){6,11}\d/g) || [];
+  return Array.from(new Set(matches.map((phone) => phone.replace(/\s+/g, ' ').trim())));
+}
+
+function normalizeRoleToken(value: string): string {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9åäö]/g, '');
+}
+
+function roleMatchesFocus(role: string, focusRoles: string[]): boolean {
+  const normalizedRole = normalizeRoleToken(role);
+  const normalizedFocus = focusRoles
+    .filter(Boolean)
+    .map(normalizeRoleToken)
+    .filter(Boolean);
+  if (!normalizedFocus.length) return Boolean(normalizedRole);
+  return normalizedFocus.some((focus) => normalizedRole.includes(focus) || focus.includes(normalizedRole));
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -909,12 +1025,68 @@ async function fetchCheckoutPositions(
   return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled' };
 }
 
+async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymentEvidence> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) {
+    return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
+  }
+
+  const pathsToTry = ['/', '/checkout', '/kassan', '/cart', '/varukorg', '/betalning', '/payment'];
+  let bestUrl = '';
+  let combinedContent = '';
+
+  for (const path of pathsToTry) {
+    try {
+      const url = `https://${normalizedDomain}${path}`;
+      const resp = await axios.post(
+        buildApiUrl('/api/crawl'),
+        { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { timeout: 15000 }
+      );
+      const content = pickString(resp.data?.content);
+      if (!content) continue;
+      if (!bestUrl) bestUrl = url;
+      combinedContent += `\n${content.slice(0, 2500)}`;
+    } catch {
+      continue;
+    }
+  }
+
+  const haystack = combinedContent.toLowerCase();
+  if (!haystack.trim()) {
+    return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
+  }
+
+  const paymentMatch = findPatternMatch(haystack, PAYMENT_PROVIDER_PATTERNS);
+  const checkoutMatch = findPatternMatch(haystack, CHECKOUT_SOLUTION_PATTERNS);
+  const keywords = [paymentMatch.keyword, checkoutMatch.keyword].filter(Boolean) as string[];
+
+  if (!paymentMatch.label && !checkoutMatch.label) {
+    return {
+      paymentProvider: '',
+      checkoutSolution: '',
+      evidenceSnippet: '',
+      confidence: 'missing',
+      sourceUrl: bestUrl || undefined
+    };
+  }
+
+  return {
+    paymentProvider: paymentMatch.label || checkoutMatch.label?.replace(/\s+Checkout$/i, '') || '',
+    checkoutSolution: checkoutMatch.label || '',
+    evidenceSnippet: extractEvidenceSnippet(combinedContent, keywords),
+    confidence: 'verified',
+    sourceUrl: bestUrl || undefined
+  };
+}
+
 // ── Phase 3: Role-Targeted Decision Maker Search ──────────────────────────
 async function fetchDecisionMakersTargeted(
   companyName: string,
   orgNumber: string,
   focusRoles: string[],
-  preferredDomains: string[]
+  preferredDomains: string[],
+  companyDomain?: string
 ): Promise<{
   contacts: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }>;
   confidence: 'verified' | 'estimated' | 'missing';
@@ -932,7 +1104,12 @@ async function fetchDecisionMakersTargeted(
     `"${companyName}" (${roleClause})`
   ].filter(Boolean) as string[];
 
-  const found: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
+  const allowedDomains = new Set(
+    ['linkedin.com', 'allabolag.se', 'ratsit.se', 'hitta.se', 'eniro.se', ...preferredDomains]
+      .map(normalizeDomain)
+      .filter(Boolean)
+  );
+  const found: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string; score: number }> = [];
   const seenNames = new Set<string>();
   for (const query of queries) {
     try {
@@ -941,6 +1118,8 @@ async function fetchDecisionMakersTargeted(
       for (const r of results) {
         const text = `${pickString(r?.title)} ${pickString(r?.content)}`;
         const url = pickString(r?.url);
+        const domain = normalizeDomain(url);
+        if (domain && !allowedDomains.has(domain)) continue;
         const lowered = `${text} ${url}`.toLowerCase();
         const nameMatches = text.match(/\b([A-ZÅÄÖ][a-zåäö-]+\s+[A-ZÅÄÖ][a-zåäö-]+)\b/g) || [];
         const roleMatches = text.match(/(VD|CEO|logistikchef|inköpschef|e-handelschef|CMO|CFO|COO|styrelseordförande|styrelseledamot|Supply Chain|Head of Logistics)/gi) || [];
@@ -952,24 +1131,40 @@ async function fetchDecisionMakersTargeted(
         if (!companyVerified) continue;
         const name = nameMatches[0];
         const role = roleMatches[0];
+        if (!roleMatchesFocus(role, roleSynonyms)) continue;
         if (/rickard|wigrund/i.test(name)) continue;
         if (isLikelyGenericPersonName(name)) continue;
         if (seenNames.has(name.toLowerCase())) continue;
         seenNames.add(name.toLowerCase());
+        const verifiedEmails = extractEmailsFromText(text, companyDomain);
+        const verifiedPhones = extractPhoneNumbersFromText(text);
+        const score = (linkedinVerified ? 2 : 0)
+          + (orgMatch ? 2 : 0)
+          + (aliasMatch ? 1 : 0)
+          + (verifiedEmails.length ? 1 : 0)
+          + (verifiedPhones.length ? 1 : 0);
+        if (score < 2) continue;
         found.push({
           name,
           title: role,
-          email: '',
+          email: verifiedEmails[0] || '',
           linkedin: url.includes('linkedin.com') ? url : '',
-          directPhone: '',
+          directPhone: verifiedPhones[0] || '',
           verificationNote: linkedinVerified
             ? `Verifierad via LinkedIn + bolagsmatch (${normalizeDomain(url)})`
-            : `Verifierad via bolagsmatch (${normalizeDomain(url)})`
+            : `Verifierad via bolagsmatch (${normalizeDomain(url)})`,
+          score
         });
       }
     } catch { /* continue to next query */ }
   }
-  return { contacts: found.slice(0, 4), confidence: found.length > 0 ? 'verified' : 'missing' };
+  const ranked = found
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+  return {
+    contacts: ranked.map(({ score, ...contact }) => contact),
+    confidence: ranked.length > 0 ? (ranked[0].score >= 4 ? 'verified' : 'estimated') : 'missing'
+  };
 }
 
 // ── Phase 4: Email Pattern Detection ─────────────────────────────────────
@@ -1020,8 +1215,8 @@ async function fetchLatestNews(
   companyName: string,
   domains: string[],
   options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean; earliestNewsYear?: number }
-): Promise<string> {
-  if (!companyName) return '';
+): Promise<VerifiedNewsEvidence> {
+  if (!companyName) return { summary: '', confidence: 'missing', sources: [] };
 
   const aliases = buildCompanyAliases(companyName);
   const primaryAlias = aliases[0] || companyName;
@@ -1068,7 +1263,7 @@ async function fetchLatestNews(
     ]);
 
     const results = [...(response.data?.results || []), ...(broadResponse.data?.results || [])];
-    if (!Array.isArray(results) || results.length === 0) return '';
+    if (!Array.isArray(results) || results.length === 0) return { summary: '', confidence: 'missing', sources: [] };
 
     const orgNormalized = normalizeOrgNumber(orgNumber);
     const filtered = results.filter((item: any) => {
@@ -1095,7 +1290,8 @@ async function fetchLatestNews(
       return true;
     });
 
-    const safeResults = filtered.length ? filtered : results.slice(0, 2);
+    const safeResults = filtered;
+    if (!safeResults.length) return { summary: '', confidence: 'missing', sources: [] };
 
     const topEntries = safeResults.slice(0, 3).map((item: any) => {
       const title = pickString(item?.title, item?.content, 'Nyhet');
@@ -1105,9 +1301,16 @@ async function fetchLatestNews(
       return url ? `${prefix}${title} (${url})` : `${prefix}${title}`;
     });
 
-    return topEntries.join(' | ');
+    return {
+      summary: topEntries.join(' | '),
+      confidence: 'verified',
+      sources: safeResults
+        .slice(0, 3)
+        .map((item: any) => pickString(item?.url))
+        .filter(Boolean)
+    };
   } catch (error) {
-    return '';
+    return { summary: '', confidence: 'missing', sources: [] };
   }
 }
 
@@ -1365,15 +1568,18 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       evidenceSnippet: string;
       confidence: 'crawled' | 'estimated' | 'missing';
     } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+    let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
     let detectedEmailPattern = '';
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
       const phase24 = await Promise.all([
         fetchCheckoutPositions(parsedDomain, activeCarrier),
+        fetchVerifiedPaymentSetup(parsedDomain),
         detectEmailPattern(parsedDomain, sourceGroundingEvidence + ' ' + (financialEvidence.evidenceText || ''))
       ]);
       checkoutCrawlResult = phase24[0];
-      detectedEmailPattern = phase24[1];
+      paymentEvidence = phase24[1];
+      detectedEmailPattern = phase24[2];
     } catch { /* Phase 2+4 non-critical — proceed with LLM data */ }
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
@@ -1387,7 +1593,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
           pickString(companyData?.name, companyData?.company_name) || strictCompanyName,
           pickString(companyData?.org_nr, companyData?.organization_number) || strictOrgNumber,
           [formData.focusRole1, formData.focusRole2, formData.focusRole3],
-          preferredDomains
+          preferredDomains,
+          parsedDomain
         );
         dmSupplement = dmResult.contacts;
         dmConfidence = dmResult.confidence;
@@ -1426,7 +1633,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     const contactNames = (Array.isArray(contactsRaw) ? contactsRaw : [])
       .map((c: any) => pickString(c?.name))
       .filter(Boolean);
-    const latestNewsFallback = latestNewsFromModel ? '' : await fetchLatestNews(
+    const verifiedNews = await fetchLatestNews(
       pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
       Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean))),
       {
@@ -1436,6 +1643,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         earliestNewsYear: effectivePolicies.earliestNewsYear
       }
     );
+    const finalLatestNews = verifiedNews.summary || '';
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
       pickString(companyData?.domain, companyData?.website, companyData?.url)
@@ -1484,13 +1692,13 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         || (sourceGroundingEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
       
       ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
-      paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
-      checkoutSolution: pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
+      paymentProvider: paymentEvidence.paymentProvider || pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
+      checkoutSolution: paymentEvidence.checkoutSolution || pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
       taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: [modelTechEvidence, crawlTechEvidence, sourceGroundingEvidence].filter(Boolean).join(' | ').slice(0, 2000),
+      techEvidence: [modelTechEvidence, crawlTechEvidence, paymentEvidence.evidenceSnippet, sourceGroundingEvidence].filter(Boolean).join(' | ').slice(0, 2000),
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
-      latestNews: latestNewsFromModel || latestNewsFallback, 
+      latestNews: finalLatestNews || latestNewsFromModel || '', 
       
       decisionMakers: (() => {
         const llmContacts: DecisionMaker[] = (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
@@ -1545,6 +1753,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         checkout: checkoutCrawlResult.confidence,
         contacts: llmContactCount >= 2 ? 'estimated' as const : dmConfidence,
         addresses: financialEvidence.confidence === 'verified' ? 'verified' as const : 'estimated' as const,
+        payment: paymentEvidence.confidence,
+        news: verifiedNews.confidence,
         emailPattern: detectedEmailPattern ? 'found' as const : 'missing' as const
       } as DataConfidence
     };
@@ -1646,20 +1856,34 @@ export async function generateLeads(
         evidenceSnippet: string;
         confidence: 'crawled' | 'estimated' | 'missing';
       } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+      let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
+      let newsEvidence: VerifiedNewsEvidence = { summary: '', confidence: 'missing', sources: [] };
       let emailPattern = '';
       let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
       let dmConfidence: 'verified' | 'estimated' | 'missing' = baseDecisionMakers.length ? 'estimated' : 'missing';
 
       if (shouldEnrich) {
         try {
-          const [fin, checkout, email] = await Promise.all([
+          const [fin, checkout, payment, email, news] = await Promise.all([
             fetchVerifiedFinancials(pickString(l.orgNumber, l.org_number, l.organizationNumber), pickString(l.companyName, l.company_name, l.name)),
             fetchCheckoutPositions(domain, activeCarrier),
-            detectEmailPattern(domain, `${pickString(l.companyName, l.company_name, l.name)} ${pickString(l.orgNumber, l.org_number, l.organizationNumber)}`)
+            fetchVerifiedPaymentSetup(domain),
+            detectEmailPattern(domain, `${pickString(l.companyName, l.company_name, l.name)} ${pickString(l.orgNumber, l.org_number, l.organizationNumber)}`),
+            fetchLatestNews(
+              pickString(l.companyName, l.company_name, l.name),
+              effectivePolicies.news,
+              {
+                orgNumber: pickString(l.orgNumber, l.org_number, l.organizationNumber),
+                strictCompanyMatch: effectivePolicies.strictCompanyMatch !== false,
+                earliestNewsYear: effectivePolicies.earliestNewsYear
+              }
+            )
           ]);
           financialEvidence = fin;
           checkoutEvidence = checkout;
+          paymentEvidence = payment;
           emailPattern = email;
+          newsEvidence = news;
         } catch {
           // Non-critical in batch mode
         }
@@ -1670,7 +1894,8 @@ export async function generateLeads(
               pickString(l.companyName, l.company_name, l.name),
               pickString(l.orgNumber, l.org_number, l.organizationNumber),
               [formData.focusRole1, formData.focusRole2, formData.focusRole3],
-              preferredDomains
+              preferredDomains,
+              domain
             );
             dmSupplement = dmResult.contacts;
             dmConfidence = dmResult.confidence;
@@ -1722,6 +1947,7 @@ export async function generateLeads(
               inCheckout: cp.inCheckout
             }))
           : (l.checkoutOptions || []),
+        latestNews: newsEvidence.summary || '',
         marketCount,
         annualPackages,
         pos1Volume,
@@ -1736,6 +1962,8 @@ export async function generateLeads(
         analysisDate: '',
         aiModel: activeModel,
         halluccinationScore: 0,
+        paymentProvider: paymentEvidence.paymentProvider || pickString(l.paymentProvider, l.payment_provider),
+        checkoutSolution: paymentEvidence.checkoutSolution || pickString(l.checkoutSolution, l.checkout_solution),
         profit: registryFields.profitTkr !== undefined
           ? `${registryFields.profitTkr.toLocaleString('sv-SE')} tkr`
           : pickString(l.profit),
@@ -1749,6 +1977,8 @@ export async function generateLeads(
           checkout: checkoutEvidence.confidence,
           contacts: dmConfidence,
           addresses: financialEvidence.confidence === 'verified' ? 'verified' : 'estimated',
+          payment: paymentEvidence.confidence,
+          news: newsEvidence.confidence,
           emailPattern: emailPattern ? 'found' : 'missing'
         }
       } as LeadData;

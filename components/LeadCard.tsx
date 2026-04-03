@@ -847,7 +847,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Betalning:</span>
-                        <span className="font-bold text-dhl-black">{editData.paymentProvider}</span>
+                        <span className="font-bold text-dhl-black flex items-center gap-1 justify-end">
+                          {editData.paymentProvider}
+                          <ConfidenceBadge level={editData.dataConfidence?.payment} />
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1033,7 +1036,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
 
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nyheter & Källor</p>
+                    <div className="flex items-center gap-1 mb-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nyheter & Källor</p>
+                      <ConfidenceBadge level={editData.dataConfidence?.news} />
+                    </div>
                     <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
                       {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
                     </p>

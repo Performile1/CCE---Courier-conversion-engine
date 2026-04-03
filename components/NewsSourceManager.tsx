@@ -58,6 +58,8 @@ const AVAILABLE_LEADCARD_FIELDS = [
   'dataConfidence.checkout',
   'dataConfidence.contacts',
   'dataConfidence.addresses',
+  'dataConfidence.payment',
+  'dataConfidence.news',
   'dataConfidence.emailPattern',
   'changeHighlights',
   'hasMonitoredChanges',
@@ -65,6 +67,44 @@ const AVAILABLE_LEADCARD_FIELDS = [
   'sourceCoverage',
   'latestNews'
 ];
+
+const LEADCARD_DATA_PARTS: Array<{ id: string; label: string; headline: string; fields: string[] }> = [
+  { id: 'orginfo', label: 'Bolagsidentitet', headline: 'Bolagsoversikt', fields: ['companyName', 'orgNumber', 'websiteUrl', 'phoneNumber', 'segment', 'legalStatus'] },
+  { id: 'omsattning', label: 'Omsattning', headline: 'Finansiellt', fields: ['revenue', 'revenueYear', 'financialHistory'] },
+  { id: 'resultat', label: 'Resultat', headline: 'Finansiellt', fields: ['profit', 'profitMargin', 'financialHistory'] },
+  { id: 'soliditet', label: 'Soliditet', headline: 'Finansiellt', fields: ['solidity'] },
+  { id: 'likviditet', label: 'Likviditet', headline: 'Finansiellt', fields: ['liquidityRatio'] },
+  { id: 'risk', label: 'Risk och kredit', headline: 'Finansiellt', fields: ['creditRatingLabel', 'creditRatingMotivation', 'riskProfile', 'financialTrend', 'paymentRemarks', 'debtBalance', 'debtEquityRatio', 'financialSource'] },
+  { id: 'adresser', label: 'Adresser', headline: 'Logistik och infrastruktur', fields: ['address', 'visitingAddress', 'warehouseAddress'] },
+  { id: 'plattform', label: 'Plattform', headline: 'Logistik och infrastruktur', fields: ['ecommercePlatform', 'techEvidence'] },
+  { id: 'tasystem', label: 'TA-system', headline: 'Logistik och infrastruktur', fields: ['taSystem', 'techEvidence'] },
+  { id: 'betalning', label: 'Betalning', headline: 'Logistik och infrastruktur', fields: ['paymentProvider', 'checkoutSolution', 'dataConfidence.payment'] },
+  { id: 'checkout', label: 'Checkout-positioner', headline: 'Logistik och infrastruktur', fields: ['checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek', 'dataConfidence.checkout'] },
+  { id: 'marknader', label: 'Marknader och volym', headline: 'Logistik och infrastruktur', fields: ['activeMarkets', 'marketCount', 'b2bPercentage', 'b2cPercentage', 'annualPackages', 'storeCount'] },
+  { id: 'beslutsfattare', label: 'Beslutsfattare', headline: 'Beslutsfattare / pitch / potential', fields: ['decisionMakers', 'dataConfidence.contacts'] },
+  { id: 'epostmonster', label: 'E-postmonster', headline: 'Beslutsfattare / pitch / potential', fields: ['emailPattern', 'dataConfidence.emailPattern'] },
+  { id: 'pitch', label: 'Pitch och potential', headline: 'Beslutsfattare / pitch / potential', fields: ['strategicPitch', 'freightBudget'] },
+  { id: 'nyheter', label: 'Nyheter och kallor', headline: 'Beslutsfattare / pitch / potential', fields: ['latestNews', 'sourceCoverage', 'analysisDate', 'dataConfidence.news'] }
+];
+
+const DEFAULT_DATAPART_SOURCES: Record<string, string[]> = {
+  omsattning: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+  resultat: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+  soliditet: ['allabolag.se', 'ratsit.se'],
+  likviditet: ['allabolag.se', 'ratsit.se'],
+  adresser: ['allabolag.se', 'hitta.se', 'eniro.se'],
+  plattform: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
+  tasystem: ['nshift.com', 'unifaun.com', 'centiro.com', 'ingrid.com'],
+  betalning: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
+  checkout: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
+  beslutsfattare: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+  epostmonster: ['company website', 'linkedin.com'],
+  nyheter: ['ehandel.se', 'market.se', 'breakit.se']
+};
+
+const DEFAULT_DATAPART_FIELD_MAPPINGS: Record<string, string[]> = Object.fromEntries(
+  LEADCARD_DATA_PARTS.map((part) => [part.id, part.fields])
+);
 
 interface NewsSourceManagerProps {
   isOpen: boolean;
@@ -159,14 +199,20 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
       });
       setStrictCompanyMatch(activePolicies.strictCompanyMatch !== false);
       setEarliestNewsYear(String(activePolicies.earliestNewsYear || (new Date().getFullYear() - 1)));
-      const custom = activePolicies.customCategories || {};
+      const custom = {
+        ...DEFAULT_DATAPART_SOURCES,
+        ...(activePolicies.customCategories || {})
+      };
       const mapped: Record<string, string> = {};
       Object.entries(custom).forEach(([name, sources]) => {
         mapped[name] = (sources || []).join(', ');
       });
       setCustomCategoryInputs(mapped);
 
-      const configuredFieldMappings = activePolicies.categoryFieldMappings || {};
+      const configuredFieldMappings = {
+        ...DEFAULT_DATAPART_FIELD_MAPPINGS,
+        ...(activePolicies.categoryFieldMappings || {})
+      };
       const allCategories = [...baseCategories, ...Object.keys(custom)];
       const mappingInputs: Record<string, string[]> = {};
       allCategories.forEach((category) => {
@@ -227,6 +273,19 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
     const nextFieldMappings = { ...categoryFieldSelections };
     delete nextFieldMappings[name];
     setCategoryFieldSelections(nextFieldMappings);
+  };
+
+  const toggleDataPartForCategory = (category: string, fields: string[]) => {
+    const current = categoryFieldSelections[category] || [];
+    const isSelected = fields.every((field) => current.includes(field));
+    const next = isSelected
+      ? current.filter((field) => !fields.includes(field))
+      : Array.from(new Set([...current, ...fields]));
+
+    setCategoryFieldSelections({
+      ...categoryFieldSelections,
+      [category]: next
+    });
   };
 
   const toggleFieldForCategory = (category: string, field: string) => {
@@ -386,6 +445,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
               Koppla specifika nyhetssajter till SNI-koder. Vid analys av ett bolag kommer AI:n att prioritera sökningar på dessa domäner.
               <br/><strong>Exempel:</strong> SNI 47 → ehandel.se, market.se
             </div>
+          </div>
+
+          <div className="bg-blue-50 p-3 border border-blue-100 rounded-sm text-[10px] text-blue-900 leading-relaxed">
+            SourceManager kan nu spegla LeadCardens datadelar. Styr källor per datadel som <strong>Omsattning</strong>, <strong>Likviditet</strong>, <strong>Plattform</strong>, <strong>Betalning</strong>, <strong>Checkout-positioner</strong> och <strong>Nyheter och kallor</strong>.
+            <br/><strong>Google/Tavily-fallback används alltid som dubbelkoll</strong> utanför de prioriterade domänerna.
           </div>
 
           <div className="bg-dhl-gray-light p-3 border border-dhl-gray-medium rounded-sm">
@@ -583,15 +647,62 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
+
+              <div className="pt-2 border-t border-slate-100 space-y-1">
+                <div className="text-[10px] font-black uppercase text-slate-500">Aktivera LeadCard-datadelar</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {LEADCARD_DATA_PARTS.map((part) => {
+                    const exists = customCategoryInputs[part.id] !== undefined;
+                    return (
+                      <button
+                        key={`preset-${part.id}`}
+                        type="button"
+                        onClick={() => {
+                          if (exists) return;
+                          setCustomCategoryInputs({
+                            ...customCategoryInputs,
+                            [part.id]: (DEFAULT_DATAPART_SOURCES[part.id] || []).join(', ')
+                          });
+                          setCategoryFieldSelections({
+                            ...categoryFieldSelections,
+                            [part.id]: DEFAULT_DATAPART_FIELD_MAPPINGS[part.id] || part.fields
+                          });
+                        }}
+                        className={`px-2 py-1 text-[9px] rounded-sm border font-bold ${exists ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-dhl-gray-light text-dhl-gray-dark border-dhl-gray-medium hover:border-red-300'}`}
+                      >
+                        {part.headline} · {part.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="pt-2 border-t border-slate-100 space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-500">Kategori till LeadCard-fält</label>
-              <p className="text-[10px] text-slate-500">Välj fält visuellt per kategori.</p>
+              <p className="text-[10px] text-slate-500">Välj datadelar från LeadCard per kategori. Råfält finns kvar för finjustering.</p>
 
               {[...baseCategories, ...Object.keys(customCategoryInputs)].map((category) => (
                 <div key={`map-${category}`} className="border border-dhl-gray-medium rounded-sm p-2 bg-white">
                   <div className="text-[10px] font-black uppercase text-slate-600 mb-2">{category}</div>
+                  <div className="mb-2 space-y-1">
+                    <div className="text-[9px] font-black uppercase text-slate-400">Snabbval fran LeadCard</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {LEADCARD_DATA_PARTS.map((part) => {
+                        const selected = part.fields.every((field) => (categoryFieldSelections[category] || []).includes(field));
+                        return (
+                          <button
+                            key={`${category}-preset-${part.id}`}
+                            type="button"
+                            onClick={() => toggleDataPartForCategory(category, part.fields)}
+                            className={`px-2 py-1 text-[9px] rounded-sm border font-bold transition-colors ${selected ? 'bg-black text-white border-black' : 'bg-blue-50 text-blue-900 border-blue-100 hover:border-blue-300'}`}
+                          >
+                            {part.headline} · {part.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {AVAILABLE_LEADCARD_FIELDS.map((field) => {
                       const selected = (categoryFieldSelections[category] || []).includes(field);
