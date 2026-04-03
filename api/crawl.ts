@@ -7,7 +7,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
 
-const CRAWL4AI_API_URL = 'https://api.crawl4ai.com/crawl';
+const CRAWL4AI_API_URL = process.env.CRAWL4AI_API_URL || 'https://api.crawl4ai.com/crawl';
 
 interface Crawl4aiRequest {
   url: string;
@@ -40,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
   try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { 
       url, 
       actionType = 'crawl',
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       includeImages = false,
       ignoreCookieConsent = true,
       maxDepth = 1
-    } = req.body as Crawl4aiRequest;
+    } = body as Crawl4aiRequest;
 
     // Validate URL
     if (!url) {
@@ -56,9 +57,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Validate URL format
     try {
-      new URL(url);
+      const parsedUrl = new URL(url);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return res.status(400).json({ error: 'Only http/https URLs are allowed' });
+      }
     } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    const allowedActionTypes = new Set(['crawl', 'extract', 'pdf']);
+    if (!allowedActionTypes.has(actionType)) {
+      return res.status(400).json({ error: 'Invalid actionType. Use crawl, extract, or pdf.' });
+    }
+
+    const crawlHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'CCE-Carrier-Conversion-Engine (+https://cce-carrier-conversion.vercel.app)'
+    };
+
+    if (process.env.CRAWL4AI_API_KEY) {
+      crawlHeaders.Authorization = `Bearer ${process.env.CRAWL4AI_API_KEY}`;
     }
 
     // Call Crawl4ai API from backend (secure, no API key exposed to frontend)
@@ -77,10 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       {
         timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'CCE-Carrier-Conversion-Engine (+https://cce-carrier-conversion.vercel.app)'
-        }
+        headers: crawlHeaders
       }
     );
 
@@ -106,7 +121,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
-    console.error('Crawl4ai API Handler Error:', error.message);
+    const upstreamStatus = error?.response?.status;
+    const upstreamData = error?.response?.data;
+    const upstreamMessage = typeof upstreamData?.error === 'string'
+      ? upstreamData.error
+      : (typeof upstreamData?.message === 'string' ? upstreamData.message : error.message);
+
+    console.error('Crawl4ai API Handler Error:', {
+      message: error?.message,
+      upstreamStatus,
+      upstreamData
+    });
+
+    if (upstreamStatus) {
+      const normalizedStatus = [400, 401, 403, 404, 408, 409, 422, 429, 500, 502, 503, 504].includes(upstreamStatus)
+        ? upstreamStatus
+        : 502;
+
+      return res.status(normalizedStatus).json({
+        success: false,
+        content: '',
+        metadata: {},
+        error: 'Crawl4ai request failed',
+        message: upstreamMessage || 'Crawl4ai returned an error',
+        upstreamStatus,
+        fallback: true
+      });
+    }
 
     // Return graceful error response
     return res.status(500).json({
