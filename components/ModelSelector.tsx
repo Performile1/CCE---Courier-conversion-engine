@@ -4,8 +4,14 @@ import { getSelectedModel, setSelectedModel, getCostTracker, ModelName, resetCos
 
 const MODEL_CONFIG = {
   'llama-3.1-70b': { displayName: 'Llama 3.1 70B (Fast)', costPer1k: 0.0007, speed: '⚡ Very Fast', recommended: true },
+  'deepseek-chat-v3-0324': { displayName: 'DeepSeek V3 0324 (Balanced)', costPer1k: 0.0006, speed: '⚡ Fast', recommended: true },
+  'qwen-3.6-plus-free': { displayName: 'Qwen 3.6 Plus Free (Workhorse)', costPer1k: 0, speed: '⚡ Fast', recommended: false },
+  'google-gemini-free': { displayName: 'Gemini 2.0 Flash (Budget)', costPer1k: 0.0001, speed: '⚡ Very Fast', recommended: false },
+  'gemini-3-flash-preview': { displayName: 'Gemini 3 Flash Preview (Modern Google)', costPer1k: 0.0017, speed: '⚡ Fast', recommended: false },
+  'claude-3.7-sonnet': { displayName: 'Claude 3.7 Sonnet (Premium)', costPer1k: 0.009, speed: '⏱️ Medium', recommended: false },
+  'deepseek-r1': { displayName: 'DeepSeek R1 (Reasoning)', costPer1k: 0.0016, speed: '🧠 Slower', recommended: false },
+  'grok-4.20': { displayName: 'Grok 4.20 (2M Context)', costPer1k: 0.0039, speed: '⚡ Fast', recommended: false },
   'gpt-4-turbo': { displayName: 'GPT-4 Turbo (Most Reliable)', costPer1k: 0.01, speed: '⏱️ Medium', recommended: false },
-  'google-gemini-free': { displayName: 'Gemini Free (Budget)', costPer1k: 0.0001, speed: '⚡ Very Fast', recommended: false },
   'gpt-3.5-turbo': { displayName: 'GPT-3.5 Turbo (Budget)', costPer1k: 0.0005, speed: '⚡ Fast', recommended: false },
   'mistral-7b': { displayName: 'Mistral 7B (Fast)', costPer1k: 0.0002, speed: '⚡ Fast', recommended: false }
 };
@@ -124,7 +130,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           <div className="mt-3 p-2 bg-dhl-gray-light border border-amber-200 rounded-sm flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-dhl-yellow flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-900 leading-snug">
-              💡 <strong>Tip:</strong> Use Llama 3.1 for fast batch processing, GPT-4 for critical decisions.
+              💡 <strong>Tip:</strong> Use DeepSeek V3 or Llama for scanning, Qwen or Gemini 2.0 for budget runs, and Claude or DeepSeek R1 when you need stricter reasoning.
             </p>
           </div>
         </div>

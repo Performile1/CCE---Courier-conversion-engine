@@ -109,9 +109,9 @@ export async function runBatchProcessingExample(
 export function smartModelSelection(lead: Pick<LeadData, 'revenue'>): ModelName {
   const revenueTkr = parseInt(String(lead.revenue).replace(/[^\d]/g, ''), 10) || 0;
 
-  if (revenueTkr > 5000) return 'gpt-4-turbo';
+  if (revenueTkr > 5000) return 'claude-3.7-sonnet';
   if (revenueTkr > 1000) return 'llama-3.1-70b';
-  return 'google-gemini-free';
+  return 'qwen-3.6-plus-free';
 }
 
 export function describeResultsTableRow(

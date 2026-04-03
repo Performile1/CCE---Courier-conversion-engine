@@ -10,12 +10,29 @@ import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMap
  * Replaces Google Gemini with OpenRouter for better hallucination control
  */
 
-export type ModelName = 'llama-3.1-70b' | 'gpt-4-turbo' | 'google-gemini-free' | 'gpt-3.5-turbo' | 'mistral-7b';
+export type ModelName =
+  | 'llama-3.1-70b'
+  | 'deepseek-chat-v3-0324'
+  | 'qwen-3.6-plus-free'
+  | 'google-gemini-free'
+  | 'gemini-3-flash-preview'
+  | 'claude-3.7-sonnet'
+  | 'deepseek-r1'
+  | 'grok-4.20'
+  | 'gpt-4-turbo'
+  | 'gpt-3.5-turbo'
+  | 'mistral-7b';
 
 const MODEL_CONFIG: Record<ModelName, { displayName: string; costPer1kTokens: number; maxTokens: number }> = {
   'llama-3.1-70b': { displayName: 'Llama 3.1 70B (Fast)', costPer1kTokens: 0.0007, maxTokens: 8000 },
+  'deepseek-chat-v3-0324': { displayName: 'DeepSeek V3 0324 (Balanced)', costPer1kTokens: 0.0006, maxTokens: 8192 },
+  'qwen-3.6-plus-free': { displayName: 'Qwen 3.6 Plus Free (Workhorse)', costPer1kTokens: 0, maxTokens: 8192 },
+  'google-gemini-free': { displayName: 'Gemini 2.0 Flash (Budget)', costPer1kTokens: 0.0001, maxTokens: 2000 },
+  'gemini-3-flash-preview': { displayName: 'Gemini 3 Flash Preview (Modern Google)', costPer1kTokens: 0.0017, maxTokens: 8192 },
+  'claude-3.7-sonnet': { displayName: 'Claude 3.7 Sonnet (Premium)', costPer1kTokens: 0.009, maxTokens: 8192 },
+  'deepseek-r1': { displayName: 'DeepSeek R1 (Reasoning)', costPer1kTokens: 0.0016, maxTokens: 8192 },
+  'grok-4.20': { displayName: 'Grok 4.20 (2M Context)', costPer1kTokens: 0.0039, maxTokens: 8192 },
   'gpt-4-turbo': { displayName: 'GPT-4 Turbo (Most Reliable)', costPer1kTokens: 0.01, maxTokens: 4096 },
-  'google-gemini-free': { displayName: 'Gemini Free (Budget)', costPer1kTokens: 0.0001, maxTokens: 2000 },
   'gpt-3.5-turbo': { displayName: 'GPT-3.5 Turbo (Budget)', costPer1kTokens: 0.0005, maxTokens: 4096 },
   'mistral-7b': { displayName: 'Mistral 7B (Fast)', costPer1kTokens: 0.0002, maxTokens: 8000 }
 };
@@ -39,8 +56,14 @@ export function getCostTracker(): { model: ModelName; totalCost: number; costPer
     totalCost: totalCostAccumulated,
     costPerModel: {
       'llama-3.1-70b': 0,
-      'gpt-4-turbo': 0,
+      'deepseek-chat-v3-0324': 0,
+      'qwen-3.6-plus-free': 0,
       'google-gemini-free': 0,
+      'gemini-3-flash-preview': 0,
+      'claude-3.7-sonnet': 0,
+      'deepseek-r1': 0,
+      'grok-4.20': 0,
+      'gpt-4-turbo': 0,
       'gpt-3.5-turbo': 0,
       'mistral-7b': 0
     }
@@ -1111,7 +1134,7 @@ async function callOpenRouterWithRetry(
       const response = await axios.post(
         apiEndpoint,
         {
-          model: model === 'google-gemini-free' ? 'google/gemini-flash-1.5' : model,
+          model,
           prompt: prompt,
           systemInstruction: config.systemInstruction || SYSTEM_INSTRUCTION,
           temperature: config.temperature || 0.1,

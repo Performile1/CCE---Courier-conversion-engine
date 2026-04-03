@@ -56,8 +56,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Map model names to OpenRouter IDs
     const modelMap: Record<string, string> = {
       'llama-3.1-70b': 'meta-llama/llama-3.1-70b-instruct',
+      'deepseek-chat-v3-0324': 'deepseek/deepseek-chat-v3-0324',
+      'qwen-3.6-plus-free': 'qwen/qwen3.6-plus:free',
+      'google-gemini-free': 'google/gemini-2.0-flash-001',
+      'gemini-3-flash-preview': 'google/gemini-3-flash-preview',
+      'claude-3.7-sonnet': 'anthropic/claude-3.7-sonnet',
+      'deepseek-r1': 'deepseek/deepseek-r1',
+      'grok-4.20': 'x-ai/grok-4.20',
       'gpt-4-turbo': 'openai/gpt-4-turbo-preview',
-      'google-gemini-free': 'google/gemini-flash-1.5',
       'gpt-3.5-turbo': 'openai/gpt-3.5-turbo',
       'mistral-7b': 'mistralai/mistral-7b-instruct'
     };
@@ -137,8 +143,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const costMap: Record<string, number> = {
     'llama-3.1-70b': 0.0007,
-    'gpt-4-turbo': 0.01,
+    'deepseek-chat-v3-0324': 0.0006,
+    'qwen-3.6-plus-free': 0,
     'google-gemini-free': 0.0001,
+    'gemini-3-flash-preview': 0.0017,
+    'claude-3.7-sonnet': 0.009,
+    'deepseek-r1': 0.0016,
+    'grok-4.20': 0.0039,
+    'gpt-4-turbo': 0.01,
     'gpt-3.5-turbo': 0.0005,
     'mistral-7b': 0.0002
   };

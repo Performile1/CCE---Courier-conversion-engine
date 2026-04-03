@@ -273,7 +273,18 @@ export interface LeadData {
   dmtMatrix?: DMTMatrixRow[];
 
   // --- OPENROUTER & HALLUCINATION PREVENTION ---
-  aiModel?: 'llama-3.1-70b' | 'gpt-4-turbo' | 'google-gemini-free' | 'gpt-3.5-turbo' | 'mistral-7b' | 'gemini-3-flash-preview';
+  aiModel?:
+    | 'llama-3.1-70b'
+    | 'deepseek-chat-v3-0324'
+    | 'qwen-3.6-plus-free'
+    | 'google-gemini-free'
+    | 'gemini-3-flash-preview'
+    | 'claude-3.7-sonnet'
+    | 'deepseek-r1'
+    | 'grok-4.20'
+    | 'gpt-4-turbo'
+    | 'gpt-3.5-turbo'
+    | 'mistral-7b';
   halluccinationScore?: number; // 0-100, higher = more unverified claims
   halluccinationAnalysis?: {
     verifiedFields?: string[];
