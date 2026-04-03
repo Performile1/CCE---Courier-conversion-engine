@@ -268,6 +268,24 @@ const LeadCard: React.FC<LeadCardProps> = ({
     return 'bg-dhl-gray-light border-red-100 text-red-700';
   };
 
+  const renderRiskFieldSource = (field: 'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio') => {
+    const evidence = editData.verifiedRegistrySnapshot?.fieldEvidence?.[field];
+    if (!evidence?.sourceUrl) return null;
+
+    return (
+      <a
+        href={evidence.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        title={evidence.snippet || evidence.sourceLabel || 'Verifierad källa'}
+        className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#D40511]"
+      >
+        <ExternalLink className="w-2.5 h-2.5" />
+        {evidence.sourceLabel || 'Källa'}
+      </a>
+    );
+  };
+
   const getSegmentBadgeStyle = (segment: string) => {
     const s = segment?.toUpperCase() || '';
     if (s.includes('KAM')) return 'bg-black text-[#FFCC00] border border-black';
@@ -701,13 +719,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </p>
                       <div className="space-y-2">
                         {/* Status */}
-                        <div className={`flex items-center justify-between p-2 border ${getStatusColor(editData.legalStatus || 'Aktiv')}`}>
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${getStatusColor(editData.legalStatus || 'Aktiv')}`}>
                           <span className="text-[10px] font-bold uppercase">Status</span>
-                          <span className="text-xs font-black uppercase">{editData.legalStatus || 'Aktiv'}</span>
+                          <div className="flex flex-col items-end gap-1 text-right">
+                            <span className="text-xs font-black uppercase">{editData.legalStatus || 'Aktiv'}</span>
+                            {renderRiskFieldSource('legalStatus')}
+                          </div>
                         </div>
 
                         {/* Betalningsanmärkningar */}
-                        <div className={`flex items-center justify-between p-2 border ${
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${
                           (!editData.paymentRemarks || 
                            editData.paymentRemarks.toLowerCase().includes('inga') || 
                            editData.paymentRemarks.toLowerCase().includes('saknas')) 
@@ -715,11 +736,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                             : 'bg-dhl-gray-light border-red-100 text-red-700'
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Betalningsanm.</span>
-                          <span className="text-xs font-black uppercase">{editData.paymentRemarks || 'Inga'}</span>
+                          <div className="flex flex-col items-end gap-1 text-right">
+                            <span className="text-xs font-black uppercase">{editData.paymentRemarks || 'Inga'}</span>
+                            {renderRiskFieldSource('paymentRemarks')}
+                          </div>
                         </div>
 
                         {/* Skuldsaldo */}
-                        <div className={`flex items-center justify-between p-2 border ${
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${
                           (!editData.debtBalance || 
                            editData.debtBalance === '0 kr' || 
                            editData.debtBalance === '0' || 
@@ -729,13 +753,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
                             : 'bg-dhl-gray-light border-red-100 text-red-700'
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Skuldsaldo (KFM)</span>
-                          <span className="text-xs font-black uppercase">{editData.debtBalance || '0 kr'}</span>
+                          <div className="flex flex-col items-end gap-1 text-right">
+                            <span className="text-xs font-black uppercase">{editData.debtBalance || '0 kr'}</span>
+                            {renderRiskFieldSource('debtBalance')}
+                          </div>
                         </div>
 
                         {/* Skuldsättningsgrad */}
-                        <div className={`flex items-center justify-between p-2 border ${getDebtEquityColor(editData.debtEquityRatio || '0')}`}>
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${getDebtEquityColor(editData.debtEquityRatio || '0')}`}>
                           <span className="text-[10px] font-bold uppercase">Skuldsättningsgrad</span>
-                          <span className="text-xs font-black uppercase">{editData.debtEquityRatio || 'N/A'}</span>
+                          <div className="flex flex-col items-end gap-1 text-right">
+                            <span className="text-xs font-black uppercase">{editData.debtEquityRatio || 'N/A'}</span>
+                            {renderRiskFieldSource('debtEquityRatio')}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -852,6 +882,40 @@ const LeadCard: React.FC<LeadCardProps> = ({
                           <ConfidenceBadge level={editData.dataConfidence?.payment} />
                         </span>
                       </div>
+                      {editData.techDetections && (
+                        <div className="pt-2 border-t border-slate-100 space-y-2">
+                          {editData.techDetections.platforms.length > 0 && (
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Detekterade plattformar</p>
+                              <div className="flex flex-wrap gap-1">
+                                {editData.techDetections.platforms.map((item) => (
+                                  <span key={item} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">{item}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {editData.techDetections.taSystems.length > 0 && (
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Detekterade TA-system</p>
+                              <div className="flex flex-wrap gap-1">
+                                {editData.techDetections.taSystems.map((item) => (
+                                  <span key={item} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">{item}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {editData.techDetections.paymentProviders.length > 0 && (
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Detekterade betalningar</p>
+                              <div className="flex flex-wrap gap-1">
+                                {editData.techDetections.paymentProviders.map((item) => (
+                                  <span key={item} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">{item}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1040,9 +1104,30 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nyheter & Källor</p>
                       <ConfidenceBadge level={editData.dataConfidence?.news} />
                     </div>
-                    <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
-                      {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
-                    </p>
+                    {editData.newsItems && editData.newsItems.length > 0 ? (
+                      <div className="space-y-2">
+                        {editData.newsItems.slice(0, 5).map((item, idx) => (
+                          <div key={`${item.url}-${idx}`} className="p-2 bg-white border border-slate-100 rounded-none">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{item.source || 'Källa'}</span>
+                              <span className="text-[9px] text-slate-400">{item.date || '-'}</span>
+                            </div>
+                            <a href={item.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-dhl-black hover:text-[#D40511] hover:underline break-words">
+                              {item.title}
+                            </a>
+                          </div>
+                        ))}
+                        {editData.latestNews && (
+                          <p className="text-[10px] text-slate-500 leading-relaxed break-words border-t border-slate-100 pt-2">
+                            {editData.latestNews}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
+                        {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
+                      </p>
+                    )}
                   </div>
 
                   <div className="p-3 bg-white rounded-none border border-slate-100">

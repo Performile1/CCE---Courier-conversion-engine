@@ -67,6 +67,20 @@ export interface CheckoutOption {
   inCheckout?: boolean; // false = fokuscarrier explicitly not found in checkout crawl
 }
 
+export interface NewsItem {
+  title: string;
+  url: string;
+  date?: string;
+  source?: string;
+}
+
+export interface TechDetections {
+  platforms: string[];
+  taSystems: string[];
+  paymentProviders: string[];
+  checkoutSolutions: string[];
+}
+
 export interface NewsSourceMapping {
   id: string;
   sniPrefix: string;
@@ -186,7 +200,16 @@ export interface VerifiedRegistrySnapshot {
   registeredAddress?: string;
   revenue?: string;
   profit?: string;
+  fieldEvidence?: Partial<Record<'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio', VerifiedFieldEvidence>>;
   capturedAt: string;
+}
+
+export interface VerifiedFieldEvidence {
+  sourceUrl?: string;
+  sourceLabel?: string;
+  snippet?: string;
+  capturedAt: string;
+  confidence: 'verified' | 'estimated' | 'missing';
 }
 
 export interface LeadData {
@@ -254,6 +277,7 @@ export interface LeadData {
   checkoutSolution?: string;
   taSystem?: string;
   techEvidence?: string;
+  techDetections?: TechDetections;
   carriers: string;
   checkoutOptions?: CheckoutOption[];
   
@@ -261,6 +285,7 @@ export interface LeadData {
   is3pl?: boolean;
   detected3plProvider?: string;
   latestNews?: string;
+  newsItems?: NewsItem[];
   strategicPitch?: string;
   analysisDate?: string;
   source?: 'ai' | 'cache' | 'manual';

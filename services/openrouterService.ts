@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, NewsItem, TechDetections } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -91,12 +91,36 @@ const CONTACT_SOURCE_DOMAINS = ['ratsit.se', 'allabolag.se', 'linkedin.com', 'hi
 const PAYMENT_SOURCE_DOMAINS = ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'];
 const WEBSOFTWARE_SOURCE_DOMAINS = ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com', 'magento.com'];
 const TECH_SOLUTION_KEYWORDS = {
-  ecommercePlatforms: ['shopify', 'woocommerce', 'magento', 'adobe commerce', 'centra', 'norce', 'prestashop'],
-  checkoutSolutions: ['klarna checkout', 'kco', 'qliro checkout', 'stripe checkout', 'adyen checkout', 'nets easy'],
-  paymentProviders: ['klarna', 'adyen', 'stripe', 'checkout.com', 'nets', 'svea', 'qliro', 'walley', 'payex'],
-  taSystems: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade', 'shipmondo', 'consignor'],
+  ecommercePlatforms: ['shopify', 'woocommerce', 'magento', 'adobe commerce', 'centra', 'norce', 'prestashop', 'viskan', 'askas', 'litium', 'jetshop', 'wikinggruppen'],
+  checkoutSolutions: ['klarna checkout', 'kco', 'qliro checkout', 'stripe checkout', 'adyen checkout', 'nets easy', 'walley checkout', 'svea checkout', 'avarda checkout'],
+  paymentProviders: ['klarna', 'adyen', 'stripe', 'checkout.com', 'nets', 'svea', 'qliro', 'walley', 'payex', 'avarda', 'resurs', 'collector'],
+  taSystems: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade', 'shipmondo', 'consignor', 'pacsoft', 'nyce'],
   logisticsSignals: ['instabox', 'budbee', 'bring', 'postnord', 'dhl', 'db schenker', 'airmee']
 };
+
+const ECOMMERCE_PLATFORM_PATTERNS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Shopify', keywords: ['shopify'] },
+  { label: 'WooCommerce', keywords: ['woocommerce'] },
+  { label: 'Magento', keywords: ['magento', 'adobe commerce'] },
+  { label: 'Centra', keywords: ['centra'] },
+  { label: 'Norce', keywords: ['norce'] },
+  { label: 'PrestaShop', keywords: ['prestashop'] },
+  { label: 'Viskan', keywords: ['viskan'] },
+  { label: 'Askås', keywords: ['askas', 'askås'] },
+  { label: 'Litium', keywords: ['litium'] },
+  { label: 'Jetshop', keywords: ['jetshop'] },
+  { label: 'Wikinggruppen', keywords: ['wikinggruppen'] }
+];
+
+const TA_SYSTEM_PATTERNS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'nShift', keywords: ['nshift', 'consignor'] },
+  { label: 'Unifaun', keywords: ['unifaun', 'pacsoft'] },
+  { label: 'Centiro', keywords: ['centiro'] },
+  { label: 'Ingrid', keywords: ['ingrid'] },
+  { label: 'Logtrade', keywords: ['logtrade'] },
+  { label: 'Shipmondo', keywords: ['shipmondo'] },
+  { label: 'Nyce', keywords: ['nyce'] }
+];
 const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
   financial: ['bokslut', 'omsättning', 'resultat', 'soliditet', 'likviditet', 'annual report'],
   revenue: ['omsättning', 'nettoomsättning', 'bokslut'],
@@ -508,6 +532,223 @@ function parseLikelyPublishedDate(item: any): Date | null {
     || null;
 }
 
+function formatTkr(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) return '';
+  return `${Math.round(value).toLocaleString('sv-SE')} tkr`;
+}
+
+function parseLooseNumber(value: string): number | undefined {
+  const cleaned = String(value || '').replace(/[<>]/g, '').replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+  if (!cleaned) return undefined;
+  const parsed = Number(cleaned);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function parseAmountToTkr(value: string, unit?: string): number | undefined {
+  const numeric = parseLooseNumber(value);
+  if (numeric === undefined) return undefined;
+
+  const normalizedUnit = String(unit || '').toLowerCase();
+  if (normalizedUnit === 'sek' && Math.abs(numeric) >= 1000) {
+    return Math.round(numeric / 1000);
+  }
+
+  if (!normalizedUnit && Math.abs(numeric) >= 10000000) {
+    return Math.round(numeric / 1000);
+  }
+
+  return parseRevenueToTKR(`${value}${normalizedUnit ? ` ${normalizedUnit}` : ''}`.trim());
+}
+
+function parseLabeledMetricText(text: string, labels: string[]): string {
+  const source = String(text || '');
+  for (const label of labels) {
+    const pattern = new RegExp(`${escapeRegExp(label)}[^\n]{0,30}[:\-]?\s*([<>]?\s*-?[\d\s.,]+(?:\s*(?:%|kr|tkr|mkr|msek))?)`, 'i');
+    const match = source.match(pattern);
+    const candidate = pickString(match?.[1]).replace(/\s{2,}/g, ' ').trim();
+    if (candidate) return candidate;
+  }
+  return '';
+}
+
+function parseLabeledFreeText(text: string, labels: string[]): string {
+  const source = String(text || '');
+  for (const label of labels) {
+    const pattern = new RegExp(`${escapeRegExp(label)}[^\n]{0,15}[:\-]?\s*([^\n|]{2,80})`, 'i');
+    const match = source.match(pattern);
+    const candidate = pickString(match?.[1]).replace(/\s{2,}/g, ' ').replace(/[.;,\s]+$/, '').trim();
+    if (candidate) return candidate;
+  }
+  return '';
+}
+
+function normalizeAddressCandidate(candidate: string): string {
+  return String(candidate || '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[|;]/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ', ')
+    .trim();
+}
+
+function parseFinancialHistoryFromEvidence(text: string): FinancialYear[] {
+  const source = String(text || '');
+  if (!source) return [];
+
+  const rows = Array.from(source.matchAll(/(?:^|\n|\|)\s*(20\d{2})[^\n|]{0,24}?(-?[\d\s.,]+)(?:\s*(tkr|mkr|msek|sek))?[^\n|]{0,24}?(-?[\d\s.,]+)(?:\s*(tkr|mkr|msek|sek))?/gi))
+    .map((match) => {
+      const revenueTkr = parseAmountToTkr(match[2], match[3]);
+      const profitTkr = parseAmountToTkr(match[4], match[5]);
+      if (revenueTkr === undefined && profitTkr === undefined) return null;
+      return {
+        year: match[1],
+        revenue: formatTkr(revenueTkr || 0),
+        profit: formatTkr(profitTkr || 0)
+      } as FinancialYear;
+    })
+    .filter(Boolean) as FinancialYear[];
+
+  return Array.from(new Map(rows.map((row) => [row.year, row])).values())
+    .sort((a, b) => Number(b.year) - Number(a.year))
+    .slice(0, 3);
+}
+
+function deriveProfitMargin(history: FinancialYear[], fallback?: string): string {
+  if (fallback && fallback !== '0%' && fallback !== '0') return fallback;
+  const latest = history[0];
+  if (!latest) return fallback || '';
+  const revenue = parseLooseNumber(latest.revenue);
+  const profit = parseLooseNumber(latest.profit || '');
+  if (!revenue || profit === undefined) return fallback || '';
+  return `${((profit / revenue) * 100).toFixed(1)}%`;
+}
+
+function deriveFinancialTrend(history: FinancialYear[], fallback?: string): string {
+  if (history.length < 2) return fallback || '';
+  const latestRevenue = parseLooseNumber(history[0].revenue);
+  const oldestRevenue = parseLooseNumber(history[history.length - 1].revenue);
+  if (!latestRevenue || !oldestRevenue) return fallback || '';
+  const growth = ((latestRevenue - oldestRevenue) / Math.max(oldestRevenue, 1)) * 100;
+  if (growth >= 8) return 'Växande';
+  if (growth <= -5) return 'Minskande';
+  return 'Stabil';
+}
+
+function deriveRiskProfileFromMetrics(input: {
+  legalStatus?: string;
+  paymentRemarks?: string;
+  debtBalance?: string;
+  debtEquityRatio?: string;
+  solidity?: string;
+  liquidityRatio?: string;
+  vatRegistered?: boolean;
+}, fallback?: string): string {
+  const status = String(input.legalStatus || '').toLowerCase();
+  if (status.includes('konkurs') || status.includes('likvidation') || status.includes('rekonstruktion')) return 'Hög';
+  if (input.vatRegistered === false) return 'Hög';
+
+  const paymentRemarks = String(input.paymentRemarks || '').toLowerCase();
+  const debtBalance = parseLooseNumber(String(input.debtBalance || '')) || 0;
+  const debtEquityRatio = parseLooseNumber(String(input.debtEquityRatio || ''));
+  const solidity = parseLooseNumber(String(input.solidity || '').replace('%', ''));
+  const liquidity = parseLooseNumber(String(input.liquidityRatio || '').replace('%', ''));
+
+  if ((paymentRemarks && !paymentRemarks.includes('inga') && !paymentRemarks.includes('saknas')) || debtBalance > 0 || (debtEquityRatio !== undefined && debtEquityRatio >= 2)) {
+    return 'Hög';
+  }
+  if ((solidity !== undefined && solidity < 15) || (liquidity !== undefined && liquidity < 100) || (debtEquityRatio !== undefined && debtEquityRatio >= 1)) {
+    return 'Medel';
+  }
+  if ((solidity !== undefined && solidity >= 20) && (liquidity === undefined || liquidity >= 100)) {
+    return 'Låg';
+  }
+  return fallback || 'Medel';
+}
+
+function detectStructuredLabels(text: string, patterns: Array<{ label: string; keywords: string[] }>): string[] {
+  const haystack = String(text || '').toLowerCase();
+  if (!haystack) return [];
+  return Array.from(new Set(
+    patterns
+      .filter((pattern) => pattern.keywords.some((keyword) => haystack.includes(keyword.toLowerCase())))
+      .map((pattern) => pattern.label)
+  ));
+}
+
+function normalizeDecisionMakerName(name: string): string {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9åäö\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeDecisionMakerTitle(title: string): string {
+  return String(title || '').toLowerCase().replace(/[^a-z0-9åäö\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function scoreDecisionMaker(contact: DecisionMaker): number {
+  return (contact.linkedin ? 3 : 0)
+    + (contact.email ? 2 : 0)
+    + (contact.directPhone ? 2 : 0)
+    + (contact.verificationNote ? 2 : 0)
+    + (contact.name.trim().split(/\s+/).length >= 2 ? 1 : 0);
+}
+
+function dedupeDecisionMakers(contacts: DecisionMaker[], maxResults = 6): DecisionMaker[] {
+  const ranked = [...contacts]
+    .filter((contact) => contact.name && contact.title)
+    .sort((a, b) => scoreDecisionMaker(b) - scoreDecisionMaker(a));
+
+  const seenNames = new Set<string>();
+  const seenTitles = new Set<string>();
+  const unique: DecisionMaker[] = [];
+
+  for (const contact of ranked) {
+    const normalizedName = normalizeDecisionMakerName(contact.name);
+    const normalizedTitle = normalizeDecisionMakerTitle(contact.title);
+    if (!normalizedName || seenNames.has(normalizedName)) continue;
+    if (normalizedTitle && seenTitles.has(normalizedTitle)) continue;
+    seenNames.add(normalizedName);
+    if (normalizedTitle) seenTitles.add(normalizedTitle);
+    unique.push(contact);
+    if (unique.length >= maxResults) break;
+  }
+
+  return unique;
+}
+
+const MARKET_LABELS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Sverige', keywords: ['sverige', 'sweden'] },
+  { label: 'Norge', keywords: ['norge', 'norway'] },
+  { label: 'Finland', keywords: ['finland'] },
+  { label: 'Danmark', keywords: ['danmark', 'denmark'] },
+  { label: 'Tyskland', keywords: ['tyskland', 'germany'] },
+  { label: 'Nederländerna', keywords: ['nederländerna', 'netherlands'] },
+  { label: 'Belgien', keywords: ['belgien', 'belgium'] },
+  { label: 'Österrike', keywords: ['österrike', 'austria'] },
+  { label: 'Frankrike', keywords: ['frankrike', 'france'] }
+];
+
+function parseStoreCount(text: string): number | undefined {
+  const source = String(text || '');
+  const patterns = [
+    /(\d{1,4})\s+(?:butiker|stores|store locations|butikslokaler)/i,
+    /(?:har|driver|med)\s+(\d{1,4})\s+(?:butiker|stores)/i
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const parsed = match?.[1] ? Number(match[1]) : undefined;
+    if (parsed && parsed > 0) return parsed;
+  }
+  return undefined;
+}
+
+function extractMarketLabels(text: string): string[] {
+  const haystack = String(text || '').toLowerCase();
+  return Array.from(new Set(
+    MARKET_LABELS
+      .filter((item) => item.keywords.some((keyword) => haystack.includes(keyword.toLowerCase())))
+      .map((item) => item.label)
+  ));
+}
+
 function normalizeFinancialHistoryEntries(history: any[], evidenceText?: string): FinancialYear[] {
   const normalized = (Array.isArray(history) ? history : [])
     .map((entry: any) => {
@@ -526,6 +767,9 @@ function normalizeFinancialHistoryEntries(history: any[], evidenceText?: string)
     .slice(0, 3);
 
   if (deduped.length >= 3) return deduped;
+
+  const verifiedRows = parseFinancialHistoryFromEvidence(String(evidenceText || ''));
+  if (verifiedRows.length >= 3) return verifiedRows;
 
   const fallbackMatches = Array.from(String(evidenceText || '').matchAll(/\b(20\d{2})\b[^\n]{0,80}?([\d\s.]+)\s*tkr[^\n]{0,80}?([\d\s.\-]+)\s*tkr/gi));
   const fallback = fallbackMatches
@@ -783,6 +1027,13 @@ type VerifiedRegistryFields = {
   registeredAddress?: string;
   revenueTkr?: number;
   profitTkr?: number;
+  financialHistory?: FinancialYear[];
+  solidity?: string;
+  liquidityRatio?: string;
+  debtBalance?: string;
+  debtEquityRatio?: string;
+  paymentRemarks?: string;
+  legalStatus?: string;
 };
 
 type VerifiedFinancialEvidence = {
@@ -804,6 +1055,28 @@ type VerifiedNewsEvidence = {
   summary: string;
   confidence: 'verified' | 'estimated' | 'missing';
   sources: string[];
+  items: NewsItem[];
+};
+
+type RetailFootprintEvidence = {
+  storeCount?: number;
+  activeMarkets: string[];
+  visitingAddress?: string;
+  warehouseAddress?: string;
+  evidenceSnippet: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+};
+
+type StructuredTechProfile = TechDetections & {
+  evidenceSnippet: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+};
+
+const RISK_FIELD_KEYWORDS: Record<'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio', string[]> = {
+  legalStatus: ['status', 'likvidation', 'konkurs', 'rekonstruktion'],
+  paymentRemarks: ['betalningsanmärkning', 'betalningsanmarkning', 'anmärkning', 'anmarkning'],
+  debtBalance: ['skuldsaldo', 'kfm', 'kronofogden'],
+  debtEquityRatio: ['skuldsättningsgrad', 'skuldsattningsgrad', 'skuld', 'eget kapital']
 };
 
 const PAYMENT_PROVIDER_PATTERNS: Array<{ label: string; keywords: string[] }> = [
@@ -854,6 +1127,32 @@ function extractEvidenceSnippet(text: string, keywords: string[]): string {
     }
   }
   return source.slice(0, 280).replace(/\s+/g, ' ').trim();
+}
+
+function containsAnyKeyword(text: string, keywords: string[]): boolean {
+  const haystack = String(text || '').toLowerCase();
+  return keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+}
+
+function buildRiskFieldEvidence(
+  field: 'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio',
+  value: string,
+  evidenceText: string,
+  sourceUrl: string | undefined,
+  capturedAt: string
+): VerifiedFieldEvidence | undefined {
+  if (!value || !sourceUrl) return undefined;
+
+  const keywords = RISK_FIELD_KEYWORDS[field];
+  if (!containsAnyKeyword(evidenceText, keywords)) return undefined;
+
+  return {
+    sourceUrl,
+    sourceLabel: normalizeDomain(sourceUrl),
+    snippet: extractEvidenceSnippet(evidenceText, keywords),
+    capturedAt,
+    confidence: 'verified'
+  };
 }
 
 function extractEmailsFromText(text: string, companyDomain?: string): string[] {
@@ -907,11 +1206,14 @@ function parseLabeledAddress(text: string, labels: string[]): string {
   for (const label of labels) {
     const pattern = new RegExp(`${escapeRegExp(label)}\s*:?\s*([^\n|]{8,140})`, 'i');
     const match = source.match(pattern);
-    const candidate = pickString(match?.[1])
-      .replace(/\s{2,}/g, ' ')
-      .replace(/[.;,\s]+$/, '')
-      .trim();
-    if (candidate && /\d/.test(candidate) && /,/.test(candidate)) return candidate;
+    const candidate = normalizeAddressCandidate(
+      pickString(match?.[1])
+        .replace(/[.;,\s]+$/, '')
+        .trim()
+    );
+    if (candidate && /\d/.test(candidate) && (/\b\d{3}\s?\d{2}\b/.test(candidate) || /gatan|vägen|vagen|road|street|väg/i.test(candidate))) {
+      return candidate;
+    }
   }
   return '';
 }
@@ -930,9 +1232,16 @@ function parseVerifiedRegistryFields(text: string, requestedOrgNumber?: string):
 
   return {
     orgNumber: detectedOrg || requestedOrgNumber,
-    registeredAddress: parseLabeledAddress(source, ['registrerad adress', 'adress', 'besöksadress']),
+    registeredAddress: parseLabeledAddress(source, ['registrerad adress', 'adress', 'besöksadress', 'postadress']),
     revenueTkr: parseLabeledTkrValue(source, ['omsättning', 'nettoomsättning']),
-    profitTkr: parseLabeledTkrValue(source, ['resultat efter finansnetto', 'efter finansnetto', 'årets resultat', 'resultat'])
+    profitTkr: parseLabeledTkrValue(source, ['resultat efter finansnetto', 'efter finansnetto', 'årets resultat', 'resultat']),
+    financialHistory: parseFinancialHistoryFromEvidence(source),
+    solidity: parseLabeledMetricText(source, ['soliditet']),
+    liquidityRatio: parseLabeledMetricText(source, ['likviditet', 'kassalikviditet']),
+    debtBalance: parseLabeledMetricText(source, ['skuldsaldo', 'skuld hos kronofogden']),
+    debtEquityRatio: parseLabeledMetricText(source, ['skuldsättningsgrad', 'skuldsattningsgrad']),
+    paymentRemarks: parseLabeledFreeText(source, ['betalningsanmärkning', 'betalningsanmarkning', 'anmärkning']),
+    legalStatus: parseLabeledFreeText(source, ['status', 'bolagsstatus'])
   };
 }
 
@@ -1090,6 +1399,87 @@ async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymen
   };
 }
 
+async function fetchStructuredTechProfile(domain: string): Promise<StructuredTechProfile> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) {
+    return { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
+  }
+
+  const pathsToTry = ['/', '/checkout', '/kassan', '/cart', '/varukorg'];
+  let combinedContent = '';
+  for (const path of pathsToTry) {
+    try {
+      const resp = await axios.post(
+        buildApiUrl('/api/crawl'),
+        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { timeout: 15000 }
+      );
+      const content = pickString(resp.data?.content);
+      if (content) combinedContent += `\n${content.slice(0, 2500)}`;
+    } catch {
+      continue;
+    }
+  }
+
+  const platforms = detectStructuredLabels(combinedContent, ECOMMERCE_PLATFORM_PATTERNS);
+  const taSystems = detectStructuredLabels(combinedContent, TA_SYSTEM_PATTERNS);
+  const paymentProviders = detectStructuredLabels(combinedContent, PAYMENT_PROVIDER_PATTERNS);
+  const checkoutSolutions = detectStructuredLabels(combinedContent, CHECKOUT_SOLUTION_PATTERNS);
+  const keywords = [...platforms, ...taSystems, ...paymentProviders, ...checkoutSolutions].slice(0, 6);
+
+  return {
+    platforms,
+    taSystems,
+    paymentProviders,
+    checkoutSolutions,
+    evidenceSnippet: keywords.length ? extractEvidenceSnippet(combinedContent, keywords) : '',
+    confidence: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? 'verified' : 'missing'
+  };
+}
+
+async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvidence> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) {
+    return { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
+  }
+
+  const pathsToTry = ['/', '/butiker', '/stores', '/vara-butiker', '/store-locator', '/om-oss', '/about', '/kontakt', '/contact'];
+  let combinedContent = '';
+  for (const path of pathsToTry) {
+    try {
+      const resp = await axios.post(
+        buildApiUrl('/api/crawl'),
+        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { timeout: 15000 }
+      );
+      const content = pickString(resp.data?.content);
+      if (content) combinedContent += `\n${content.slice(0, 2500)}`;
+    } catch {
+      continue;
+    }
+  }
+
+  const activeMarkets = extractMarketLabels(combinedContent);
+  const storeCount = parseStoreCount(combinedContent);
+  const visitingAddress = parseLabeledAddress(combinedContent, ['besöksadress', 'visiting address', 'adress']);
+  const warehouseAddress = parseLabeledAddress(combinedContent, ['lageradress', 'centrallager', 'warehouse', 'lager', 'distributionscenter', 'logistikcenter']);
+  const evidenceKeywords = [
+    ...(activeMarkets.length ? [activeMarkets[0]] : []),
+    ...(storeCount ? ['butiker'] : []),
+    ...(warehouseAddress ? ['lager'] : []),
+    ...(visitingAddress ? ['adress'] : [])
+  ];
+
+  return {
+    storeCount,
+    activeMarkets,
+    visitingAddress,
+    warehouseAddress,
+    evidenceSnippet: evidenceKeywords.length ? extractEvidenceSnippet(combinedContent, evidenceKeywords) : '',
+    confidence: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? 'verified' : 'missing'
+  };
+}
+
 // ── Phase 3: Role-Targeted Decision Maker Search ──────────────────────────
 async function fetchDecisionMakersTargeted(
   companyName: string,
@@ -1170,9 +1560,20 @@ async function fetchDecisionMakersTargeted(
   }
   const ranked = found
     .sort((a, b) => b.score - a.score)
-    .slice(0, 4);
+    .slice(0, 8);
+  const deduped = dedupeDecisionMakers(
+    ranked.map(({ score, ...contact }) => contact),
+    4
+  );
   return {
-    contacts: ranked.map(({ score, ...contact }) => contact),
+    contacts: deduped.map((contact) => ({
+      name: contact.name,
+      title: contact.title,
+      email: contact.email || '',
+      linkedin: contact.linkedin || '',
+      directPhone: contact.directPhone || '',
+      verificationNote: contact.verificationNote || ''
+    })),
     confidence: ranked.length > 0 ? (ranked[0].score >= 4 ? 'verified' : 'estimated') : 'missing'
   };
 }
@@ -1226,7 +1627,7 @@ async function fetchLatestNews(
   domains: string[],
   options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean; earliestNewsYear?: number }
 ): Promise<VerifiedNewsEvidence> {
-  if (!companyName) return { summary: '', confidence: 'missing', sources: [] };
+  if (!companyName) return { summary: '', confidence: 'missing', sources: [], items: [] };
 
   const aliases = buildCompanyAliases(companyName);
   const primaryAlias = aliases[0] || companyName;
@@ -1273,7 +1674,7 @@ async function fetchLatestNews(
     ]);
 
     const results = [...(response.data?.results || []), ...(broadResponse.data?.results || [])];
-    if (!Array.isArray(results) || results.length === 0) return { summary: '', confidence: 'missing', sources: [] };
+    if (!Array.isArray(results) || results.length === 0) return { summary: '', confidence: 'missing', sources: [], items: [] };
 
     const orgNormalized = normalizeOrgNumber(orgNumber);
     const filtered = results.filter((item: any) => {
@@ -1301,26 +1702,39 @@ async function fetchLatestNews(
     });
 
     const safeResults = filtered;
-    if (!safeResults.length) return { summary: '', confidence: 'missing', sources: [] };
+    if (!safeResults.length) return { summary: '', confidence: 'missing', sources: [], items: [] };
 
-    const topEntries = safeResults.slice(0, 3).map((item: any) => {
+    const uniqueResults = Array.from(new Map<string, any>(
+      safeResults
+        .map((item: any) => [pickString(item?.url, item?.title), item] as [string, any])
+        .filter(([key]) => Boolean(key))
+    ).values());
+
+    const items: NewsItem[] = uniqueResults.slice(0, 5).map((item: any) => {
       const title = pickString(item?.title, item?.content, 'Nyhet');
       const url = pickString(item?.url);
       const publishedDate = parseLikelyPublishedDate(item);
-      const prefix = publishedDate ? `${publishedDate.toISOString().slice(0, 10)} · ` : '';
-      return url ? `${prefix}${title} (${url})` : `${prefix}${title}`;
+      return {
+        title,
+        url,
+        date: publishedDate ? publishedDate.toISOString().slice(0, 10) : undefined,
+        source: url ? normalizeDomain(url) : undefined
+      };
+    });
+
+    const topEntries = items.slice(0, 3).map((item) => {
+      const prefix = item.date ? `${item.date} · ` : '';
+      return item.url ? `${prefix}${item.title} (${item.url})` : `${prefix}${item.title}`;
     });
 
     return {
       summary: topEntries.join(' | '),
       confidence: 'verified',
-      sources: safeResults
-        .slice(0, 3)
-        .map((item: any) => pickString(item?.url))
-        .filter(Boolean)
+      sources: items.map((item) => item.url).filter(Boolean),
+      items
     };
   } catch (error) {
-    return { summary: '', confidence: 'missing', sources: [] };
+    return { summary: '', confidence: 'missing', sources: [], items: [] };
   }
 }
 
@@ -1579,17 +1993,23 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       confidence: 'crawled' | 'estimated' | 'missing';
     } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
     let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
+    let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
+    let retailEvidence: RetailFootprintEvidence = { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
     let detectedEmailPattern = '';
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
       const phase24 = await Promise.all([
         fetchCheckoutPositions(parsedDomain, activeCarrier),
         fetchVerifiedPaymentSetup(parsedDomain),
+        fetchStructuredTechProfile(parsedDomain),
+        fetchRetailFootprint(parsedDomain),
         detectEmailPattern(parsedDomain, sourceGroundingEvidence + ' ' + (financialEvidence.evidenceText || ''))
       ]);
       checkoutCrawlResult = phase24[0];
       paymentEvidence = phase24[1];
-      detectedEmailPattern = phase24[2];
+      techProfile = phase24[2];
+      retailEvidence = phase24[3];
+      detectedEmailPattern = phase24[4];
     } catch { /* Phase 2+4 non-critical — proceed with LLM data */ }
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
@@ -1616,9 +2036,39 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       pickNumber(companyData?.revenue_tkr, companyData?.revenueTKR, companyData?.revenue) || 0
     );
     const profitTKR = registryFields.profitTkr ?? parseRevenueToTKR(financials?.history?.[0]?.profit || 0);
-    const marketCount = pickNumber(companyData?.market_count, companyData?.marketCount) || 1;
     const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
+    const verifiedFinancialHistory = registryFields.financialHistory?.length
+      ? registryFields.financialHistory
+      : normalizeFinancialHistoryEntries(financials?.history || [], financialEvidence.evidenceText);
+    const verifiedSolidity = pickString(registryFields.solidity, financials?.solidity, financials?.equity_ratio) || '0%';
+    const verifiedLiquidityRatio = pickString(registryFields.liquidityRatio, financials?.liquidity_ratio, financials?.liquidityRatio) || '0%';
+    const verifiedDebtBalance = pickString(registryFields.debtBalance, financials?.debt_balance_tkr, financials?.debtBalance, '0');
+    const verifiedDebtEquityRatio = pickString(registryFields.debtEquityRatio, financials?.debt_equity_ratio, financials?.debtEquityRatio);
+    const verifiedPaymentRemarks = pickString(registryFields.paymentRemarks, financials?.payment_remarks, financials?.paymentRemarks);
+    const verifiedLegalStatus = pickString(registryFields.legalStatus, companyData?.legal_status, companyData?.legalStatus) || 'Aktiv';
+    const verifiedActiveMarkets = retailEvidence.activeMarkets.length
+      ? retailEvidence.activeMarkets
+      : (companyData?.active_markets || companyData?.activeMarkets || []);
+    const marketCount = verifiedActiveMarkets.length || pickNumber(companyData?.market_count, companyData?.marketCount) || 1;
     const metrics = calculateRickardMetrics(revenueTKR, sniCode, sniPercentages, marketCount);
+    const verifiedProfitMargin = deriveProfitMargin(
+      verifiedFinancialHistory,
+      pickString(financials?.profit_margin, financials?.profitMargin)
+    ) || '0%';
+    const derivedFinancialTrend = financialEvidence.confidence === 'verified'
+      ? deriveFinancialTrend(verifiedFinancialHistory, pickString(companyData?.financial_trend, companyData?.financialTrend))
+      : pickString(companyData?.financial_trend, companyData?.financialTrend);
+    const derivedRiskProfile = financialEvidence.confidence === 'verified'
+      ? deriveRiskProfileFromMetrics({
+          legalStatus: verifiedLegalStatus,
+          paymentRemarks: verifiedPaymentRemarks,
+          debtBalance: verifiedDebtBalance,
+          debtEquityRatio: verifiedDebtEquityRatio,
+          solidity: verifiedSolidity,
+          liquidityRatio: verifiedLiquidityRatio,
+          vatRegistered: Boolean(companyData?.vat_registered || companyData?.vatRegistered)
+        }, pickString(companyData?.risk_profile, companyData?.riskProfile))
+      : pickString(companyData?.risk_profile, companyData?.riskProfile);
 
     const latestNewsFromModelRaw = pickString(
       root?.latest_news,
@@ -1659,6 +2109,40 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
 
+    const capturedAt = new Date().toISOString();
+    const riskFieldEvidence = financialEvidence.confidence === 'verified'
+      ? {
+          legalStatus: buildRiskFieldEvidence(
+            'legalStatus',
+            pickString(companyData?.legal_status, companyData?.legalStatus) || 'Aktiv',
+            financialEvidence.evidenceText,
+            financialEvidence.sourceUrl,
+            capturedAt
+          ),
+          paymentRemarks: buildRiskFieldEvidence(
+            'paymentRemarks',
+            pickString(financials?.payment_remarks, financials?.paymentRemarks),
+            financialEvidence.evidenceText,
+            financialEvidence.sourceUrl,
+            capturedAt
+          ),
+          debtBalance: buildRiskFieldEvidence(
+            'debtBalance',
+            pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
+            financialEvidence.evidenceText,
+            financialEvidence.sourceUrl,
+            capturedAt
+          ),
+          debtEquityRatio: buildRiskFieldEvidence(
+            'debtEquityRatio',
+            pickString(financials?.debt_equity_ratio, financials?.debtEquityRatio),
+            financialEvidence.evidenceText,
+            financialEvidence.sourceUrl,
+            capturedAt
+          )
+        }
+      : undefined;
+
     const verifiedRegistrySnapshot: VerifiedRegistrySnapshot | undefined = financialEvidence.confidence === 'verified'
       ? {
           sourceUrl: financialEvidence.sourceUrl,
@@ -1667,7 +2151,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
           registeredAddress: pickString(registryFields.registeredAddress),
           revenue: revenueTKR ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '',
           profit: profitTKR || profitTKR === 0 ? `${profitTKR.toLocaleString('sv-SE')} tkr` : '',
-          capturedAt: new Date().toISOString()
+          fieldEvidence: riskFieldEvidence,
+          capturedAt
         }
       : undefined;
 
@@ -1677,38 +2162,45 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       orgNumber: pickString(registryFields.orgNumber, companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
       domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
       sniCode,
-      address: pickString(registryFields.registeredAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
-      visitingAddress: pickString(companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
-      warehouseAddress: pickString(companyData?.warehouse_address, companyData?.warehouseAddress),
+      address: pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
+      visitingAddress: pickString(retailEvidence.visitingAddress, companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
+      warehouseAddress: pickString(retailEvidence.warehouseAddress, companyData?.warehouse_address, companyData?.warehouseAddress),
       revenue: `${revenueTKR.toLocaleString('sv-SE')} tkr`,
       revenueYear: pickString(companyData?.revenue_year, companyData?.revenueYear),
       profit: `${profitTKR.toLocaleString('sv-SE')} tkr`,
-      activeMarkets: companyData?.active_markets || companyData?.activeMarkets || [],
+      activeMarkets: verifiedActiveMarkets,
       marketCount: marketCount,
       estimatedAOV: metrics.estimatedAOV,
       b2bPercentage: pickNumber(companyData?.b2b_percentage, companyData?.b2bPercentage) || 0,
       b2cPercentage: pickNumber(companyData?.b2c_percentage, companyData?.b2cPercentage) || 0,
       
-      financialHistory: normalizeFinancialHistoryEntries(financials?.history || [], financialEvidence.evidenceText),
-      solidity: pickString(financials?.solidity, financials?.equity_ratio) || '0%',
-      liquidityRatio: pickString(financials?.liquidity_ratio, financials?.liquidityRatio) || '0%',
-      profitMargin: pickString(financials?.profit_margin, financials?.profitMargin) || '0%',
-      debtEquityRatio: pickString(financials?.debt_equity_ratio, financials?.debtEquityRatio),
-      debtBalance: pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
-      paymentRemarks: pickString(financials?.payment_remarks, financials?.paymentRemarks),
+      financialHistory: verifiedFinancialHistory,
+      solidity: verifiedSolidity,
+      liquidityRatio: verifiedLiquidityRatio,
+      profitMargin: verifiedProfitMargin,
+      debtEquityRatio: verifiedDebtEquityRatio,
+      debtBalance: verifiedDebtBalance,
+      paymentRemarks: verifiedPaymentRemarks,
       isBankruptOrLiquidated: Boolean(financials?.is_bankrupt_or_liquidated || financials?.isBankruptOrLiquidated),
       financialSource: pickString(financials?.financial_source, financials?.source)
         || (financialEvidence.sourceUrl ? `Verifierad registerkälla: ${normalizeDomain(financialEvidence.sourceUrl)}` : '')
         || (sourceGroundingEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
       
-      ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
-      paymentProvider: paymentEvidence.paymentProvider || pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
-      checkoutSolution: paymentEvidence.checkoutSolution || pickString(logistics?.checkout_solution, logistics?.checkoutSolution),
-      taSystem: pickString(logistics?.ta_system, logistics?.taSystem),
-      techEvidence: [modelTechEvidence, crawlTechEvidence, paymentEvidence.evidenceSnippet, sourceGroundingEvidence].filter(Boolean).join(' | ').slice(0, 2000),
+      ecommercePlatform: pickString(techProfile.platforms[0], logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
+      paymentProvider: paymentEvidence.paymentProvider || pickString(techProfile.paymentProviders[0], logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
+      checkoutSolution: paymentEvidence.checkoutSolution || pickString(techProfile.checkoutSolutions[0], logistics?.checkout_solution, logistics?.checkoutSolution),
+      taSystem: pickString(techProfile.taSystems[0], logistics?.ta_system, logistics?.taSystem),
+      techEvidence: [modelTechEvidence, crawlTechEvidence, techProfile.evidenceSnippet, paymentEvidence.evidenceSnippet, sourceGroundingEvidence].filter(Boolean).join(' | ').slice(0, 2000),
+      techDetections: {
+        platforms: techProfile.platforms,
+        taSystems: techProfile.taSystems,
+        paymentProviders: Array.from(new Set([...(techProfile.paymentProviders || []), ...(paymentEvidence.paymentProvider ? [paymentEvidence.paymentProvider] : [])])),
+        checkoutSolutions: Array.from(new Set([...(techProfile.checkoutSolutions || []), ...(paymentEvidence.checkoutSolution ? [paymentEvidence.checkoutSolution] : [])]))
+      },
       carriers: Array.isArray(logistics?.carriers) ? logistics.carriers.join(', ') : pickString(logistics?.carriers),
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: finalLatestNews || latestNewsFromModel || '', 
+      newsItems: verifiedNews.items,
       
       decisionMakers: (() => {
         const llmContacts: DecisionMaker[] = (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
@@ -1716,9 +2208,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
           directPhone: c.direct_phone || c.directPhone || '', verificationNote: ''
         }));
         const supplement: DecisionMaker[] = dmSupplement
-          .filter(dc => !llmContacts.some(lc => lc.name.toLowerCase().startsWith(dc.name.split(' ')[0].toLowerCase())))
           .map(dc => ({ name: dc.name, title: dc.title, email: dc.email, linkedin: dc.linkedin, directPhone: dc.directPhone, verificationNote: dc.verificationNote }));
-        return [...llmContacts, ...supplement].slice(0, 6);
+        return dedupeDecisionMakers([...llmContacts, ...supplement], 6);
       })(),
       
       potentialSek: metrics.shippingBudgetSEK,
@@ -1729,12 +2220,12 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
       analysisDate: new Date().toISOString(),
       source: 'ai',
-      legalStatus: pickString(companyData?.legal_status, companyData?.legalStatus) || 'Aktiv',
+      legalStatus: verifiedLegalStatus,
       vatRegistered: Boolean(companyData?.vat_registered || companyData?.vatRegistered),
       creditRatingLabel: pickString(companyData?.credit_rating, companyData?.creditRating) || 'N/A',
       creditRatingMotivation: pickString(companyData?.credit_rating_motivation, companyData?.creditRatingMotivation),
-      riskProfile: pickString(companyData?.risk_profile, companyData?.riskProfile),
-      financialTrend: pickString(companyData?.financial_trend, companyData?.financialTrend),
+      riskProfile: derivedRiskProfile,
+      financialTrend: derivedFinancialTrend,
       industry: pickString(companyData?.industry, companyData?.industry_name),
       industryDescription: pickString(companyData?.industry_description, companyData?.industryDescription),
       websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url)
@@ -1742,7 +2233,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         : '',
       
       businessModel: pickString(companyData?.business_model, companyData?.businessModel),
-      storeCount: pickNumber(logistics?.store_count, logistics?.storeCount) || 0,
+      storeCount: retailEvidence.storeCount ?? (pickNumber(logistics?.store_count, logistics?.storeCount) || 0),
       checkoutOptions: checkoutCrawlResult.confidence === 'crawled' && checkoutCrawlResult.positions.length > 0
         ? checkoutCrawlResult.positions.map(cp => ({
             position: cp.pos, carrier: cp.carrier, service: cp.service, price: cp.price, inCheckout: cp.inCheckout
@@ -1762,7 +2253,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         financial: financialEvidence.confidence,
         checkout: checkoutCrawlResult.confidence,
         contacts: llmContactCount >= 2 ? 'estimated' as const : dmConfidence,
-        addresses: financialEvidence.confidence === 'verified' ? 'verified' as const : 'estimated' as const,
+        addresses: (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' as const : 'estimated' as const,
         payment: paymentEvidence.confidence,
         news: verifiedNews.confidence,
         emailPattern: detectedEmailPattern ? 'found' as const : 'missing' as const
@@ -1867,17 +2358,21 @@ export async function generateLeads(
         confidence: 'crawled' | 'estimated' | 'missing';
       } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
       let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
-      let newsEvidence: VerifiedNewsEvidence = { summary: '', confidence: 'missing', sources: [] };
+      let newsEvidence: VerifiedNewsEvidence = { summary: '', confidence: 'missing', sources: [], items: [] };
+      let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
+      let retailEvidence: RetailFootprintEvidence = { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
       let emailPattern = '';
       let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
       let dmConfidence: 'verified' | 'estimated' | 'missing' = baseDecisionMakers.length ? 'estimated' : 'missing';
 
       if (shouldEnrich) {
         try {
-          const [fin, checkout, payment, email, news] = await Promise.all([
+          const [fin, checkout, payment, tech, retail, email, news] = await Promise.all([
             fetchVerifiedFinancials(pickString(l.orgNumber, l.org_number, l.organizationNumber), pickString(l.companyName, l.company_name, l.name)),
             fetchCheckoutPositions(domain, activeCarrier),
             fetchVerifiedPaymentSetup(domain),
+            fetchStructuredTechProfile(domain),
+            fetchRetailFootprint(domain),
             detectEmailPattern(domain, `${pickString(l.companyName, l.company_name, l.name)} ${pickString(l.orgNumber, l.org_number, l.organizationNumber)}`),
             fetchLatestNews(
               pickString(l.companyName, l.company_name, l.name),
@@ -1892,6 +2387,8 @@ export async function generateLeads(
           financialEvidence = fin;
           checkoutEvidence = checkout;
           paymentEvidence = payment;
+          techProfile = tech;
+          retailEvidence = retail;
           emailPattern = email;
           newsEvidence = news;
         } catch {
@@ -1916,10 +2413,70 @@ export async function generateLeads(
       }
 
       const registryFields = financialEvidence.parsed || {};
-      const decisionMakers: DecisionMaker[] = [
+      const verifiedFinancialHistory = registryFields.financialHistory?.length
+        ? registryFields.financialHistory
+        : normalizeFinancialHistoryEntries(l.financialHistory || [], financialEvidence.evidenceText);
+      const verifiedSolidity = pickString(registryFields.solidity, l.solidity, l.equity_ratio) || '0%';
+      const verifiedLiquidityRatio = pickString(registryFields.liquidityRatio, l.liquidityRatio, l.liquidity_ratio) || '0%';
+      const verifiedDebtBalance = pickString(registryFields.debtBalance, l.debtBalance, l.debt_balance_tkr, '0');
+      const verifiedDebtEquityRatio = pickString(registryFields.debtEquityRatio, l.debtEquityRatio, l.debt_equity_ratio);
+      const verifiedPaymentRemarks = pickString(registryFields.paymentRemarks, l.paymentRemarks, l.payment_remarks);
+      const verifiedLegalStatus = pickString(registryFields.legalStatus, l.legalStatus, l.legal_status) || 'Aktiv';
+      const verifiedActiveMarkets = retailEvidence.activeMarkets.length
+        ? retailEvidence.activeMarkets
+        : (l.activeMarkets || l.active_markets || []);
+      const decisionMakers: DecisionMaker[] = dedupeDecisionMakers([
         ...baseDecisionMakers,
-        ...dmSupplement.filter(dc => !baseDecisionMakers.some(b => b.name.toLowerCase() === dc.name.toLowerCase()))
-      ].slice(0, 6);
+        ...dmSupplement.map(dc => ({ name: dc.name, title: dc.title, email: dc.email, linkedin: dc.linkedin, directPhone: dc.directPhone, verificationNote: dc.verificationNote }))
+      ], 6);
+      const derivedTrend = financialEvidence.confidence === 'verified'
+        ? deriveFinancialTrend(verifiedFinancialHistory, pickString(l.financialTrend, l.financial_trend))
+        : pickString(l.financialTrend, l.financial_trend);
+      const derivedRiskProfile = financialEvidence.confidence === 'verified'
+        ? deriveRiskProfileFromMetrics({
+            legalStatus: verifiedLegalStatus,
+            paymentRemarks: verifiedPaymentRemarks,
+            debtBalance: verifiedDebtBalance,
+            debtEquityRatio: verifiedDebtEquityRatio,
+            solidity: verifiedSolidity,
+            liquidityRatio: verifiedLiquidityRatio,
+            vatRegistered: typeof l.vatRegistered === 'boolean' ? l.vatRegistered : l.vat_registered
+          }, pickString(l.riskProfile, l.risk_profile))
+        : pickString(l.riskProfile, l.risk_profile);
+
+      const capturedAt = new Date().toISOString();
+      const riskFieldEvidence = financialEvidence.confidence === 'verified'
+        ? {
+            legalStatus: buildRiskFieldEvidence(
+              'legalStatus',
+              pickString(l.legalStatus, l.legal_status) || 'Aktiv',
+              financialEvidence.evidenceText,
+              financialEvidence.sourceUrl,
+              capturedAt
+            ),
+            paymentRemarks: buildRiskFieldEvidence(
+              'paymentRemarks',
+              pickString(l.paymentRemarks, l.payment_remarks),
+              financialEvidence.evidenceText,
+              financialEvidence.sourceUrl,
+              capturedAt
+            ),
+            debtBalance: buildRiskFieldEvidence(
+              'debtBalance',
+              pickString(l.debtBalance, l.debt_balance_tkr, '0'),
+              financialEvidence.evidenceText,
+              financialEvidence.sourceUrl,
+              capturedAt
+            ),
+            debtEquityRatio: buildRiskFieldEvidence(
+              'debtEquityRatio',
+              pickString(l.debtEquityRatio, l.debt_equity_ratio),
+              financialEvidence.evidenceText,
+              financialEvidence.sourceUrl,
+              capturedAt
+            )
+          }
+        : undefined;
 
       const verifiedRegistrySnapshot: VerifiedRegistrySnapshot | undefined = financialEvidence.confidence === 'verified'
         ? {
@@ -1929,7 +2486,8 @@ export async function generateLeads(
             registeredAddress: pickString(registryFields.registeredAddress),
             revenue: registryFields.revenueTkr !== undefined ? `${registryFields.revenueTkr.toLocaleString('sv-SE')} tkr` : '',
             profit: registryFields.profitTkr !== undefined ? `${registryFields.profitTkr.toLocaleString('sv-SE')} tkr` : '',
-            capturedAt: new Date().toISOString()
+            fieldEvidence: riskFieldEvidence,
+            capturedAt
           }
         : undefined;
 
@@ -1941,9 +2499,9 @@ export async function generateLeads(
         phoneNumber: pickString(l.phoneNumber, l.phone_number),
         sniCode,
         revenue: `${(registryFields.revenueTkr ?? rev).toLocaleString('sv-SE')} tkr`,
-        address: pickString(registryFields.registeredAddress, l.address, l.visitingAddress, l.visiting_address),
-        visitingAddress: pickString(l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
-        warehouseAddress: pickString(l.warehouseAddress, l.warehouse_address),
+        address: pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, l.address, l.visitingAddress, l.visiting_address),
+        visitingAddress: pickString(retailEvidence.visitingAddress, l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
+        warehouseAddress: pickString(retailEvidence.warehouseAddress, l.warehouseAddress, l.warehouse_address),
         domain,
         websiteUrl,
         decisionMakers,
@@ -1958,25 +2516,45 @@ export async function generateLeads(
             }))
           : (l.checkoutOptions || []),
         latestNews: newsEvidence.summary || '',
-        marketCount,
+        newsItems: newsEvidence.items,
+        marketCount: verifiedActiveMarkets.length || marketCount,
+        activeMarkets: verifiedActiveMarkets,
         annualPackages,
         pos1Volume,
         pos2Volume,
         strategicPitch,
         freightBudget: `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr`,
         potentialSek: metrics.shippingBudgetSEK,
-        legalStatus: pickString(l.legalStatus, l.legal_status) || 'Aktiv',
+        legalStatus: verifiedLegalStatus,
         creditRatingLabel: pickString(l.creditRatingLabel, l.credit_rating) || 'N/A',
+        riskProfile: derivedRiskProfile,
+        financialTrend: derivedTrend,
         segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
         source: 'ai',
         analysisDate: '',
         aiModel: activeModel,
         halluccinationScore: 0,
-        paymentProvider: paymentEvidence.paymentProvider || pickString(l.paymentProvider, l.payment_provider),
-        checkoutSolution: paymentEvidence.checkoutSolution || pickString(l.checkoutSolution, l.checkout_solution),
+        paymentProvider: paymentEvidence.paymentProvider || pickString(techProfile.paymentProviders[0], l.paymentProvider, l.payment_provider),
+        checkoutSolution: paymentEvidence.checkoutSolution || pickString(techProfile.checkoutSolutions[0], l.checkoutSolution, l.checkout_solution),
+        ecommercePlatform: pickString(techProfile.platforms[0], l.ecommercePlatform, l.ecommerce_platform),
+        taSystem: pickString(techProfile.taSystems[0], l.taSystem, l.ta_system),
+        techDetections: {
+          platforms: techProfile.platforms,
+          taSystems: techProfile.taSystems,
+          paymentProviders: Array.from(new Set([...(techProfile.paymentProviders || []), ...(paymentEvidence.paymentProvider ? [paymentEvidence.paymentProvider] : [])])),
+          checkoutSolutions: Array.from(new Set([...(techProfile.checkoutSolutions || []), ...(paymentEvidence.checkoutSolution ? [paymentEvidence.checkoutSolution] : [])]))
+        },
+        techEvidence: [pickString(l.techEvidence, l.tech_evidence), techProfile.evidenceSnippet, paymentEvidence.evidenceSnippet].filter(Boolean).join(' | ').slice(0, 2000),
         profit: registryFields.profitTkr !== undefined
           ? `${registryFields.profitTkr.toLocaleString('sv-SE')} tkr`
           : pickString(l.profit),
+        financialHistory: verifiedFinancialHistory,
+        solidity: verifiedSolidity,
+        liquidityRatio: verifiedLiquidityRatio,
+        debtBalance: verifiedDebtBalance,
+        debtEquityRatio: verifiedDebtEquityRatio,
+        paymentRemarks: verifiedPaymentRemarks,
+        profitMargin: deriveProfitMargin(verifiedFinancialHistory, pickString(l.profitMargin, l.profit_margin)) || pickString(l.profitMargin, l.profit_margin),
         financialSource: financialEvidence.confidence === 'verified'
           ? `Verifierad registerkälla: ${normalizeDomain(financialEvidence.sourceUrl || 'allabolag.se')}`
           : pickString(l.financialSource),
@@ -1986,7 +2564,7 @@ export async function generateLeads(
           financial: financialEvidence.confidence,
           checkout: checkoutEvidence.confidence,
           contacts: dmConfidence,
-          addresses: financialEvidence.confidence === 'verified' ? 'verified' : 'estimated',
+          addresses: (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' : 'estimated',
           payment: paymentEvidence.confidence,
           news: newsEvidence.confidence,
           emailPattern: emailPattern ? 'found' : 'missing'
