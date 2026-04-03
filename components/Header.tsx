@@ -5,6 +5,7 @@ import {
   Check, Truck, Mail, Layers, Newspaper, Percent, Plus, Package, 
    TrendingUp, History, Globe, Search, Download, LogOut, User, Clock3
 } from 'lucide-react';
+import { Language, LANGUAGE_LABELS } from '../services/i18n';
 
 interface HeaderProps {
   onOpenExclusions: () => void;
@@ -50,6 +51,8 @@ interface HeaderProps {
   availableSourceCountries?: string[];
    visibleTools?: string[];
    onOpenToolAccess?: () => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -68,7 +71,9 @@ export const Header: React.FC<HeaderProps> = ({
   activeSourceCountry = 'global', setActiveSourceCountry,
   availableSourceCountries = ['global', 'se', 'no', 'dk', 'fi'],
    visibleTools,
-   onOpenToolAccess
+   onOpenToolAccess,
+  language,
+  setLanguage
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
@@ -152,6 +157,22 @@ export const Header: React.FC<HeaderProps> = ({
                                              </div>
                                           </div>
                                        )}
+                                       {/* Language Selector */}
+                                       <div className="px-3 pb-3">
+                                          <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Språk</div>
+                                          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-sm">
+                                             <Globe className="w-4 h-4 text-red-600 ml-2" />
+                                             <select
+                                                value={language}
+                                                onChange={(e) => setLanguage(e.target.value as Language)}
+                                                className="flex-1 bg-slate-50 text-xs font-black text-slate-900 uppercase py-2 px-2 outline-none cursor-pointer"
+                                             >
+                                                {Object.entries(LANGUAGE_LABELS).map(([lang, label]) => (
+                                                   <option key={lang} value={lang}>{label}</option>
+                                                ))}
+                                             </select>
+                                          </div>
+                                       </div>
                                        {hasTool('carrierSettings') && <button onClick={() => { onOpenCarrierSettings(); setIsToolsOpen(false); }} className="w-full text-left px-3 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group border-t border-slate-100">
                                           <TrendingUp className="w-4 h-4 text-red-600" />
                                           <div className="flex flex-col">

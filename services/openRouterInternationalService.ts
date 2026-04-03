@@ -110,7 +110,7 @@ class EnhancedOpenRouterService {
       const systemPrompt = generateInternationalSystemPrompt({
         country: request.country,
         company: request.company,
-        language: countryConfig.language,
+        language: countryConfig.language as 'sv' | 'da' | 'no' | 'fi' | 'de' | 'fr' | 'nl' | 'en',
         includeNews: true,
         includeFinancial: true,
         halluccinationCheck: defaults.includeHallucinationCheck

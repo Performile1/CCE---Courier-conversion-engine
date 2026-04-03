@@ -1,14 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Building2, Save, AlertCircle, Check, Loader } from 'lucide-react';
+import { User, Mail, Phone, Building2, Save, AlertCircle, Check, Loader, Globe } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { updateUserProfile, getUserProfile } from '../services/supabaseClient';
 
 interface UserProfileProps {
   userId: string;
   onClose?: () => void;
+  activeSourceCountry?: string;
+  setActiveSourceCountry?: (country: string) => void;
 }
 
-export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => {
+// Phone country code to ISO country mapping
+const PHONE_COUNTRY_CODES: Record<string, string> = {
+  '46': 'se',   // Sweden
+  '47': 'no',   // Norway
+  '45': 'dk',   // Denmark
+  '358': 'fi',  // Finland
+  '1': 'se',    // Default to SE for +1 (US/CA fallback)
+  '44': 'se',   // UK fallback to SE
+};
+
+const COUNTRY_DISPLAY: Record<string, string> = {
+  'global': 'Global',
+  'se': 'Sweden',
+  'no': 'Norway',
+  'dk': 'Denmark',
+  'fi': 'Finland'
+};
+
+function extractCountryFromPhone(phone: string): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/\D/g, '');
+  for (const code of Object.keys(PHONE_COUNTRY_CODES).sort((a, b) => b.length - a.length)) {
+    if (cleaned.startsWith(code)) {
+      return PHONE_COUNTRY_CODES[code];
+    }
+  }
+  return null;
+}
+
+export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose, activeSourceCountry, setActiveSourceCountry }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +56,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
   });
 
   const [editField, setEditField] = useState<string | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>(activeSourceCountry || 'global');
 
   // Load user profile
   useEffect(() => {
@@ -69,6 +102,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
       ...prev,
       [field]: value
     }));
+    if (field === 'phone') {
+      const country = extractCountryFromPhone(value);
+      setDetectedCountry(country);
+      if (country && setActiveSourceCountry) {
+        setSelectedCountry(country);
+        setActiveSourceCountry(country);
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -212,7 +253,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               type="tel"
               value={formData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
-              placeholder="+1 (555) 000-0000"
+              placeholder="+46 (0)8 123 456"
               className="w-full px-4 py-2 border border-dhl-gray-medium rounded-sm focus:outline-none focus:ring-2 focus:ring-dhl-red"
             />
           ) : (
@@ -223,6 +264,43 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId, onClose }) => 
               {formData.phone || 'Click to add phone'}
             </div>
           )}
+          {detectedCountry && formData.phone && editField === 'phone' && (
+            <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+              ✓ Detected: {COUNTRY_DISPLAY[detectedCountry]}
+            </p>
+          )}
+        </div>
+
+        {/* Source Country */}
+        <div>
+          <label className="block text-sm font-medium text-dhl-gray-dark mb-2">
+            <Globe className="h-4 w-4 inline mr-2" />
+            Source Country (for tools & search)
+          </label>
+          <div className="flex items-center gap-3 bg-dhl-gray-light rounded-sm p-3">
+            <select
+              value={selectedCountry}
+              onChange={(e) => {
+                setSelectedCountry(e.target.value);
+                if (setActiveSourceCountry) {
+                  setActiveSourceCountry(e.target.value);
+                }
+              }}
+              className="flex-1 bg-white border border-dhl-gray-medium rounded-sm px-3 py-2 text-xs font-black text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-dhl-red"
+            >
+              <option value="global">GLOBAL</option>
+              <option value="se">SWEDEN</option>
+              <option value="no">NORWAY</option>
+              <option value="dk">DENMARK</option>
+              <option value="fi">FINLAND</option>
+            </select>
+            {detectedCountry && detectedCountry !== selectedCountry && (
+              <span className="text-[10px] font-black text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+                Detected: {COUNTRY_DISPLAY[detectedCountry].toUpperCase()}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500">Auto-detected from phone number. Change manually if needed.</p>
         </div>
 
         {/* Company */}

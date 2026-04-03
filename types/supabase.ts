@@ -1,5 +1,24 @@
-// This file contains TypeScript definitions for all Supabase tables
-// Generate from Supabase CLI: supabase gen types typescript --project-id your-project-id
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+type SubscriptionTier = 'free' | 'pro' | 'enterprise';
+type LeadStatus = 'prospect' | 'contacted' | 'qualified' | 'disqualified' | 'customer';
+type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused';
+type CampaignRecipientStatus = 'pending' | 'sent' | 'opened' | 'clicked' | 'bounced';
+type CRMType = 'hubspot' | 'pipedrive' | 'salesforce';
+type CostService = 'openrouter' | 'tavily' | 'email' | 'crm_sync';
+type SlackNotifications = {
+  leadCreated: boolean;
+  hallucinationAlert: boolean;
+  campaignStarted: boolean;
+  campaignCompleted: boolean;
+  crmSynced: boolean;
+};
 
 export interface Database {
   public: {
@@ -8,46 +27,87 @@ export interface Database {
         Row: {
           id: string;
           email: string;
+          username: string | null;
           full_name: string | null;
+          phone: string | null;
+          company_name: string | null;
           avatar_url: string | null;
-          subscription_tier: 'free' | 'pro' | 'enterprise';
+          subscription_tier: SubscriptionTier;
+          credits_remaining: number;
           credits_balance: number;
           monthly_openrouter_cost: number;
+          salesforce_account_id: string | null;
+          salesforce_contact_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           email: string;
+          username?: string | null;
           full_name?: string | null;
+          phone?: string | null;
+          company_name?: string | null;
           avatar_url?: string | null;
-          subscription_tier?: 'free' | 'pro' | 'enterprise';
+          subscription_tier?: SubscriptionTier;
+          credits_remaining?: number;
           credits_balance?: number;
           monthly_openrouter_cost?: number;
+          salesforce_account_id?: string | null;
+          salesforce_contact_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['users']['Insert']>;
+        Update: {
+          id?: string;
+          email?: string;
+          username?: string | null;
+          full_name?: string | null;
+          phone?: string | null;
+          company_name?: string | null;
+          avatar_url?: string | null;
+          subscription_tier?: SubscriptionTier;
+          credits_remaining?: number;
+          credits_balance?: number;
+          monthly_openrouter_cost?: number;
+          salesforce_account_id?: string | null;
+          salesforce_contact_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       leads: {
         Row: {
           id: string;
           user_id: string;
           company_name: string;
-          industry: string;
-          revenue: string;
-          employees: number;
-          website_url: string;
-          status: 'prospect' | 'contacted' | 'qualified' | 'disqualified';
-          analysis_model: string;
-          hallucination_score: number;
-          hallucination_details: Record<string, any> | null;
-          decision_making_efficiency: number;
-          competitive_positioning: number;
-          market_opportunity: number;
+          org_number: string | null;
+          domain: string | null;
+          website_url: string | null;
+          sni_code: string | null;
+          industry: string | null;
+          revenue: string | null;
+          employees: number | null;
+          status: LeadStatus | null;
+          analysis_model: string | null;
+          hallucination_score: number | null;
+          hallucination_details: Json | null;
+          decision_making_efficiency: number | null;
+          competitive_positioning: number | null;
+          market_opportunity: number | null;
           notes: string | null;
           next_action: string | null;
+          source: string | null;
+          analysis_date: string | null;
+          segment: string | null;
+          revenue_year: string | null;
+          profit: string | null;
+          ecommerce_platform: string | null;
+          payment_provider: string | null;
+          carriers: string | null;
+          potential_sek: number | null;
+          freight_budget: string | null;
+          annual_packages: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -55,95 +115,200 @@ export interface Database {
           id?: string;
           user_id: string;
           company_name: string;
-          industry: string;
-          revenue: string;
-          employees: number;
-          website_url: string;
-          status?: 'prospect' | 'contacted' | 'qualified' | 'disqualified';
-          analysis_model?: string;
-          hallucination_score?: number;
-          hallucination_details?: Record<string, any> | null;
-          decision_making_efficiency?: number;
-          competitive_positioning?: number;
-          market_opportunity?: number;
+          org_number?: string | null;
+          domain?: string | null;
+          website_url?: string | null;
+          sni_code?: string | null;
+          industry?: string | null;
+          revenue?: string | null;
+          employees?: number | null;
+          status?: LeadStatus | null;
+          analysis_model?: string | null;
+          hallucination_score?: number | null;
+          hallucination_details?: Json | null;
+          decision_making_efficiency?: number | null;
+          competitive_positioning?: number | null;
+          market_opportunity?: number | null;
           notes?: string | null;
           next_action?: string | null;
+          source?: string | null;
+          analysis_date?: string | null;
+          segment?: string | null;
+          revenue_year?: string | null;
+          profit?: string | null;
+          ecommerce_platform?: string | null;
+          payment_provider?: string | null;
+          carriers?: string | null;
+          potential_sek?: number | null;
+          freight_budget?: string | null;
+          annual_packages?: number | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['leads']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          company_name?: string;
+          org_number?: string | null;
+          domain?: string | null;
+          website_url?: string | null;
+          sni_code?: string | null;
+          industry?: string | null;
+          revenue?: string | null;
+          employees?: number | null;
+          status?: LeadStatus | null;
+          analysis_model?: string | null;
+          hallucination_score?: number | null;
+          hallucination_details?: Json | null;
+          decision_making_efficiency?: number | null;
+          competitive_positioning?: number | null;
+          market_opportunity?: number | null;
+          notes?: string | null;
+          next_action?: string | null;
+          source?: string | null;
+          analysis_date?: string | null;
+          segment?: string | null;
+          revenue_year?: string | null;
+          profit?: string | null;
+          ecommerce_platform?: string | null;
+          payment_provider?: string | null;
+          carriers?: string | null;
+          potential_sek?: number | null;
+          freight_budget?: string | null;
+          annual_packages?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       decision_makers: {
         Row: {
           id: string;
           lead_id: string;
-          first_name: string;
-          last_name: string;
-          title: string;
-          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          name: string | null;
+          title: string | null;
+          email: string | null;
           phone: string | null;
+          direct_phone: string | null;
           linkedin_url: string | null;
+          linkedin: string | null;
           verified: boolean;
           verification_method: string | null;
+          verification_note: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           lead_id: string;
-          first_name: string;
-          last_name: string;
-          title: string;
-          email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          name?: string | null;
+          title?: string | null;
+          email?: string | null;
           phone?: string | null;
+          direct_phone?: string | null;
           linkedin_url?: string | null;
+          linkedin?: string | null;
           verified?: boolean;
           verification_method?: string | null;
+          verification_note?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['decision_makers']['Insert']>;
+        Update: {
+          id?: string;
+          lead_id?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          name?: string | null;
+          title?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          direct_phone?: string | null;
+          linkedin_url?: string | null;
+          linkedin?: string | null;
+          verified?: boolean;
+          verification_method?: string | null;
+          verification_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       analysis_history: {
         Row: {
           id: string;
           user_id: string;
-          lead_id: string;
-          analysis_type: 'quick_scan' | 'deep_dive' | 'batch_prospecting';
-          model_used: string;
-          prompt_tokens: number;
-          completion_tokens: number;
-          total_cost_usd: number;
-          result_summary: string;
-          raw_analysis: Record<string, any>;
+          lead_id: string | null;
+          analysis_type: string | null;
+          company_name: string | null;
+          model_used: string | null;
+          prompt_tokens: number | null;
+          completion_tokens: number | null;
+          total_cost_usd: number | null;
+          result_summary: string | null;
+          raw_analysis: Json | null;
+          tokens_used: number | null;
+          cost: number | null;
+          duration_seconds: number | null;
+          success: boolean | null;
+          error_message: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          lead_id: string;
-          analysis_type: 'quick_scan' | 'deep_dive' | 'batch_prospecting';
-          model_used: string;
-          prompt_tokens: number;
-          completion_tokens: number;
-          total_cost_usd: number;
-          result_summary: string;
-          raw_analysis: Record<string, any>;
+          lead_id?: string | null;
+          analysis_type?: string | null;
+          company_name?: string | null;
+          model_used?: string | null;
+          prompt_tokens?: number | null;
+          completion_tokens?: number | null;
+          total_cost_usd?: number | null;
+          result_summary?: string | null;
+          raw_analysis?: Json | null;
+          tokens_used?: number | null;
+          cost?: number | null;
+          duration_seconds?: number | null;
+          success?: boolean | null;
+          error_message?: string | null;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['analysis_history']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          lead_id?: string | null;
+          analysis_type?: string | null;
+          company_name?: string | null;
+          model_used?: string | null;
+          prompt_tokens?: number | null;
+          completion_tokens?: number | null;
+          total_cost_usd?: number | null;
+          result_summary?: string | null;
+          raw_analysis?: Json | null;
+          tokens_used?: number | null;
+          cost?: number | null;
+          duration_seconds?: number | null;
+          success?: boolean | null;
+          error_message?: string | null;
+          created_at?: string;
+        };
       };
-
       campaigns: {
         Row: {
           id: string;
           user_id: string;
           name: string;
-          subject: string;
-          body: string;
-          status: 'draft' | 'scheduled' | 'sent';
+          description: string | null;
+          template_id: string | null;
+          subject: string | null;
+          body: string | null;
+          status: CampaignStatus;
+          lead_count: number;
+          sent_count: number;
+          open_count: number;
+          click_count: number;
           total_recipients: number;
           total_opened: number;
           total_clicked: number;
@@ -156,9 +321,15 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
-          subject: string;
-          body: string;
-          status?: 'draft' | 'scheduled' | 'sent';
+          description?: string | null;
+          template_id?: string | null;
+          subject?: string | null;
+          body?: string | null;
+          status?: CampaignStatus;
+          lead_count?: number;
+          sent_count?: number;
+          open_count?: number;
+          click_count?: number;
           total_recipients?: number;
           total_opened?: number;
           total_clicked?: number;
@@ -167,16 +338,35 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['campaigns']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          description?: string | null;
+          template_id?: string | null;
+          subject?: string | null;
+          body?: string | null;
+          status?: CampaignStatus;
+          lead_count?: number;
+          sent_count?: number;
+          open_count?: number;
+          click_count?: number;
+          total_recipients?: number;
+          total_opened?: number;
+          total_clicked?: number;
+          open_rate?: number;
+          click_rate?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       campaign_recipients: {
         Row: {
           id: string;
           campaign_id: string;
-          lead_id: string;
+          lead_id: string | null;
           email: string;
-          status: 'pending' | 'sent' | 'opened' | 'clicked' | 'bounced';
+          status: CampaignRecipientStatus;
           opened_at: string | null;
           clicked_at: string | null;
           created_at: string;
@@ -184,55 +374,76 @@ export interface Database {
         Insert: {
           id?: string;
           campaign_id: string;
-          lead_id: string;
+          lead_id?: string | null;
           email: string;
-          status?: 'pending' | 'sent' | 'opened' | 'clicked' | 'bounced';
+          status?: CampaignRecipientStatus;
           opened_at?: string | null;
           clicked_at?: string | null;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['campaign_recipients']['Insert']>;
+        Update: {
+          id?: string;
+          campaign_id?: string;
+          lead_id?: string | null;
+          email?: string;
+          status?: CampaignRecipientStatus;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          created_at?: string;
+        };
       };
-
       crm_integrations: {
         Row: {
           id: string;
           user_id: string;
-          crm_type: 'hubspot' | 'pipedrive' | 'salesforce';
-          api_token: string; // Encrypted in database
+          crm_type: CRMType;
+          api_token: string;
+          status: string;
           enabled: boolean;
           last_sync: string | null;
           synced_count: number;
+          sync_error: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          crm_type: 'hubspot' | 'pipedrive' | 'salesforce';
+          crm_type: CRMType;
           api_token: string;
+          status?: string;
           enabled?: boolean;
           last_sync?: string | null;
           synced_count?: number;
+          sync_error?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['crm_integrations']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          crm_type?: CRMType;
+          api_token?: string;
+          status?: string;
+          enabled?: boolean;
+          last_sync?: string | null;
+          synced_count?: number;
+          sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       slack_integrations: {
         Row: {
           id: string;
           user_id: string;
-          webhook_url: string; // Encrypted in database
+          webhook_url: string;
+          workspace_name: string | null;
+          channel: string | null;
           enabled: boolean;
-          notifications: {
-            leadCreated: boolean;
-            hallucinationAlert: boolean;
-            campaignStarted: boolean;
-            campaignCompleted: boolean;
-            crmSynced: boolean;
-          };
+          notifications_enabled: boolean;
+          notifications: SlackNotifications;
+          status: string;
           created_at: string;
           updated_at: string;
         };
@@ -240,52 +451,342 @@ export interface Database {
           id?: string;
           user_id: string;
           webhook_url: string;
+          workspace_name?: string | null;
+          channel?: string | null;
           enabled?: boolean;
-          notifications?: {
-            leadCreated: boolean;
-            hallucinationAlert: boolean;
-            campaignStarted: boolean;
-            campaignCompleted: boolean;
-            crmSynced: boolean;
-          };
+          notifications_enabled?: boolean;
+          notifications?: SlackNotifications;
+          status?: string;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['slack_integrations']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          webhook_url?: string;
+          workspace_name?: string | null;
+          channel?: string | null;
+          enabled?: boolean;
+          notifications_enabled?: boolean;
+          notifications?: SlackNotifications;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       cost_tracking: {
         Row: {
           id: string;
           user_id: string;
-          service: 'openrouter' | 'tavily' | 'email' | 'crm_sync';
-          model_or_action: string;
-          input_tokens: number;
-          output_tokens: number;
+          service: CostService | null;
+          model_or_action: string | null;
+          model: string | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          tokens_input: number | null;
+          tokens_output: number | null;
           cost_usd: number;
+          cost: number;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          service: 'openrouter' | 'tavily' | 'email' | 'crm_sync';
-          model_or_action: string;
-          input_tokens: number;
-          output_tokens: number;
-          cost_usd: number;
+          service?: CostService | null;
+          model_or_action?: string | null;
+          model?: string | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          tokens_input?: number | null;
+          tokens_output?: number | null;
+          cost_usd?: number;
+          cost?: number;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['cost_tracking']['Insert']>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          service?: CostService | null;
+          model_or_action?: string | null;
+          model?: string | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          tokens_input?: number | null;
+          tokens_output?: number | null;
+          cost_usd?: number;
+          cost?: number;
+          created_at?: string;
+        };
+      };
+      integrations: {
+        Row: {
+          id: string;
+          user_id: string;
+          integration_type: string;
+          status: string;
+          config: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          integration_type: string;
+          status?: string;
+          config?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          integration_type?: string;
+          status?: string;
+          config?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      shared_leads: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          recipient_email: string;
+          lead_data: Json;
+          original_lead_id: string | null;
+          message: string | null;
+          read_at: string | null;
+          shared_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          recipient_email: string;
+          lead_data: Json;
+          original_lead_id?: string | null;
+          message?: string | null;
+          read_at?: string | null;
+          shared_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          recipient_email?: string;
+          lead_data?: Json;
+          original_lead_id?: string | null;
+          message?: string | null;
+          read_at?: string | null;
+          shared_at?: string;
+          created_at?: string;
+        };
+      };
+      webhooks: {
+        Row: {
+          id: string;
+          user_id: string;
+          url: string;
+          events: string[];
+          active: boolean;
+          last_triggered: string | null;
+          secret: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          url: string;
+          events?: string[];
+          active?: boolean;
+          last_triggered?: string | null;
+          secret?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          url?: string;
+          events?: string[];
+          active?: boolean;
+          last_triggered?: string | null;
+          secret?: string | null;
+          created_at?: string;
+        };
+      };
+      webhook_logs: {
+        Row: {
+          id: string;
+          webhook_id: string;
+          status_code: number | null;
+          status_text: string | null;
+          payload: Json | null;
+          delivered_at: string;
+        };
+        Insert: {
+          id?: string;
+          webhook_id: string;
+          status_code?: number | null;
+          status_text?: string | null;
+          payload?: Json | null;
+          delivered_at?: string;
+        };
+        Update: {
+          id?: string;
+          webhook_id?: string;
+          status_code?: number | null;
+          status_text?: string | null;
+          payload?: Json | null;
+          delivered_at?: string;
+        };
+      };
+      event_triggers: {
+        Row: {
+          id: string;
+          user_id: string;
+          event: string;
+          webhook_ids: string[];
+          active: boolean;
+          custom_logic: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          event: string;
+          webhook_ids?: string[];
+          active?: boolean;
+          custom_logic?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event?: string;
+          webhook_ids?: string[];
+          active?: boolean;
+          custom_logic?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      custom_connectors: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          base_url: string;
+          endpoints: Json;
+          auth_type: string;
+          auth_config: Json | null;
+          description: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          base_url: string;
+          endpoints?: Json;
+          auth_type?: string;
+          auth_config?: Json | null;
+          description?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          base_url?: string;
+          endpoints?: Json;
+          auth_type?: string;
+          auth_config?: Json | null;
+          description?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      news_articles: {
+        Row: {
+          id: string;
+          source: string;
+          country: string;
+          title: string;
+          description: string | null;
+          url: string;
+          image_url: string | null;
+          published_at: string;
+          fetched_at: string | null;
+          category: string | null;
+          reliability: number | null;
+          language: string | null;
+          content: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          source: string;
+          country: string;
+          title: string;
+          description?: string | null;
+          url: string;
+          image_url?: string | null;
+          published_at: string;
+          fetched_at?: string | null;
+          category?: string | null;
+          reliability?: number | null;
+          language?: string | null;
+          content?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          country?: string;
+          title?: string;
+          description?: string | null;
+          url?: string;
+          image_url?: string | null;
+          published_at?: string;
+          fetched_at?: string | null;
+          category?: string | null;
+          reliability?: number | null;
+          language?: string | null;
+          content?: string | null;
+          created_at?: string;
+        };
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 
-// Helper types for common queries
 export type User = Database['public']['Tables']['users']['Row'];
 export type Lead = Database['public']['Tables']['leads']['Row'];
 export type DecisionMaker = Database['public']['Tables']['decision_makers']['Row'];
+export type AnalysisHistory = Database['public']['Tables']['analysis_history']['Row'];
 export type Campaign = Database['public']['Tables']['campaigns']['Row'];
+export type CampaignRecipient = Database['public']['Tables']['campaign_recipients']['Row'];
 export type CRMIntegration = Database['public']['Tables']['crm_integrations']['Row'];
 export type SlackIntegration = Database['public']['Tables']['slack_integrations']['Row'];
 export type CostRecord = Database['public']['Tables']['cost_tracking']['Row'];
+export type Integration = Database['public']['Tables']['integrations']['Row'];
+export type SharedLead = Database['public']['Tables']['shared_leads']['Row'];
+export type Webhook = Database['public']['Tables']['webhooks']['Row'];
+export type WebhookLog = Database['public']['Tables']['webhook_logs']['Row'];
+export type EventTrigger = Database['public']['Tables']['event_triggers']['Row'];
+export type CustomConnector = Database['public']['Tables']['custom_connectors']['Row'];
+export type NewsArticleRow = Database['public']['Tables']['news_articles']['Row'];

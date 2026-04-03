@@ -13,7 +13,7 @@ export interface NewsSourceConfig {
   feedType: 'rss' | 'api' | 'web' | 'manual';
   feedUrl?: string;
   apiEndpoint?: string;
-  apiKeyRequired: boolean;
+  apiKeyRequired?: boolean;
   language: string;
   updateFrequency: 'daily' | 'hourly' | '15min' | '1hour';
   reliability: number;

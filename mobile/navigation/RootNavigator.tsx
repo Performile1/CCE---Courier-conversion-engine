@@ -6,16 +6,16 @@ import { ActivityIndicator, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import all screens
-import { LoginScreen } from './screens/LoginScreen';
-import { SignupScreen } from './screens/SignupScreen';
-import { LeadListScreen } from './screens/LeadListScreen';
-import { LeadDetailScreen } from './screens/LeadDetailScreen';
-import { AddLeadScreen } from './screens/AddLeadScreen';
-import { CampaignListScreen } from './screens/CampaignListScreen';
-import { CreateCampaignScreen } from './screens/CreateCampaignScreen';
-import { CampaignDetailScreen } from './screens/CampaignDetailScreen';
-import { AnalyticsScreen } from './screens/AnalyticsScreen';
-import { SettingsScreen } from './screens/SettingsScreen';
+import { LoginScreen } from '../screens/LoginScreen';
+import { SignupScreen } from '../screens/SignupScreen';
+import { LeadListScreen } from '../screens/LeadListScreen';
+import { LeadDetailScreen } from '../screens/LeadDetailScreen';
+import { AddLeadScreen } from '../screens/AddLeadScreen';
+import { CampaignListScreen } from '../screens/CampaignListScreen';
+import { CreateCampaignScreen } from '../screens/CreateCampaignScreen';
+import { CampaignDetailScreen } from '../screens/CampaignDetailScreen';
+import { AnalyticsScreen } from '../screens/AnalyticsScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 // Type definitions
 export type RootStackParamList = {

@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
-import App from './App'; // Existing main app component
+import { App } from './App'; // Existing main app component
 
 /**
  * Main Router Component (Phase 5.4 - Session Management)

@@ -37,7 +37,13 @@ export function getCostTracker(): { model: ModelName; totalCost: number; costPer
   return {
     model: selectedModel,
     totalCost: totalCostAccumulated,
-    costPerModel: {} // Track by model if needed
+    costPerModel: {
+      'llama-3.1-70b': 0,
+      'gpt-4-turbo': 0,
+      'google-gemini-free': 0,
+      'gpt-3.5-turbo': 0,
+      'mistral-7b': 0
+    }
   };
 }
 

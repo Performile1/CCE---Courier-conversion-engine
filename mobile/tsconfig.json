@@ -1,0 +1,21 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "types": [
+      "react",
+      "react-native"
+    ],
+    "baseUrl": "."
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "./app.config.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

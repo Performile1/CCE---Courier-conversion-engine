@@ -63,7 +63,7 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
   const [selectedType, setSelectedType] = useState<'http' | 'javascript' | 'zapier'>('http');
   const [adapterName, setAdapterName] = useState('');
   const [adapterDescription, setAdapterDescription] = useState('');
-  const [config, setConfig] = useState(ADAPTER_TEMPLATES.http.config);
+  const [config, setConfig] = useState<Record<string, any>>(ADAPTER_TEMPLATES.http.config);
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState('');
 

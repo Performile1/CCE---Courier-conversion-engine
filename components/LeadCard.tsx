@@ -1644,8 +1644,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Aktiva Marknader</label>
                   <input 
                     type="text" 
-                    value={editData.activeMarkets || ''} 
-                    onChange={e => setEditData({...editData, activeMarkets: e.target.value})}
+                    value={Array.isArray(editData.activeMarkets) ? editData.activeMarkets.join(', ') : ''} 
+                    onChange={e => setEditData({...editData, activeMarkets: e.target.value.split(',').map(value => value.trim()).filter(Boolean)})}
                     className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>

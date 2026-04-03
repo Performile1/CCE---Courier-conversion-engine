@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "types": [
       "node",
+      "vite/client",
       "react",
       "react-dom"
     ],
@@ -27,5 +28,10 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "mobile",
+    "mobile/**",
+    "components/App.tsx"
+  ]
 }

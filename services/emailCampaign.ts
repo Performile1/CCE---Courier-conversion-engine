@@ -180,9 +180,18 @@ export async function trackEmailOpen(recipientId: string): Promise<void> {
     .single();
 
   if (recipient) {
+    const { data: campaign } = await supabase
+      .from('campaigns')
+      .select('open_count, total_opened')
+      .eq('id', recipient.campaign_id)
+      .single();
+
     await supabase
       .from('campaigns')
-      .update({ open_count: supabase.rpc('increment', { row_id: recipient.campaign_id }) })
+      .update({
+        open_count: (campaign?.open_count || 0) + 1,
+        total_opened: (campaign?.total_opened || 0) + 1
+      })
       .eq('id', recipient.campaign_id);
   }
 }
@@ -209,9 +218,18 @@ export async function trackLinkClick(recipientId: string): Promise<void> {
     .single();
 
   if (recipient) {
+    const { data: campaign } = await supabase
+      .from('campaigns')
+      .select('click_count, total_clicked')
+      .eq('id', recipient.campaign_id)
+      .single();
+
     await supabase
       .from('campaigns')
-      .update({ click_count: supabase.rpc('increment', { row_id: recipient.campaign_id }) })
+      .update({
+        click_count: (campaign?.click_count || 0) + 1,
+        total_clicked: (campaign?.total_clicked || 0) + 1
+      })
       .eq('id', recipient.campaign_id);
   }
 }

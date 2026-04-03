@@ -3,9 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { RootNavigator } from './mobile/navigation/RootNavigator';
-import { pushNotificationService } from './mobile/services/pushNotificationService';
-import { offlineSyncService } from './mobile/services/offlineSyncService';
+import { RootNavigator } from './navigation/RootNavigator';
+import { pushNotificationService } from './services/pushNotificationService';
+import { offlineSyncService } from './services/offlineSyncService';
 
 // Keep splash screen visible until we finish initializing
 SplashScreen.preventAutoHideAsync().catch(() => {

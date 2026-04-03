@@ -13,7 +13,7 @@
     "build:ios": "eas build --platform ios",
     "publish": "eas submit",
     "lint": "eslint . --ext .ts,.tsx",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx}\""
   },
   "dependencies": {

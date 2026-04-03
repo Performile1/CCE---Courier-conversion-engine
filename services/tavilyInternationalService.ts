@@ -75,7 +75,7 @@ class EnhancedTavilyService {
       const systemPrompt = generateInternationalSystemPrompt({
         country: options.country,
         company: options.companyName,
-        language: countryConfig.language,
+        language: countryConfig.language as 'sv' | 'da' | 'no' | 'fi' | 'de' | 'fr' | 'nl' | 'en',
         includeNews: defaults.includeNews,
         includeFinancial: defaults.includeFinancial,
         halluccinationCheck: defaults.halluccinationCheck
@@ -105,7 +105,12 @@ class EnhancedTavilyService {
       const verifiedSources = this.verifyResults(tavilyResults.results, sources);
 
       // Calculate confidence score
-      const confidenceLevel = calculateConfidenceScore(verifiedSources);
+      const confidenceLevel = calculateConfidenceScore({
+        official: verifiedSources.some((result) => registryDomains.some((domain) => result.url.includes(domain))),
+        news: Math.min(verifiedSources.length, 3),
+        multiple: verifiedSources.length > 1,
+        recent: verifiedSources.some((result) => /202[4-6]/.test(result.content || '') || /202[4-6]/.test(result.title || ''))
+      });
 
       const executionTime = Date.now() - startTime;
 

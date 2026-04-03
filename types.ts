@@ -97,9 +97,24 @@ export interface SourcePolicyConfig {
 
 export type UserRole = 'admin' | 'user' | 'viewer';
 
+export type InvitationStatus = 'activation-sent' | 'sign-in-link-sent' | 'accepted';
+
+export interface UserInvitationRecord {
+  email: string;
+  fullName?: string;
+  role: UserRole;
+  userId?: string;
+  invitedAt: string;
+  lastSentAt: string;
+  sentCount: number;
+  status: InvitationStatus;
+}
+
 export interface ToolAccessConfig {
   userRoles: Record<string, UserRole>;
   roleToolAccess: Record<UserRole, string[]>;
+  userEmails?: Record<string, string>;
+  invitationHistory?: Record<string, UserInvitationRecord>;
 }
 
 export interface SourceCoverageEntry {

@@ -15,6 +15,8 @@
 After project creation, go to **Project Settings → API**:
 - Copy **Project URL** → `VITE_SUPABASE_URL`
 - Copy **anon public** key → `VITE_SUPABASE_ANON_KEY`
+- Copy **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (server-side only, never expose in frontend code)
+- Decide which admins may invite users → `SUPABASE_ADMIN_EMAILS` as a comma-separated allow-list
 
 ## Step 3: Set Up Environment Variables for Vercel
 
@@ -236,6 +238,9 @@ Go to **Authentication → URL Configuration**:
    ```
    VITE_SUPABASE_URL=https://[project-id].supabase.co
    VITE_SUPABASE_ANON_KEY=eyJhbGc...
+  SUPABASE_URL=https://[project-id].supabase.co
+  SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+  SUPABASE_ADMIN_EMAILS=admin1@example.com,admin2@example.com
    VITE_OPENROUTER_API_KEY=sk-or-...
    VITE_TAVILY_API_KEY=tvly-...
    VITE_SALESFORCE_CLIENT_ID=your_salesforce_client_id
@@ -258,6 +263,8 @@ Once deployed, your app should:
 |-------|----------|
 | "Missing environment variables" | Check Vercel project settings → Environment Variables |
 | "Cannot connect to Supabase" | Verify VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set correctly in Vercel |
+| "Invite user failed" | Verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Vercel (server envs) |
+| "Only admins can invite users" | Add your account email to SUPABASE_ADMIN_EMAILS or set admin role in Supabase user metadata |
 | "Email already exists" | Use unique email for test account |
 | "Redirect URL mismatch" | Update Authentication → URL Configuration in Supabase to include Vercel URL |
 | "Build failed" | Check Vercel build logs - may be missing packages (run `npm install` locally to test) |

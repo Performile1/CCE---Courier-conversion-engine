@@ -13,17 +13,17 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel settings');
 }
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
+const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
 });
+
+// The exported client is intentionally relaxed because the checked-in generated
+// schema types are incomplete compared to the active database shape.
+export const supabase: any = supabaseClient;
 
 /**
  * Get current user session
@@ -121,6 +121,47 @@ export async function sendPasswordResetEmail(email: string) {
 
   if (error) throw error;
   return data;
+}
+
+export interface InviteUserResult {
+  success: boolean;
+  userId: string;
+  email: string;
+  role: 'admin' | 'user' | 'viewer';
+  message?: string;
+}
+
+/**
+ * Invite a user through backend endpoint so Supabase can send activation email.
+ */
+export async function inviteUserWithActivation(
+  email: string,
+  role: 'admin' | 'user' | 'viewer',
+  fullName?: string
+): Promise<InviteUserResult> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('You must be logged in to invite users');
+  }
+
+  const response = await fetch('/api/supabase-invite-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ email, role, fullName })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to invite user');
+  }
+
+  return payload as InviteUserResult;
 }
 
 /**

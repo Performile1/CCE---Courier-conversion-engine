@@ -3,9 +3,9 @@
  * Dynamically generates prompts based on country-specific requirements
  */
 
-import { getCountryConfig } from './countries';
-import { getRegistryDomains } from './sources';
-import { getNewsDomains } from './newsSources';
+import { getCountryConfig } from '../config/countries';
+import { getRegistryDomains } from '../config/sources';
+import { getNewsDomains } from '../config/newsSources';
 
 export interface InternationalPromptConfig {
   country: string;

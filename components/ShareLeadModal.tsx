@@ -91,7 +91,7 @@ export const ShareLeadModal: React.FC<ShareLeadModalProps> = ({
           <div className="bg-dhl-gray-light p-4 rounded-sm">
             <p className="text-sm font-medium text-dhl-black">{lead.companyName}</p>
             <p className="text-xs text-dhl-gray-dark mt-1">
-              Potential: {lead.potential || 'N/A'}
+              Potential: {lead.potentialSek || 'N/A'}
             </p>
           </div>
 

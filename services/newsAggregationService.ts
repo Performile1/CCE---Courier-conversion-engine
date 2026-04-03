@@ -1,5 +1,5 @@
 import { getNewsSourcesByCountry, getAPINewsSources, getRSSNewsSources } from '../config/newsSources';
-import { supabaseClient } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
 export interface NewsArticle {
   id: string;
@@ -329,7 +329,7 @@ class NewsAggregationService {
    */
   async saveArticlesToDatabase(articles: NewsArticle[], countryCode: string) {
     try {
-      const { error } = await supabaseClient
+      const { error } = await supabase
         .from('news_articles')
         .insert(
           articles.map(article => ({
@@ -339,11 +339,14 @@ class NewsAggregationService {
             title: article.title,
             description: article.description,
             url: article.url,
-            publishedAt: article.publishedAt,
+          image_url: article.imageUrl || null,
+          published_at: article.publishedAt,
+          fetched_at: new Date().toISOString(),
             category: article.category,
             reliability: article.reliability,
             language: article.language,
-            createdAt: new Date().toISOString()
+          content: article.content || null,
+          created_at: new Date().toISOString()
           }))
         )
         .on('conflict', 'id', { ignoreDuplicates: true });
@@ -367,12 +370,12 @@ class NewsAggregationService {
     try {
       const sinceDate = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
 
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabase
         .from('news_articles')
         .select('*')
         .eq('country', countryCode)
-        .gte('publishedAt', sinceDate)
-        .order('publishedAt', { ascending: false })
+        .gte('published_at', sinceDate)
+        .order('published_at', { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -380,7 +383,20 @@ class NewsAggregationService {
         return [];
       }
 
-      return data || [];
+      return (data || []).map((article: any) => ({
+        id: article.id,
+        source: article.source,
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        imageUrl: article.image_url || undefined,
+        publishedAt: article.published_at,
+        country: article.country,
+        category: article.category,
+        reliability: article.reliability,
+        language: article.language,
+        content: article.content
+      }));
     } catch (error) {
       console.error('Error fetching articles:', error);
       return [];
@@ -396,7 +412,7 @@ class NewsAggregationService {
     limit: number = 20
   ): Promise<NewsArticle[]> {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabase
         .from('news_articles')
         .select('*')
         .eq('country', countryCode)
@@ -404,7 +420,7 @@ class NewsAggregationService {
           `title.ilike.%${keyword}%,` +
           `description.ilike.%${keyword}%`
         )
-        .order('publishedAt', { ascending: false })
+        .order('published_at', { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -412,7 +428,20 @@ class NewsAggregationService {
         return [];
       }
 
-      return data || [];
+      return (data || []).map((article: any) => ({
+        id: article.id,
+        source: article.source,
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        imageUrl: article.image_url || undefined,
+        publishedAt: article.published_at,
+        country: article.country,
+        category: article.category,
+        reliability: article.reliability,
+        language: article.language,
+        content: article.content
+      }));
     } catch (error) {
       console.error('Error searching articles:', error);
       return [];

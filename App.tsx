@@ -48,6 +48,7 @@ import { generateLeads, generateDeepDiveSequential } from './services/openrouter
 import { signOut, supabase } from './services/supabaseClient';
 import { CronJob, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
+import { Language, translate } from './services/i18n';
 import { 
   SearchFormData, 
   LeadData, 
@@ -128,6 +129,12 @@ export const App: React.FC = () => {
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'session_only'>('loading');
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
+  
+  // Language state
+  const [appLanguage, setAppLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('dhl_app_language');
+    return (saved as Language) || 'sv';
+  });
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [activeCarrier, setActiveCarrier] = useState<string>(() => localStorage.getItem('dhl_active_carrier') || 'DHL');
   const [carriers, setCarriers] = useState<string[]>(() => {
@@ -367,20 +374,54 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
   useEffect(() => { localStorage.setItem('dhl_active_source_country', activeSourceCountry); }, [activeSourceCountry]);
   useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
+  useEffect(() => { localStorage.setItem('dhl_app_language', appLanguage); }, [appLanguage]);
   useEffect(() => { saveCronJobs(cronJobs); }, [cronJobs]);
 
   useEffect(() => {
     if (!user?.id) return;
-    if (!toolAccessConfig.userRoles[user.id]) {
+    const hasRole = !!toolAccessConfig.userRoles[user.id];
+    const hasEmail = !!toolAccessConfig.userEmails?.[user.id];
+    if (!hasRole || !hasEmail) {
       setToolAccessConfig(prev => ({
         ...prev,
         userRoles: {
           ...prev.userRoles,
-          [user.id]: Object.keys(prev.userRoles).length === 0 ? 'admin' : 'user'
+          [user.id]: prev.userRoles[user.id] || (Object.keys(prev.userRoles).length === 0 ? 'admin' : 'user')
+        },
+        userEmails: {
+          ...(prev.userEmails || {}),
+          [user.id]: prev.userEmails?.[user.id] || user.email || ''
         }
       }));
     }
-  }, [user?.id, toolAccessConfig.userRoles]);
+  }, [user?.id, user?.email, toolAccessConfig.userRoles, toolAccessConfig.userEmails]);
+
+  useEffect(() => {
+    const normalizedEmail = String(user?.email || '').trim().toLowerCase();
+    if (!user?.id || !normalizedEmail) return;
+
+    const invitation = toolAccessConfig.invitationHistory?.[normalizedEmail];
+    if (!invitation) return;
+
+    if (invitation.status !== 'accepted' || invitation.userId !== user.id) {
+      setToolAccessConfig(prev => ({
+        ...prev,
+        invitationHistory: {
+          ...(prev.invitationHistory || {}),
+          [normalizedEmail]: {
+            ...prev.invitationHistory?.[normalizedEmail],
+            email: normalizedEmail,
+            role: prev.invitationHistory?.[normalizedEmail]?.role || prev.userRoles[user.id] || 'user',
+            userId: user.id,
+            invitedAt: prev.invitationHistory?.[normalizedEmail]?.invitedAt || new Date().toISOString(),
+            lastSentAt: prev.invitationHistory?.[normalizedEmail]?.lastSentAt || new Date().toISOString(),
+            sentCount: prev.invitationHistory?.[normalizedEmail]?.sentCount || 1,
+            status: 'accepted'
+          }
+        }
+      }));
+    }
+  }, [user?.id, user?.email, toolAccessConfig.invitationHistory, toolAccessConfig.userRoles]);
 
   const currentUserRole: UserRole = user?.id ? (toolAccessConfig.userRoles[user.id] || 'user') : 'viewer';
   const roleTools = toolAccessConfig.roleToolAccess[currentUserRole] || [];
@@ -1040,6 +1081,8 @@ export const App: React.FC = () => {
         activeSourceCountry={activeSourceCountry}
         setActiveSourceCountry={setActiveSourceCountry}
         visibleTools={visibleTools}
+        language={appLanguage}
+        setLanguage={setAppLanguage}
       />
       
       <main className="max-w-[1600px] mx-auto px-4 py-6 flex-1 w-full">
@@ -1267,7 +1310,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom Integration Adapter</h2>
-            <CustomIntegrationAdapter />
+            <CustomIntegrationAdapter userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsCustomIntegrationOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1282,7 +1325,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom Report Builder</h2>
-            <CustomReportBuilder leads={leads} />
+            <CustomReportBuilder userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsCustomReportOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1297,7 +1340,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Campaign Analytics</h2>
-            <CampaignAnalytics />
+            <CampaignAnalytics campaignId="" campaignName="Campaign" />
             <button 
               onClick={() => setIsCampaignAnalyticsOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1327,7 +1370,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Cost Analysis Dashboard</h2>
-            <CostAnalysisDashboard />
+            <CostAnalysisDashboard userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsCostAnalysisOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1342,7 +1385,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">CRM Manager</h2>
-            <CRMManager />
+            <CRMManager userId={user?.id || 'current-user'} leads={leads} />
             <button 
               onClick={() => setIsCRMManagerOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1357,7 +1400,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Email Campaign Builder</h2>
-            <EmailCampaignBuilder />
+            <EmailCampaignBuilder userId={user?.id || 'current-user'} leads={leads} />
             <button 
               onClick={() => setIsEmailCampaignBuilderOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1372,7 +1415,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Event Triggers</h2>
-            <EventTriggersComponent />
+            <EventTriggersComponent userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsEventTriggersOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1387,7 +1430,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Export Manager</h2>
-            <ExportManager leads={leads} />
+            <ExportManager userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsExportManagerOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1402,7 +1445,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Slack Manager</h2>
-            <SlackManager />
+            <SlackManager userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsSlackManagerOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1417,7 +1460,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Webhook System Manager</h2>
-            <WebhookSystemManager />
+            <WebhookSystemManager userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsWebhookManagerOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1432,7 +1475,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Phase 9 Integration Manager</h2>
-            <Phase9IntegrationManager />
+            <Phase9IntegrationManager userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsPhase9IntegrationOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
@@ -1462,7 +1505,7 @@ export const App: React.FC = () => {
       {isUserProfileOpen && user && (
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <UserProfile userId={user.id} onClose={() => setIsUserProfileOpen(false)} />
+            <UserProfile userId={user.id} onClose={() => setIsUserProfileOpen(false)} activeSourceCountry={activeSourceCountry} setActiveSourceCountry={setActiveSourceCountry} />
           </div>
         </div>
       )}

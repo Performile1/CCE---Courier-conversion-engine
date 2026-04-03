@@ -86,17 +86,31 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
     setLoading(true);
     try {
-      const campaign = await createCampaign(userId, {
+      const campaign = await createCampaign(userId, formData.name, formData.subject);
+      const selectedRecipients = leads
+        .filter((lead) => formData.selectedLeads.includes(lead.id))
+        .map((lead) => ({
+          leadId: lead.id,
+          email: lead.email || lead.decisionMakers?.[0]?.email || ''
+        }))
+        .filter((recipient) => recipient.email);
+
+      if (selectedRecipients.length === 0) {
+        throw new Error('Selected leads do not contain any email addresses');
+      }
+
+      await addLeadsToCampaign(campaign.id, selectedRecipients);
+
+      setCampaigns([...campaigns, {
+        id: campaign.id,
         name: formData.name,
         subject: formData.subject,
         body: formData.body,
         status: 'draft',
-        createdAt: new Date(),
-      });
-
-      await addLeadsToCampaign(campaign.id, formData.selectedLeads);
-
-      setCampaigns([...campaigns, campaign as Campaign]);
+        openRate: 0,
+        clickRate: 0,
+        recipientCount: selectedRecipients.length,
+      }]);
       setFormData({ name: '', subject: '', body: '', selectedLeads: [] });
       setShowForm(false);
       setError('');
@@ -110,7 +124,12 @@ export const EmailCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const handleSendCampaign = async (campaignId: string) => {
     setSending(true);
     try {
-      await sendCampaign(campaignId);
+      const campaign = campaigns.find((item) => item.id === campaignId);
+      if (!campaign) {
+        throw new Error('Campaign not found');
+      }
+
+      await sendCampaign(campaignId, campaign.body, campaign.subject);
       const updated = campaigns.map((c) =>
         c.id === campaignId ? { ...c, status: 'sent' as const } : c
       );

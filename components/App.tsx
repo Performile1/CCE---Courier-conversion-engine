@@ -21,6 +21,7 @@ import { RateLimitOverlay } from './RateLimitOverlay';
 import { QuotaTimer } from './QuotaTimer';
 import { OnboardingTour } from './OnboardingTour';
 import { generateLeads, generateDeepDiveSequential } from '../services/openrouterService'; 
+import { Language } from '../services/i18n';
 import { 
   SearchFormData, 
   LeadData, 
@@ -38,6 +39,10 @@ export const App: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'session_only'>('loading');
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [activeCarrier, setActiveCarrier] = useState<string>(() => localStorage.getItem('dhl_active_carrier') || 'DHL');
+  const [appLanguage, setAppLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('dhl_app_language');
+    return (saved as Language) || 'sv';
+  });
   const [carrierSettings, setCarrierSettings] = useState<CarrierSettings[]>(() => {
     try {
       const saved = localStorage.getItem('dhl_market_settings');
@@ -114,6 +119,10 @@ export const App: React.FC = () => {
     initDb();
   }, [refreshData]);
 
+  useEffect(() => { 
+    localStorage.setItem('dhl_app_language', appLanguage); 
+  }, [appLanguage]);
+
   const handleUpdateLead = async (updatedLead: LeadData) => {
     if (!updatedLead || !updatedLead.id) return; 
     setLeads(prev => {
@@ -187,6 +196,8 @@ export const App: React.FC = () => {
         onAddNewLead={() => setIsManualAddOpen(true)} 
         activeCarrier={activeCarrier}
         setActiveCarrier={setActiveCarrier}
+        language={appLanguage}
+        setLanguage={setAppLanguage}
       />
       
       <main className="max-w-[1600px] mx-auto px-4 py-6 flex-1 w-full">

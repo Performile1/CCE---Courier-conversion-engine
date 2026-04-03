@@ -73,7 +73,7 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
         .map(([model, data]) => ({
           model,
           cost: parseFloat(data.cost.toFixed(2)),
-          percentage: ((data.cost / totalModelCost) * 100).toFixed(1),
+          percentage: parseFloat(((data.cost / totalModelCost) * 100).toFixed(1)),
           count: data.count,
         }))
         .sort((a, b) => b.cost - a.cost);
@@ -148,7 +148,7 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${parseFloat(value).toFixed(2)}`} />
+                <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -188,7 +188,7 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="service" />
               <YAxis />
-              <Tooltip formatter={(value) => `$${parseFloat(value).toFixed(2)}`} />
+              <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
               <Bar dataKey="cost" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
@@ -206,7 +206,7 @@ export const CostAnalysisDashboard: React.FC<CostAnalysisDashboardProps> = ({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value) => `$${parseFloat(value).toFixed(2)}`} />
+              <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
               <Legend />
               <Line
                 type="monotone"
