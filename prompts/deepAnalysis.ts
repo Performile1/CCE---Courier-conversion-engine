@@ -29,6 +29,8 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
 - Model: "Pure Player" (fokus box/last-mile) vs "Retailer" (fokus butiksnarvaro).
 - Distribution: Estimera fordelning mellan B2B och B2C (t.ex. 20% B2B, 80% B2C) baserat pa sortiment och kundsegment.
 - Stack: Detektera e-handelsplattform (Shopify, WooCommerce, Magento, Centra, Norce) och TA-system (nShift/Unifaun, Centiro, Ingrid, Logtrade).
+- Checkout-positioner: Granska "FINANSIELL REGISTERDATA" och "SOURCE EVIDENCE" for kassainnehall. Lista transportorer efter position (pos 1, 2, 3...). VIKTIG REGEL: Om fokustransportoren INTE syns i kassans data, lagg alltid till en extra post med pos: 0, service: "EJ I CHECKOUT", price: "—". Gissa ALDRIG positioner utan evidens.
+- Stack: Detektera e-handelsplattform (Shopify, WooCommerce, Magento, Centra, Norce) och TA-system (nShift/Unifaun, Centiro, Ingrid, Logtrade).
   Tips: Leta efter scripts, cookies (t.ex. _shopify_y, _unifaun), eller specifika checkout-monster. Om osaker, svara "Identifieras via checkout...".
 
 ### 2. FINANCIAL AUDIT & CREDIT RATING
@@ -86,10 +88,11 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
   },
   "logistics": {
     "carriers": ["string"],
-    "checkout_positions": [{"carrier": "string", "pos": number, "service": "string", "price": "string"}],
+    "checkout_positions": [{"carrier": "string", "pos": number, "service": "string", "price": "string", "in_checkout": true}],
     "ecommerce_platform": "string", "checkout_solution": "string", "ta_system": "string", "tech_evidence": "string",
     "store_count": number, "strategic_pitch": "string"
   },
+  "email_pattern": "string (t.ex. fornamn.efternamn@domän.se — tom om ej hittad)",
   "news": [
     { "title": "string", "url": "url", "date": "YYYY-MM-DD", "source": "string" }
   ],

@@ -64,6 +64,7 @@ export interface CheckoutOption {
   carrier: string;
   service: string;
   price: string;
+  inCheckout?: boolean; // false = fokuscarrier explicitly not found in checkout crawl
 }
 
 export interface NewsSourceMapping {
@@ -156,6 +157,14 @@ export interface FrictionAnalysis {
   companyClicks: number;
   benchmarkClicks: number;
   frictionNote: string;
+}
+
+export interface DataConfidence {
+  financial: 'verified' | 'estimated' | 'missing';
+  checkout: 'crawled' | 'estimated' | 'missing';
+  contacts: 'verified' | 'estimated' | 'missing';
+  addresses: 'verified' | 'estimated' | 'missing';
+  emailPattern: 'found' | 'inferred' | 'missing';
 }
 
 export interface LeadData {
@@ -254,4 +263,8 @@ export interface LeadData {
   };
 
   sourceCoverage?: SourceCoverageEntry[];
+
+  // ── Anti-hallucination: per-field source confidence ──────────────────────
+  emailPattern?: string;
+  dataConfidence?: DataConfidence;
 }

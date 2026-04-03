@@ -31,6 +31,19 @@ interface LeadCardProps {
   onSaveThreePL?: (providers: ThreePLProvider[]) => void;
 }
 
+const ConfidenceBadge = ({ level }: {
+  level?: 'verified' | 'crawled' | 'estimated' | 'missing' | 'found' | 'inferred'
+}) => {
+  if (!level) return null;
+  if (level === 'verified' || level === 'crawled' || level === 'found')
+    return <span className="ml-1.5 px-1 py-0.5 bg-emerald-100 text-emerald-700 text-[7px] font-black uppercase border border-emerald-200 tracking-wider">VERIFIERAD</span>;
+  if (level === 'estimated' || level === 'inferred')
+    return <span className="ml-1.5 px-1 py-0.5 bg-yellow-100 text-yellow-700 text-[7px] font-black uppercase border border-yellow-200 tracking-wider">ESTIMERING</span>;
+  if (level === 'missing')
+    return <span className="ml-1.5 px-1 py-0.5 bg-red-50 text-red-600 text-[7px] font-black uppercase border border-red-100 tracking-wider">EJ HITTAD</span>;
+  return null;
+};
+
 const LeadCard: React.FC<LeadCardProps> = ({ 
   data, 
   onUpdateLead, 
@@ -545,6 +558,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <BarChart3 className="w-4 h-4 text-[#D40511]" /> Finansiellt
+                    <ConfidenceBadge level={editData.dataConfidence?.financial} />
                   </h3>
                   <div className="grid grid-cols-1 gap-3">
                     <div className="grid grid-cols-2 gap-3">
@@ -673,6 +687,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <Truck className="w-4 h-4 text-[#D40511]" /> Logistik & Infrastruktur
+                    <ConfidenceBadge level={editData.dataConfidence?.checkout} />
                   </h3>
                   
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
@@ -738,15 +753,23 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
 
                   <div className="p-3 bg-white rounded-none border border-slate-100 shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Checkout-positioner</p>
+                    <div className="flex items-center gap-1 mb-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Checkout-positioner</p>
+                      <ConfidenceBadge level={editData.dataConfidence?.checkout} />
+                    </div>
                     <div className="space-y-2">
                       {editData.checkoutOptions?.map((opt, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-2 text-dhl-gray-dark">
-                            <span className="w-4 h-4 bg-dhl-gray-light rounded-none flex items-center justify-center text-[9px] font-bold">{opt.position}</span>
-                            {opt.carrier}
+                        <div key={i} className={`flex items-center justify-between text-xs ${opt.inCheckout === false ? 'opacity-70' : ''}`}>
+                          <span className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded-none flex items-center justify-center text-[9px] font-bold ${opt.inCheckout === false ? 'bg-red-100 text-red-600' : 'bg-dhl-gray-light text-dhl-gray-dark'}`}>
+                              {opt.inCheckout === false ? '✗' : opt.position}
+                            </span>
+                            <span className={opt.inCheckout === false ? 'line-through text-red-400' : 'text-dhl-gray-dark'}>{opt.carrier}</span>
+                            {opt.inCheckout === false && (
+                              <span className="px-1 py-0.5 bg-red-100 text-red-700 text-[7px] font-black uppercase border border-red-200">EJ I CHECKOUT</span>
+                            )}
                           </span>
-                          <span className="font-bold text-dhl-black">{opt.price}</span>
+                          <span className={`font-bold ${opt.inCheckout === false ? 'text-red-400' : 'text-dhl-black'}`}>{opt.price}</span>
                         </div>
                       ))}
                     </div>
@@ -810,6 +833,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-dhl-black flex items-center gap-2 border-b border-slate-100 pb-2">
                     <Layout className="w-4 h-4 text-[#D40511]" /> Beslutsfattare / Pitch / Potential
+                    <ConfidenceBadge level={editData.dataConfidence?.contacts} />
                   </h3>
 
                   <div className="space-y-3">
@@ -878,10 +902,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
                                 />
                               </div>
                             ) : (
-                              <>
+                              <div className="mb-2">
                                 <p className="text-xs font-bold text-dhl-black">{contact.name}</p>
-                                <p className="text-[10px] text-slate-500 mb-2">{contact.title}</p>
-                              </>
+                                <p className="text-[10px] text-slate-500">{contact.title}</p>
+                                {contact.directPhone && (
+                                  <p className="text-[10px] text-emerald-700 font-bold mt-0.5">📞 {contact.directPhone}</p>
+                                )}
+                                {contact.verificationNote && (
+                                  <p className="text-[9px] text-slate-400 italic mt-0.5">{contact.verificationNote}</p>
+                                )}
+                              </div>
                             )}
                             <div className="flex gap-2">
                               <a 
@@ -925,6 +955,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     ))}
                   </div>
+
+                  {editData.emailPattern && (
+                    <div className="p-2 bg-blue-50 border border-blue-100 rounded-none">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <p className="text-[9px] font-bold text-blue-500 uppercase tracking-wider">E-postmönster</p>
+                        <ConfidenceBadge level={editData.dataConfidence?.emailPattern} />
+                      </div>
+                      <p className="text-[10px] font-mono text-blue-800 font-bold">{editData.emailPattern}</p>
+                    </div>
+                  )}
 
                   <div className="p-3 bg-yellow-50 rounded-none border border-yellow-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Strategisk Pitch</p>

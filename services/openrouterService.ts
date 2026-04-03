@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -674,6 +674,174 @@ async function fetchTechEvidenceFromCrawl(domain: string): Promise<string> {
   }
 }
 
+// ── Phase 1: Verified Financial Data from Allabolag/Ratsit ────────────────
+async function fetchVerifiedFinancials(
+  orgNumber: string,
+  companyName: string
+): Promise<{ evidenceText: string; confidence: 'verified' | 'estimated' | 'missing' }> {
+  const cleanOrg = normalizeOrgNumber(orgNumber);
+  if (!cleanOrg && !companyName) return { evidenceText: '', confidence: 'missing' };
+  try {
+    const orgFormatted = cleanOrg.length >= 10
+      ? `${cleanOrg.slice(0, 6)}-${cleanOrg.slice(6, 10)}`
+      : cleanOrg;
+    const searchQuery = cleanOrg
+      ? `site:allabolag.se "${orgFormatted}" OR "${cleanOrg}" omsättning resultat soliditet`
+      : `site:allabolag.se "${companyName}" (omsättning OR resultat OR soliditet OR bokslut)`;
+
+    const tavilyResponse = await axios.post(
+      buildApiUrl('/api/tavily'),
+      { query: searchQuery, action: 'search', maxResults: 3 },
+      { timeout: 10000 }
+    );
+    const results: any[] = tavilyResponse.data?.results || [];
+    const allabolagUrl = results
+      .map((r: any) => pickString(r?.url))
+      .find(url => url.includes('allabolag.se') || url.includes('ratsit.se'));
+
+    const snippets: string[] = [];
+    // Use Tavily content snippets as initial evidence
+    for (const r of results.slice(0, 2)) {
+      const content = pickString(r?.content).slice(0, 800);
+      const url = pickString(r?.url);
+      if (content && (content.match(/\d[\s.]\d{3}/) || content.toLowerCase().includes('omsättning') || content.toLowerCase().includes('tkr'))) {
+        snippets.push(`[${normalizeDomain(url)}]\n${content}`);
+      }
+    }
+    // Direct crawl of the registry page for richer structured data
+    if (allabolagUrl) {
+      try {
+        const crawlResp = await axios.post(
+          buildApiUrl('/api/crawl'),
+          { url: allabolagUrl, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+          { timeout: 15000 }
+        );
+        const crawled = pickString(crawlResp.data?.content).slice(0, 1500);
+        if (crawled) snippets.unshift(`[${normalizeDomain(allabolagUrl)} — DIREKT CRAWL]\n${crawled}`);
+      } catch { /* fall back to Tavily snippet */ }
+    }
+    if (!snippets.length) return { evidenceText: '', confidence: 'missing' };
+    return { evidenceText: snippets.join('\n\n---\n\n'), confidence: 'verified' };
+  } catch {
+    return { evidenceText: '', confidence: 'missing' };
+  }
+}
+
+// ── Phase 2: Checkout Position Crawl ─────────────────────────────────────
+async function fetchCheckoutPositions(
+  domain: string,
+  focusCarrier: string
+): Promise<{
+  positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
+  evidenceSnippet: string;
+  confidence: 'crawled' | 'estimated' | 'missing';
+}> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
+  const pathsToTry = ['/checkout', '/kassan', '/varukorg', '/cart', '/leverans', '/frakt'];
+  let checkoutContent = '';
+  for (const path of pathsToTry) {
+    try {
+      const resp = await axios.post(
+        buildApiUrl('/api/crawl'),
+        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { timeout: 15000 }
+      );
+      const content = pickString(resp.data?.content);
+      if (content && content.length > 200) { checkoutContent = content.slice(0, 2500); break; }
+    } catch { /* try next path */ }
+  }
+  if (!checkoutContent) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
+  const haystack = checkoutContent.toLowerCase();
+  const allCarriers = TECH_SOLUTION_KEYWORDS.logisticsSignals;
+  const foundCarriers = allCarriers.filter(c => haystack.includes(c.toLowerCase()));
+  const positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }> = foundCarriers.map((carrier, i) => ({
+    carrier, pos: i + 1, service: '', price: 'N/A', inCheckout: true
+  }));
+  // Explicit "not in checkout" flag for the focus carrier
+  const focusNorm = focusCarrier.toLowerCase();
+  const focusFound = foundCarriers.some(c => c.toLowerCase().includes(focusNorm) || focusNorm.includes(c.toLowerCase()));
+  if (!focusFound && focusCarrier) {
+    positions.push({ carrier: focusCarrier, pos: 0, service: 'EJ I CHECKOUT', price: '—', inCheckout: false });
+  }
+  return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled' };
+}
+
+// ── Phase 3: Role-Targeted Decision Maker Search ──────────────────────────
+async function fetchDecisionMakersTargeted(
+  companyName: string,
+  orgNumber: string,
+  focusRoles: string[],
+  preferredDomains: string[]
+): Promise<{
+  contacts: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }>;
+  confidence: 'verified' | 'estimated' | 'missing';
+}> {
+  if (!companyName) return { contacts: [], confidence: 'missing' };
+  const roleSynonyms = [...focusRoles.filter(Boolean), 'VD', 'logistikchef', 'inköpschef', 'e-handelschef', 'COO'];
+  const roleClause = roleSynonyms.slice(0, 5).map(r => `"${r}"`).join(' OR ');
+  const orgNormalized = normalizeOrgNumber(orgNumber);
+  const queries = [
+    `"${companyName}" (${roleClause}) site:linkedin.com`,
+    `"${companyName}" (styrelse OR ledning OR vd) site:allabolag.se`,
+    orgNormalized ? `"${orgNormalized}" (VD OR styrelseledamot OR logistikchef) site:ratsit.se` : null
+  ].filter(Boolean) as string[];
+
+  const found: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
+  const seenNames = new Set<string>();
+  for (const query of queries) {
+    try {
+      const resp = await axios.post(buildApiUrl('/api/tavily'), { query, action: 'search', maxResults: 5 }, { timeout: 12000 });
+      const results: any[] = resp.data?.results || [];
+      for (const r of results) {
+        const text = `${pickString(r?.title)} ${pickString(r?.content)}`;
+        const url = pickString(r?.url);
+        const nameMatches = text.match(/\b([A-ZÅÄÖ][a-zåäö-]+\s+[A-ZÅÄÖ][a-zåäö-]+)\b/g) || [];
+        const roleMatches = text.match(/(VD|CEO|logistikchef|inköpschef|e-handelschef|CMO|CFO|COO|styrelseordförande|styrelseledamot|Supply Chain|Head of Logistics)/gi) || [];
+        if (!nameMatches.length || !roleMatches.length) continue;
+        const name = nameMatches[0];
+        const role = roleMatches[0];
+        if (/rickard|wigrund/i.test(name)) continue;
+        if (isLikelyGenericPersonName(name)) continue;
+        if (seenNames.has(name.toLowerCase())) continue;
+        seenNames.add(name.toLowerCase());
+        found.push({ name, title: role, email: '', linkedin: url.includes('linkedin.com') ? url : '', directPhone: '', verificationNote: `Källa: ${normalizeDomain(url)}` });
+      }
+    } catch { /* continue to next query */ }
+  }
+  return { contacts: found.slice(0, 4), confidence: found.length > 0 ? 'verified' : 'missing' };
+}
+
+// ── Phase 4: Email Pattern Detection ─────────────────────────────────────
+function inferEmailPattern(localParts: string[], domain: string): string {
+  const dotParts = localParts.filter(p => p.includes('.'));
+  if (dotParts.length > 0 && dotParts.length / localParts.length >= 0.5) return `förnamn.efternamn@${domain}`;
+  const initDotParts = localParts.filter(p => /^[a-z]\.[a-z]{2,}$/.test(p));
+  if (initDotParts.length > 0) return `f.efternamn@${domain}`;
+  return `[namn]@${domain}`;
+}
+
+async function detectEmailPattern(domain: string, evidenceText: string): Promise<string> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) return '';
+  const emailRegex = new RegExp(`\\b[a-z0-9._%+\\-]+@${normalizedDomain.replace('.', '\\.')}\\b`, 'gi');
+  const inEvidence = (evidenceText.match(emailRegex) || []).map(e => e.toLowerCase());
+  if (inEvidence.length >= 2) return inferEmailPattern(inEvidence.map(e => e.split('@')[0]), normalizedDomain);
+  for (const page of ['/kontakt', '/contact', '/om-oss', '/about']) {
+    try {
+      const resp = await axios.post(
+        buildApiUrl('/api/crawl'),
+        { url: `https://${normalizedDomain}${page}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { timeout: 10000 }
+      );
+      const content = pickString(resp.data?.content);
+      const emails = (content.match(emailRegex) || []).map(e => e.toLowerCase());
+      if (emails.length >= 1) return inferEmailPattern(emails.map(e => e.split('@')[0]), normalizedDomain);
+    } catch { /* try next page */ }
+  }
+  return '';
+}
+
 function parseRetryAfterSeconds(error: any): number {
   const headerValue = error?.response?.headers?.['retry-after'];
   if (headerValue) {
@@ -961,19 +1129,26 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
 
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
-    onUpdate({}, 'Samlar källunderlag via Tavily/Google och Crawl4ai...');
-    const sourceBundle = await fetchCategoryExactPageEvidenceBundle(
-      identityLabel,
-      effectivePolicies
-    );
+    onUpdate({}, 'Samlar källunderlag via Tavily/Google, Allabolag och Crawl4ai...');
+    const [sourceBundle, financialEvidence] = await Promise.all([
+      fetchCategoryExactPageEvidenceBundle(identityLabel, effectivePolicies),
+      fetchVerifiedFinancials(strictOrgNumber, strictCompanyName)
+    ]);
     const sourceGroundingEvidence = sourceBundle.promptEvidence;
+    onUpdate({}, financialEvidence.confidence === 'verified'
+      ? '✓ Finansiell registerdata hämtad från Allabolag/Ratsit'
+      : 'Finansiell registerdata ej tillgänglig — AI nyttjar källbevis');
 
     const groundedPrompt = `${prompt}
 
 ### SOURCE EVIDENCE (TAVILY/GOOGLE + CRAWL4AI)
 ${sourceGroundingEvidence || 'Ingen extern källa kunde hämtas i detta steg. Använd då source-priority-listan ovan.'}
 
-Använd source evidence ovan först när du fyller fälten. Om ett fält saknar evidens, skriv tom sträng eller 0 enligt schema.`;
+### FINANSIELL REGISTERDATA (ALLABOLAG.SE / RATSIT.SE — DIREKT CRAWL)
+${financialEvidence.evidenceText || 'Ingen direkt registerdata hämtad. Ange 0 för alla finansiella fält som saknas i SOURCE EVIDENCE.'}
+KRITISK REGEL: Extrahera siffror verbatim från registerdata ovan. Inga avrundningar. Inga estimeringar. Inga påhittade siffror.
+
+Använd source evidence och registerdata ovan när du fyller fälten. Om ett fält saknar evidens, skriv tom sträng eller 0 enligt schema.`;
 
     const responseText = await callOpenRouterWithRetry(
       activeModel, 
@@ -997,6 +1172,44 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
     const financials = root?.financials || root?.financialData || root?.financial_data || {};
     const logistics = root?.logistics || root?.logisticsData || root?.logistics_data || {};
     const contactsRaw = root?.contacts || root?.decisionMakers || root?.decision_makers || [];
+
+    // ── Phase 2 + 4: Checkout crawl + email pattern (non-critical, parallel) ─
+    const parsedDomain = normalizeDomain(
+      pickString(companyData?.domain, companyData?.website, companyData?.url)
+    );
+    let checkoutCrawlResult: {
+      positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
+      evidenceSnippet: string;
+      confidence: 'crawled' | 'estimated' | 'missing';
+    } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+    let detectedEmailPattern = '';
+    try {
+      onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
+      const phase24 = await Promise.all([
+        fetchCheckoutPositions(parsedDomain, activeCarrier),
+        detectEmailPattern(parsedDomain, sourceGroundingEvidence + ' ' + (financialEvidence.evidenceText || ''))
+      ]);
+      checkoutCrawlResult = phase24[0];
+      detectedEmailPattern = phase24[1];
+    } catch { /* Phase 2+4 non-critical — proceed with LLM data */ }
+
+    // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
+    const llmContactCount = Array.isArray(contactsRaw) ? contactsRaw.length : 0;
+    let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
+    let dmConfidence: 'verified' | 'estimated' | 'missing' = 'estimated';
+    try {
+      if (llmContactCount < 2) {
+        onUpdate({}, 'Söker beslutsfattare via rollstyrd källsökning...');
+        const dmResult = await fetchDecisionMakersTargeted(
+          pickString(companyData?.name, companyData?.company_name) || strictCompanyName,
+          pickString(companyData?.org_nr, companyData?.organization_number) || strictOrgNumber,
+          [formData.focusRole1, formData.focusRole2, formData.focusRole3],
+          preferredDomains
+        );
+        dmSupplement = dmResult.contacts;
+        dmConfidence = dmResult.confidence;
+      }
+    } catch { /* Phase 3 non-critical — proceed with LLM contacts */ }
 
     const revenueTKR = parseRevenueToTKR(
       pickNumber(companyData?.revenue_tkr, companyData?.revenueTKR, companyData?.revenue) || 0
@@ -1083,9 +1296,16 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
       strategicPitch: pickString(logistics?.strategic_pitch, logistics?.strategicPitch),
       latestNews: latestNewsFromModel || latestNewsFallback, 
       
-      decisionMakers: (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
-        name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || ''
-      })),
+      decisionMakers: (() => {
+        const llmContacts: DecisionMaker[] = (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
+          name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || '',
+          directPhone: c.direct_phone || c.directPhone || '', verificationNote: ''
+        }));
+        const supplement: DecisionMaker[] = dmSupplement
+          .filter(dc => !llmContacts.some(lc => lc.name.toLowerCase().startsWith(dc.name.split(' ')[0].toLowerCase())))
+          .map(dc => ({ name: dc.name, title: dc.title, email: dc.email, linkedin: dc.linkedin, directPhone: dc.directPhone, verificationNote: dc.verificationNote }));
+        return [...llmContacts, ...supplement].slice(0, 6);
+      })(),
       
       potentialSek: metrics.shippingBudgetSEK,
       freightBudget: `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr`,
@@ -1109,18 +1329,27 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
       
       businessModel: pickString(companyData?.business_model, companyData?.businessModel),
       storeCount: pickNumber(logistics?.store_count, logistics?.storeCount) || 0,
-      checkoutOptions: (logistics?.checkout_positions || logistics?.checkoutPositions || []).map((cp: any) => ({
-        position: cp.pos || 0,
-        carrier: cp.carrier || '',
-        service: cp.service || '',
-        price: cp.price || 'N/A'
-      })),
+      checkoutOptions: checkoutCrawlResult.confidence === 'crawled' && checkoutCrawlResult.positions.length > 0
+        ? checkoutCrawlResult.positions.map(cp => ({
+            position: cp.pos, carrier: cp.carrier, service: cp.service, price: cp.price, inCheckout: cp.inCheckout
+          }))
+        : (logistics?.checkout_positions || logistics?.checkoutPositions || []).map((cp: any) => ({
+            position: cp.pos || 0, carrier: cp.carrier || '', service: cp.service || '', price: cp.price || 'N/A', inCheckout: true
+          })),
 
       conversionScore: pickNumber(logistics?.conversion_score, logistics?.conversionScore) || 0,
       deepScanPerformed: false,
       aiModel: activeModel,
       halluccinationScore: 0, // Will be updated by Tavily
-      sourceCoverage: sourceBundle.coverage
+      sourceCoverage: sourceBundle.coverage,
+      emailPattern: detectedEmailPattern,
+      dataConfidence: {
+        financial: financialEvidence.confidence,
+        checkout: checkoutCrawlResult.confidence,
+        contacts: llmContactCount >= 2 ? 'estimated' as const : dmConfidence,
+        addresses: financialEvidence.confidence === 'verified' ? 'verified' as const : 'estimated' as const,
+        emailPattern: detectedEmailPattern ? 'found' as const : 'missing' as const
+      } as DataConfidence
     };
 
     onUpdate(lead, "Analys slutförd.");
