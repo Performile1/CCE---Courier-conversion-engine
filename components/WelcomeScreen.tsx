@@ -25,7 +25,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userNam
 
   return (
     <div
-      className={`fixed inset-0 bg-dhl-yellow flex items-center justify-center z-50 transition-opacity duration-500`}
+      className={`fixed inset-0 bg-dhl-yellow flex items-center justify-center z-modal transition-opacity duration-500`}
       style={{ opacity }}
     >
       <div className="text-center">

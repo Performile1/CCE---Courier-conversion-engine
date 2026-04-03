@@ -6,20 +6,41 @@ import { NewsSourceMapping, SourcePolicyConfig, SourcePerformanceEntry } from '.
 const AVAILABLE_LEADCARD_FIELDS = [
   'companyName',
   'orgNumber',
+  'websiteUrl',
+  'phoneNumber',
+  'industry',
+  'industryDescription',
+  'sniCode',
+  'businessModel',
   'address',
   'visitingAddress',
   'warehouseAddress',
   'revenue',
+  'revenueYear',
   'profit',
+  'profitMargin',
   'solidity',
   'liquidityRatio',
+  'debtBalance',
+  'debtEquityRatio',
+  'legalStatus',
   'creditRatingLabel',
+  'creditRatingMotivation',
+  'riskProfile',
+  'financialTrend',
+  'financialSource',
   'decisionMakers',
   'paymentProvider',
+  'checkoutOptions',
   'checkoutSolution',
   'ecommercePlatform',
   'taSystem',
+  'carriers',
+  'annualPackages',
+  'marketCount',
+  'activeMarkets',
   'techEvidence',
+  'sourceCoverage',
   'latestNews'
 ];
 
@@ -62,6 +83,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
   const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
   const [suggestionTargetCategory, setSuggestionTargetCategory] = useState('news');
   const [sourceSuggestions, setSourceSuggestions] = useState<SourcePerformanceEntry[]>([]);
+  const [strictCompanyMatch, setStrictCompanyMatch] = useState(true);
 
   const baseCategories = ['financial', 'addresses', 'decisionMakers', 'payment', 'webSoftware', 'news'];
   const countryOptions = ['global', 'se', 'no', 'dk', 'fi', ...Object.keys(sourcePolicies?.countrySourcePolicies || {})]
@@ -78,6 +100,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         payment: sourcePolicies?.payment || [],
         webSoftware: sourcePolicies?.webSoftware || [],
         news: sourcePolicies?.news || [],
+        strictCompanyMatch: sourcePolicies?.strictCompanyMatch !== false,
         customCategories: sourcePolicies?.customCategories || {},
         categoryFieldMappings: sourcePolicies?.categoryFieldMappings || {}
       };
@@ -91,6 +114,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
       payment: overrides.payment || sourcePolicies?.payment || [],
       webSoftware: overrides.webSoftware || sourcePolicies?.webSoftware || [],
       news: overrides.news || sourcePolicies?.news || [],
+      strictCompanyMatch: overrides.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
       customCategories: overrides.customCategories || sourcePolicies?.customCategories || {},
       categoryFieldMappings: overrides.categoryFieldMappings || sourcePolicies?.categoryFieldMappings || {}
     };
@@ -108,6 +132,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         webSoftware: (activePolicies.webSoftware || []).join(', '),
         news: (activePolicies.news || []).join(', ')
       });
+      setStrictCompanyMatch(activePolicies.strictCompanyMatch !== false);
       const custom = activePolicies.customCategories || {};
       const mapped: Record<string, string> = {};
       Object.entries(custom).forEach(([name, sources]) => {
@@ -291,6 +316,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         payment: parse(policyText.payment),
         webSoftware: parse(policyText.webSoftware),
         news: parse(policyText.news),
+        strictCompanyMatch,
         customCategories,
         categoryFieldMappings
       };
@@ -316,7 +342,7 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-lg shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
         <div className="p-4 border-b border-dhl-gray-medium flex justify-between items-center bg-[#ffcc00]">
           <h2 className="text-sm font-black italic uppercase flex items-center gap-2 text-black">
@@ -447,6 +473,18 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
               <input type="text" value={policyText.payment} onChange={e => setPolicyText({ ...policyText, payment: e.target.value })} placeholder="Payment: klarna.com, stripe.com, adyen.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
               <input type="text" value={policyText.webSoftware} onChange={e => setPolicyText({ ...policyText, webSoftware: e.target.value })} placeholder="Websoftware: shopify.com, norce.io, woocommerce.com" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
               <input type="text" value={policyText.news} onChange={e => setPolicyText({ ...policyText, news: e.target.value })} placeholder="Nyheter: ehandel.se, market.se, breakit.se" className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2" />
+            </div>
+
+            <div className="pt-1">
+              <label className="inline-flex items-center gap-2 text-[10px] font-black uppercase text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={strictCompanyMatch}
+                  onChange={(e) => setStrictCompanyMatch(e.target.checked)}
+                  className="rounded border-dhl-gray-medium"
+                />
+                Strict Company Match (org.nr + exakt bolagsnamn)
+              </label>
             </div>
 
             <div className="pt-2 border-t border-slate-100 space-y-2">

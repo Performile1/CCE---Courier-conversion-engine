@@ -202,6 +202,158 @@ function normalizeDomain(domain: string): string {
     .trim();
 }
 
+function normalizeCompanyForComparison(name: string): string {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\b(aktiebolag|ab|publ|holding|group|gruppen|sweden|sverige)\b/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildCompanyAliases(companyName: string): string[] {
+  const raw = String(companyName || '').trim();
+  if (!raw) return [];
+
+  const aliases = new Set<string>();
+  aliases.add(raw);
+
+  const hasAB = /\bab\b/i.test(raw) || /aktiebolag/i.test(raw);
+  if (!hasAB) aliases.add(`${raw} AB`);
+
+  const stripped = raw.replace(/\baktiebolag\b/ig, '').replace(/\bab\b/ig, '').replace(/\s+/g, ' ').trim();
+  if (stripped) aliases.add(stripped);
+  if (stripped && !/\bab\b/i.test(stripped)) aliases.add(`${stripped} AB`);
+
+  return Array.from(aliases).filter(Boolean);
+}
+
+function normalizeOrgNumber(value: string): string {
+  return String(value || '').replace(/[^0-9]/g, '');
+}
+
+function extractOrgNumberFromText(text: string): string {
+  const cleaned = String(text || '');
+  const match = cleaned.match(/\b\d{6}[-\s]?\d{4}\b|\b\d{10}\b|\b\d{12}\b/);
+  return match ? match[0] : '';
+}
+
+function isLikelyGenericPersonName(name: string): boolean {
+  const cleaned = String(name || '').trim();
+  if (!cleaned) return true;
+
+  const compact = cleaned.replace(/\s+/g, ' ');
+  const parts = compact.split(' ').filter(Boolean);
+  if (parts.length < 2) return true;
+
+  const blacklist = new Set([
+    'anna', 'anders', 'johan', 'maria', 'erik', 'john', 'jane', 'peter', 'michael',
+    'sales', 'support', 'kundservice', 'team', 'info', 'admin', 'kontakt'
+  ]);
+
+  const first = parts[0].toLowerCase();
+  return blacklist.has(first) && parts.length === 2;
+}
+
+function isConflictingCompanyVariant(sourceText: string, aliases: string[]): boolean {
+  const lowered = sourceText.toLowerCase();
+  const baseAlias = aliases
+    .map(normalizeCompanyForComparison)
+    .find(Boolean) || '';
+
+  if (!baseAlias) return false;
+
+  if ((lowered.includes(`${baseAlias} fastighet`) || lowered.includes(`${baseAlias} fastigheter`)) && !lowered.includes(`${baseAlias} ab`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function looksLikeCompanyNewsText(newsText: string, companyAliases: string[], orgNumber?: string): boolean {
+  const text = String(newsText || '').toLowerCase();
+  if (!text) return false;
+
+  const hasAlias = companyAliases.some((alias) => text.includes(alias.toLowerCase()));
+  const orgNormalized = normalizeOrgNumber(orgNumber || '');
+  const hasOrg = orgNormalized ? normalizeOrgNumber(text).includes(orgNormalized) : false;
+
+  if (isConflictingCompanyVariant(text, companyAliases)) return false;
+  return hasAlias || hasOrg;
+}
+
+async function resolveCompanyIdentity(
+  companyOrOrgInput: string,
+  preferredDomains: string[]
+): Promise<{ canonicalName: string; orgNumber: string; aliases: string[] }> {
+  const rawInput = String(companyOrOrgInput || '').trim();
+  if (!rawInput) return { canonicalName: '', orgNumber: '', aliases: [] };
+
+  const orgInInput = extractOrgNumberFromText(rawInput);
+  const registryDomains = ['allabolag.se', 'ratsit.se', 'bolagsverket.se'];
+  const domainScope = Array.from(new Set([...registryDomains, ...preferredDomains.slice(0, 3)]));
+  const siteQuery = domainScope.map((d) => `site:${normalizeDomain(d)}`).join(' OR ');
+
+  const query = orgInInput
+    ? `${orgInInput} (${siteQuery}) företagsnamn organisationsnummer`
+    : `"${rawInput}" (${siteQuery}) ("org.nr" OR organisationsnummer OR "AB")`;
+
+  try {
+    const response = await axios.post(
+      buildApiUrl('/api/tavily'),
+      {
+        query,
+        action: 'search',
+        maxResults: 8
+      },
+      {
+        timeout: 12000
+      }
+    );
+
+    const results: any[] = Array.isArray(response.data?.results) ? response.data.results : [];
+    if (!results.length) {
+      return {
+        canonicalName: rawInput,
+        orgNumber: orgInInput,
+        aliases: buildCompanyAliases(rawInput)
+      };
+    }
+
+    const orgCandidate = orgInInput || results
+      .map((r) => extractOrgNumberFromText(`${pickString(r?.title)} ${pickString(r?.content)} ${pickString(r?.url)}`))
+      .find(Boolean) || '';
+
+    const firstRelevant = results.find((r) => {
+      const text = `${pickString(r?.title)} ${pickString(r?.content)} ${pickString(r?.url)}`.toLowerCase();
+      return !text.includes('fastighet') && !text.includes('holding');
+    }) || results[0];
+
+    const title = pickString(firstRelevant?.title);
+    const inferredName = title
+      .replace(/\|.*$/, '')
+      .replace(/\-.*$/, '')
+      .replace(/org\.nr.*$/i, '')
+      .replace(/organisationsnummer.*$/i, '')
+      .trim();
+
+    const canonicalName = inferredName || rawInput;
+    const aliases = buildCompanyAliases(canonicalName);
+
+    return {
+      canonicalName,
+      orgNumber: orgCandidate,
+      aliases
+    };
+  } catch {
+    return {
+      canonicalName: rawInput,
+      orgNumber: orgInInput,
+      aliases: buildCompanyAliases(rawInput)
+    };
+  }
+}
+
 function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sniCode?: string): string[] {
   const normalizedSni = (sniCode || '').trim();
   const fromMappings = newsSourceMappings
@@ -237,6 +389,10 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
 function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): SourcePolicyConfig {
   const defaultFieldMappings: Record<string, string[]> = {
     financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
+    revenue: ['revenue', 'revenueYear'],
+    profit: ['profit', 'profitMargin'],
+    solidity: ['solidity'],
+    liquidityRatio: ['liquidityRatio'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress'],
     decisionMakers: ['decisionMakers'],
     payment: ['paymentProvider', 'checkoutSolution'],
@@ -262,6 +418,7 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?
     payment: pickList(countryOverrides?.payment, sourcePolicies?.payment, PAYMENT_SOURCE_DOMAINS),
     webSoftware: pickList(countryOverrides?.webSoftware, sourcePolicies?.webSoftware, WEBSOFTWARE_SOURCE_DOMAINS),
     news: pickList(countryOverrides?.news, sourcePolicies?.news, ['ehandel.se', 'market.se', 'breakit.se']),
+    strictCompanyMatch: countryOverrides?.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
     customCategories: {
       ...(sourcePolicies?.customCategories || {}),
       ...(countryOverrides?.customCategories || {})
@@ -525,11 +682,29 @@ function parseRetryAfterSeconds(error: any): number {
   return 20;
 }
 
-async function fetchLatestNews(companyName: string, domains: string[]): Promise<string> {
+async function fetchLatestNews(
+  companyName: string,
+  domains: string[],
+  options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean }
+): Promise<string> {
   if (!companyName) return '';
 
-  const siteQuery = domains.slice(0, 8).map((d) => `site:${d}`).join(' OR ');
-  const query = `${companyName} (${siteQuery}) nyheter OR pressmeddelande OR expansion`;
+  const aliases = buildCompanyAliases(companyName);
+  const primaryAlias = aliases[0] || companyName;
+  const companyClause = aliases.slice(0, 3).map((a) => `"${a}"`).join(' OR ');
+  const siteQuery = domains.slice(0, 8).map((d) => `site:${normalizeDomain(d)}`).join(' OR ');
+  const orgNumber = pickString(options?.orgNumber);
+  const orgClause = orgNumber ? ` OR "${orgNumber}"` : '';
+  const strictCompanyMatch = options?.strictCompanyMatch !== false;
+  const contactNames = (options?.contactNames || [])
+    .map((n) => String(n || '').trim())
+    .filter((n) => n.length > 4)
+    .filter((n) => !isLikelyGenericPersonName(n))
+    .slice(0, 2);
+  const contactClause = contactNames.length
+    ? ` OR (${contactNames.map((name) => `"${name}" AND "${primaryAlias}"`).join(' OR ')})`
+    : '';
+  const query = `(${companyClause}${orgClause}${contactClause}) (${siteQuery}) (nyheter OR pressmeddelande OR expansion OR rekrytering)`;
 
   try {
     const response = await axios.post(
@@ -547,7 +722,31 @@ async function fetchLatestNews(companyName: string, domains: string[]): Promise<
     const results = response.data?.results || [];
     if (!Array.isArray(results) || results.length === 0) return '';
 
-    const topEntries = results.slice(0, 3).map((item: any) => {
+    const orgNormalized = normalizeOrgNumber(orgNumber);
+    const filtered = results.filter((item: any) => {
+      const title = pickString(item?.title);
+      const content = pickString(item?.content);
+      const url = pickString(item?.url);
+      const sourceText = `${title} ${content} ${url}`.toLowerCase();
+
+      if (strictCompanyMatch && isConflictingCompanyVariant(sourceText, aliases)) return false;
+
+      if (strictCompanyMatch && orgNormalized) {
+        const hasOrg = normalizeOrgNumber(sourceText).includes(orgNormalized);
+        const hasAlias = aliases.some((alias) => sourceText.includes(alias.toLowerCase()));
+        return hasOrg || hasAlias;
+      }
+
+      if (strictCompanyMatch) {
+        return aliases.some((alias) => sourceText.includes(alias.toLowerCase()));
+      }
+
+      return true;
+    });
+
+    const safeResults = filtered.length ? filtered : results.slice(0, 2);
+
+    const topEntries = safeResults.slice(0, 3).map((item: any) => {
       const title = pickString(item?.title, item?.content, 'Nyhet');
       const url = pickString(item?.url);
       return url ? `${title} (${url})` : title;
@@ -715,8 +914,27 @@ export async function generateDeepDiveSequential(
     ...effectivePolicies.webSoftware,
     ...customDomains
   ].map(normalizeDomain).filter(Boolean)));
-  const searchQuery = `${formData.companyNameOrOrg} (${preferredDomains.join(', ')}, LinkedIn)`;
+  const strictCompanyMatchEnabled = effectivePolicies.strictCompanyMatch !== false;
+  const resolvedIdentity = strictCompanyMatchEnabled
+    ? await resolveCompanyIdentity(formData.companyNameOrOrg, preferredDomains)
+    : {
+        canonicalName: formData.companyNameOrOrg,
+        orgNumber: extractOrgNumberFromText(formData.companyNameOrOrg),
+        aliases: buildCompanyAliases(formData.companyNameOrOrg)
+      };
+  const strictCompanyName = resolvedIdentity.canonicalName || formData.companyNameOrOrg;
+  const strictOrgNumber = resolvedIdentity.orgNumber || extractOrgNumberFromText(formData.companyNameOrOrg);
+  const identityLabel = strictOrgNumber ? `${strictCompanyName} (${strictOrgNumber})` : strictCompanyName;
+  const searchQuery = `${identityLabel} (${preferredDomains.join(', ')}, LinkedIn)`;
   const prompt = `${MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery)}
+
+### HARD MATCHING RULES (CRITICAL)
+${strictCompanyMatchEnabled
+  ? `- Matcha endast exakta företaget: ${identityLabel}.
+- Om flera liknande bolag förekommer (ex. "fastighet", "holding", "group"), välj ENDAST bolaget med korrekt namn/org.nr.
+- Om org.nr saknas i källa, kräv exakt bolagsnamn (inklusive AB om tillgängligt).
+- Vid osäkerhet: lämna fält tomt hellre än att gissa.`
+  : '- Strict match är avstängt: använd bästa tillgängliga källkritiska matchning utan hård org.nr-filtrering.'}
 
 ### SOURCE PRIORITY
 Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
@@ -739,7 +957,7 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
     onUpdate({}, "Genomför teknisk & finansiell revision...");
     onUpdate({}, 'Samlar källunderlag via Tavily/Google och Crawl4ai...');
     const sourceBundle = await fetchCategoryExactPageEvidenceBundle(
-      formData.companyNameOrOrg,
+      identityLabel,
       effectivePolicies
     );
     const sourceGroundingEvidence = sourceBundle.promptEvidence;
@@ -781,7 +999,7 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
     const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
     const metrics = calculateRickardMetrics(revenueTKR, sniCode, sniPercentages, marketCount);
 
-    const latestNewsFromModel = pickString(
+    const latestNewsFromModelRaw = pickString(
       root?.latest_news,
       root?.latestNews,
       companyData?.latest_news,
@@ -789,9 +1007,29 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
       root?.news_summary,
       root?.newsSummary
     );
+    const strictAliases = resolvedIdentity.aliases.length
+      ? resolvedIdentity.aliases
+      : buildCompanyAliases(strictCompanyName);
+    const latestNewsFromModel = strictCompanyMatchEnabled
+      ? (looksLikeCompanyNewsText(
+        latestNewsFromModelRaw,
+        strictAliases,
+        pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber)
+      )
+        ? latestNewsFromModelRaw
+        : '')
+      : latestNewsFromModelRaw;
+    const contactNames = (Array.isArray(contactsRaw) ? contactsRaw : [])
+      .map((c: any) => pickString(c?.name))
+      .filter(Boolean);
     const latestNewsFallback = latestNewsFromModel ? '' : await fetchLatestNews(
-      pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
-      Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean)))
+      pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
+      Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean))),
+      {
+        orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
+        contactNames,
+        strictCompanyMatch: strictCompanyMatchEnabled
+      }
     );
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
@@ -800,8 +1038,8 @@ Använd source evidence ovan först när du fyller fälten. Om ett fält saknar 
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
-      companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || formData.companyNameOrOrg,
-      orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number),
+      companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
+      orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
       domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
       sniCode,
       address: pickString(companyData?.visiting_address, companyData?.address, companyData?.street_address),

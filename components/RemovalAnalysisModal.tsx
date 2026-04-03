@@ -19,7 +19,7 @@ export const RemovalAnalysisModal: React.FC<RemovalAnalysisModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/60 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-lg shadow-2xl border-t-4 border-red-600 relative rounded-sm">
         <button 
           onClick={onClose}

@@ -37,6 +37,7 @@ const TOOL_LABELS: Record<string, string> = {
   emailCampaign: 'Email Campaign Builder',
   eventTriggers: 'Event Triggers',
   customReport: 'Custom Report Builder',
+  cronJobs: 'Cron Job Manager',
   toolAccess: 'Role and Tool Access'
 };
 
@@ -123,7 +124,7 @@ export const ToolAccessManager: React.FC<ToolAccessManagerProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-5xl shadow-2xl border-t-4 border-red-600 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-dhl-gray-medium flex justify-between items-center bg-[#ffcc00]">
           <h2 className="text-sm font-black italic uppercase flex items-center gap-2 text-black">

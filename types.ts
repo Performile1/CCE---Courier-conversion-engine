@@ -79,6 +79,7 @@ export interface SourcePolicyConfig {
   payment: string[];
   webSoftware: string[];
   news: string[];
+  strictCompanyMatch?: boolean;
   customCategories?: Record<string, string[]>;
   categoryFieldMappings?: Record<string, string[]>;
   countrySourcePolicies?: Record<string, {
@@ -88,6 +89,7 @@ export interface SourcePolicyConfig {
     payment?: string[];
     webSoftware?: string[];
     news?: string[];
+    strictCompanyMatch?: boolean;
     customCategories?: Record<string, string[]>;
     categoryFieldMappings?: Record<string, string[]>;
   }>;

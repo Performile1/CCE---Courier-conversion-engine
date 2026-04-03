@@ -46,6 +46,7 @@ import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { signOut, supabase } from './services/supabaseClient';
+import { CronJob, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
 import { 
   SearchFormData, 
@@ -87,9 +88,19 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   payment: ['klarna.com', 'stripe.com', 'adyen.com'],
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   news: ['ehandel.se', 'market.se', 'breakit.se'],
-  customCategories: {},
+  strictCompanyMatch: true,
+  customCategories: {
+    revenue: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+    profit: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
+    solidity: ['allabolag.se', 'ratsit.se'],
+    liquidityRatio: ['allabolag.se', 'ratsit.se']
+  },
   categoryFieldMappings: {
     financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
+    revenue: ['revenue', 'revenueYear'],
+    profit: ['profit', 'profitMargin'],
+    solidity: ['solidity'],
+    liquidityRatio: ['liquidityRatio'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress'],
     decisionMakers: ['decisionMakers'],
     payment: ['paymentProvider', 'checkoutSolution'],
@@ -101,11 +112,11 @@ const DEFAULT_ROLE_TOOL_ACCESS: Record<UserRole, string[]> = {
   admin: [
     'carrierSettings', 'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'backups', 'threePL', 'newsSources',
     'modelSelector', 'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'customApi', 'customIntegration',
-    'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess'
+    'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess', 'cronJobs'
   ],
   user: [
     'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'threePL', 'newsSources', 'modelSelector',
-    'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport'
+    'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport', 'cronJobs'
   ],
   viewer: ['cache', 'newsSources', 'campaignPerformance', 'exportManager']
 };
@@ -169,7 +180,17 @@ export const App: React.FC = () => {
   const [isPhase9IntegrationOpen, setIsPhase9IntegrationOpen] = useState(false);
   const [isShareLeadOpen, setIsShareLeadOpen] = useState(false);
   const [isToolAccessOpen, setIsToolAccessOpen] = useState(false);
+  const [isCronJobsOpen, setIsCronJobsOpen] = useState(false);
   const [selectedLeadForSharing, setSelectedLeadForSharing] = useState<LeadData | null>(null);
+  const [cronJobs, setCronJobs] = useState<CronJob[]>(() => loadCronJobs());
+  const [cronName, setCronName] = useState('Ny schemalagd korning');
+  const [cronType, setCronType] = useState<'deep_dive' | 'batch_search'>('deep_dive');
+  const [cronExpression, setCronExpression] = useState('0 8 * * 1-5');
+  const [cronCompany, setCronCompany] = useState('');
+  const [cronGeo, setCronGeo] = useState('Sverige');
+  const [cronFinancialScope, setCronFinancialScope] = useState('10-100 MSEK');
+  const [cronTriggers, setCronTriggers] = useState('E-handel, logistik, expansion');
+  const [cronLeadCount, setCronLeadCount] = useState(20);
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
@@ -243,6 +264,7 @@ export const App: React.FC = () => {
   const [analysisSubStatus, setAnalysisSubStatus] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
   const abortControllerRef = useRef<boolean>(false);
+  const cronExecutionRef = useRef<boolean>(false);
 
   const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
   const [resetFormTrigger, setResetFormTrigger] = useState(0);
@@ -345,6 +367,7 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
   useEffect(() => { localStorage.setItem('dhl_active_source_country', activeSourceCountry); }, [activeSourceCountry]);
   useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
+  useEffect(() => { saveCronJobs(cronJobs); }, [cronJobs]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -360,7 +383,20 @@ export const App: React.FC = () => {
   }, [user?.id, toolAccessConfig.userRoles]);
 
   const currentUserRole: UserRole = user?.id ? (toolAccessConfig.userRoles[user.id] || 'user') : 'viewer';
-  const visibleTools = toolAccessConfig.roleToolAccess[currentUserRole] || [];
+  const roleTools = toolAccessConfig.roleToolAccess[currentUserRole] || [];
+  // Migrate cronJobs into roles if missing from saved config
+  useEffect(() => {
+    if (roleTools.length > 0 && !roleTools.includes('cronJobs') && currentUserRole !== 'viewer') {
+      setToolAccessConfig(prev => ({
+        ...prev,
+        roleToolAccess: {
+          ...prev.roleToolAccess,
+          [currentUserRole]: [...(prev.roleToolAccess[currentUserRole] || []), 'cronJobs']
+        }
+      }));
+    }
+  }, [currentUserRole, roleTools.length]);
+  const visibleTools = roleTools.includes('cronJobs') ? roleTools : [...roleTools, 'cronJobs'];
 
   const refreshData = useCallback(async (statusOverride?: string) => {
     const currentStatus = statusOverride || dbStatus;
@@ -735,6 +771,7 @@ export const App: React.FC = () => {
       if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
       if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
       if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
+      if (d.cronJobs) setCronJobs(d.cronJobs);
       if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
       if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
       if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -764,6 +801,7 @@ export const App: React.FC = () => {
       newsSourceMappings,
       sourcePolicies,
       activeSourceCountry,
+      cronJobs,
       mailTemplateSv,
       mailTemplateEn,
       mailSignature,
@@ -795,6 +833,7 @@ export const App: React.FC = () => {
     if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
     if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
     if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
+    if (d.cronJobs) setCronJobs(d.cronJobs);
     if (d.mailTemplateSv) setMailTemplateSv(d.mailTemplateSv);
     if (d.mailTemplateEn) setMailTemplateEn(d.mailTemplateEn);
     if (d.mailSignature) setMailSignature(d.mailSignature);
@@ -826,6 +865,7 @@ export const App: React.FC = () => {
       newsSourceMappings,
       sourcePolicies,
       activeSourceCountry,
+      cronJobs,
       mailTemplateSv,
       mailTemplateEn,
       mailSignature,
@@ -854,6 +894,92 @@ export const App: React.FC = () => {
   const handleSaveMarketSettings = (settings: CarrierSettings[]) => {
     localStorage.setItem('dhl_market_settings', JSON.stringify(settings));
   };
+
+  const handleAddCronJob = () => {
+    if (!cronName.trim() || !isValidCronExpression(cronExpression)) return;
+    if (cronType === 'deep_dive' && !cronCompany.trim()) return;
+
+    const payload: Partial<SearchFormData> = cronType === 'deep_dive'
+      ? { companyNameOrOrg: cronCompany.trim() }
+      : {
+          companyNameOrOrg: '',
+          geoArea: cronGeo,
+          financialScope: cronFinancialScope,
+          triggers: cronTriggers,
+          leadCount: cronLeadCount,
+          focusRole1: 'VD',
+          focusRole2: 'Logistikchef',
+          focusRole3: 'E-handelschef',
+          icebreakerTopic: 'Leveransoptimering'
+        };
+
+    const job = createCronJob({
+      name: cronName.trim(),
+      type: cronType,
+      cronExpression: cronExpression.trim(),
+      enabled: true,
+      payload
+    });
+
+    setCronJobs(prev => [job, ...prev]);
+  };
+
+  const toggleCronJob = (jobId: string) => {
+    setCronJobs(prev => prev.map((job) =>
+      job.id === jobId ? { ...job, enabled: !job.enabled, updatedAt: new Date().toISOString() } : job
+    ));
+  };
+
+  const removeCronJob = (jobId: string) => {
+    setCronJobs(prev => prev.filter((job) => job.id !== jobId));
+  };
+
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (cronExecutionRef.current || loading || deepDiveLoading) return;
+
+      const due = getDueCronJobs(cronJobs, new Date());
+      if (!due.length) return;
+
+      cronExecutionRef.current = true;
+      try {
+        let updated = [...cronJobs];
+
+        for (const job of due) {
+          if (job.type === 'deep_dive') {
+            const query = String(job.payload.companyNameOrOrg || '').trim();
+            if (query) {
+              await handleDeepDive(query, true);
+            }
+          } else {
+            await handleSearch({
+              companyNameOrOrg: '',
+              geoArea: String(job.payload.geoArea || 'Sverige'),
+              financialScope: String(job.payload.financialScope || '10-100 MSEK'),
+              triggers: String(job.payload.triggers || 'E-handel, logistik, expansion'),
+              leadCount: Number(job.payload.leadCount || 20),
+              focusRole1: String(job.payload.focusRole1 || 'VD'),
+              focusRole2: String(job.payload.focusRole2 || 'Logistikchef'),
+              focusRole3: String(job.payload.focusRole3 || 'E-handelschef'),
+              icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering')
+            });
+          }
+
+          updated = updated.map((candidate) =>
+            candidate.id === job.id ? markCronJobExecuted(candidate, new Date()) : candidate
+          );
+        }
+
+        setCronJobs(updated);
+      } catch (err) {
+        console.error('Cron execution failed:', err);
+      } finally {
+        cronExecutionRef.current = false;
+      }
+    }, 30000);
+
+    return () => clearInterval(timer);
+  }, [cronJobs, loading, deepDiveLoading]);
 
   return (
     <>
@@ -897,6 +1023,7 @@ export const App: React.FC = () => {
         onOpenSlackManager={() => setIsSlackManagerOpen(true)}
         onOpenWebhookManager={() => setIsWebhookManagerOpen(true)}
         onOpenPhase9Integration={() => setIsPhase9IntegrationOpen(true)}
+        onOpenCronJobs={() => setIsCronJobsOpen(true)}
         onOpenUserProfile={() => setIsUserProfileOpen(true)}
         onOpenToolAccess={() => setIsToolAccessOpen(true)}
         onLogout={handleLogout}
@@ -1034,6 +1161,64 @@ export const App: React.FC = () => {
         selectedCountry={activeSourceCountry}
         onSelectCountry={setActiveSourceCountry}
       />
+      {isCronJobsOpen && (
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Cron Job Hantering</h2>
+              <button onClick={() => setIsCronJobsOpen(false)} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">Stang</button>
+            </div>
+
+            <div className="border border-dhl-gray-medium rounded-sm p-4 bg-dhl-gray-light space-y-3 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input value={cronName} onChange={(e) => setCronName(e.target.value)} placeholder="Jobbnamn" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                <select value={cronType} onChange={(e) => setCronType(e.target.value as 'deep_dive' | 'batch_search')} className="text-xs border border-dhl-gray-medium rounded-sm p-2">
+                  <option value="deep_dive">Analys (Deep Dive)</option>
+                  <option value="batch_search">Batchsokning</option>
+                </select>
+                <input value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} placeholder="Cron: 0 8 * * 1-5" className={`text-xs border rounded-sm p-2 ${isValidCronExpression(cronExpression) ? 'border-dhl-gray-medium' : 'border-red-500'}`} />
+              </div>
+
+              {cronType === 'deep_dive' ? (
+                <input value={cronCompany} onChange={(e) => setCronCompany(e.target.value)} placeholder="Foretagsnamn eller org.nr" className="w-full text-xs border border-dhl-gray-medium rounded-sm p-2" />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={cronGeo} onChange={(e) => setCronGeo(e.target.value)} placeholder="Geografi" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                  <input value={cronFinancialScope} onChange={(e) => setCronFinancialScope(e.target.value)} placeholder="Omsattningssegment" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                  <input value={cronTriggers} onChange={(e) => setCronTriggers(e.target.value)} placeholder="Triggers" className="text-xs border border-dhl-gray-medium rounded-sm p-2 md:col-span-2" />
+                  <input type="number" value={cronLeadCount} onChange={(e) => setCronLeadCount(Math.max(1, Number(e.target.value || 1)))} placeholder="Antal leads" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                </div>
+              )}
+
+              <div className="text-[10px] text-slate-500">Exempel cron: 0 8 * * 1-5 (vardagar kl 08:00), */30 * * * * (var 30:e minut)</div>
+              <button onClick={handleAddCronJob} disabled={!isValidCronExpression(cronExpression)} className="bg-dhl-black text-white px-4 py-2 text-xs font-black uppercase rounded-sm hover:bg-red-600 disabled:opacity-50">
+                Lagg till cron-jobb
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {cronJobs.length === 0 && <div className="text-xs text-slate-500 italic">Inga cron-jobb skapade.</div>}
+              {cronJobs.map((job) => (
+                <div key={job.id} className="border border-dhl-gray-medium rounded-sm p-3 bg-white flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-black uppercase text-dhl-black">{job.name}</div>
+                      <div className="text-[10px] text-slate-500">{job.type} • {job.cronExpression}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => toggleCronJob(job.id)} className={`px-2 py-1 text-[10px] font-black rounded-sm ${job.enabled ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {job.enabled ? 'AKTIV' : 'PAUSAD'}
+                      </button>
+                      <button onClick={() => removeCronJob(job.id)} className="px-2 py-1 text-[10px] font-black bg-red-50 text-red-700 rounded-sm">Ta bort</button>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-slate-500">Senast: {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString('sv-SE') : 'Aldrig'} • Nasta: {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString('sv-SE') : '-'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <BackupManager 
         isOpen={isBackupsOpen} 
         onClose={() => setIsBackupsOpen(false)} 
@@ -1049,7 +1234,7 @@ export const App: React.FC = () => {
 
       {/* Additional Component Modals */}
       {isModelSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4">AI Model Selection</h2>
             <ModelSelector showCostTracker={true} />
@@ -1064,7 +1249,7 @@ export const App: React.FC = () => {
       )}
 
       {isCustomAPIOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom API Connector Builder</h2>
             <CustomAPIConnectorBuilder userId="current-user" />
@@ -1079,7 +1264,7 @@ export const App: React.FC = () => {
       )}
 
       {isCustomIntegrationOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom Integration Adapter</h2>
             <CustomIntegrationAdapter />
@@ -1094,7 +1279,7 @@ export const App: React.FC = () => {
       )}
 
       {isCustomReportOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom Report Builder</h2>
             <CustomReportBuilder leads={leads} />
@@ -1109,7 +1294,7 @@ export const App: React.FC = () => {
       )}
 
       {isCampaignAnalyticsOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Campaign Analytics</h2>
             <CampaignAnalytics />
@@ -1124,7 +1309,7 @@ export const App: React.FC = () => {
       )}
 
       {isCampaignPerformanceOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Campaign Performance Dashboard</h2>
             {user?.id ? <CampaignPerformanceDashboard userId={user.id} /> : <div className="text-slate-500">Please log in to view analytics</div>}
@@ -1139,7 +1324,7 @@ export const App: React.FC = () => {
       )}
 
       {isCostAnalysisOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Cost Analysis Dashboard</h2>
             <CostAnalysisDashboard />
@@ -1154,7 +1339,7 @@ export const App: React.FC = () => {
       )}
 
       {isCRMManagerOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">CRM Manager</h2>
             <CRMManager />
@@ -1169,7 +1354,7 @@ export const App: React.FC = () => {
       )}
 
       {isEmailCampaignBuilderOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Email Campaign Builder</h2>
             <EmailCampaignBuilder />
@@ -1184,7 +1369,7 @@ export const App: React.FC = () => {
       )}
 
       {isEventTriggersOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Event Triggers</h2>
             <EventTriggersComponent />
@@ -1199,7 +1384,7 @@ export const App: React.FC = () => {
       )}
 
       {isExportManagerOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Export Manager</h2>
             <ExportManager leads={leads} />
@@ -1214,7 +1399,7 @@ export const App: React.FC = () => {
       )}
 
       {isSlackManagerOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Slack Manager</h2>
             <SlackManager />
@@ -1229,7 +1414,7 @@ export const App: React.FC = () => {
       )}
 
       {isWebhookManagerOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Webhook System Manager</h2>
             <WebhookSystemManager />
@@ -1244,7 +1429,7 @@ export const App: React.FC = () => {
       )}
 
       {isPhase9IntegrationOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Phase 9 Integration Manager</h2>
             <Phase9IntegrationManager />
@@ -1275,7 +1460,7 @@ export const App: React.FC = () => {
 
       {/* User Profile Modal */}
       {isUserProfileOpen && user && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <UserProfile userId={user.id} onClose={() => setIsUserProfileOpen(false)} />
           </div>

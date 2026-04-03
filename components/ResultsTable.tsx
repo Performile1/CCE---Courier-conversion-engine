@@ -72,6 +72,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   
   const [isRemovalModalOpen, setIsRemovalModalOpen] = useState(false);
   const [leadsToRemove, setLeadsToRemove] = useState<LeadData[]>([]);
@@ -87,6 +89,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, sortConfig]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setIsScrolled(window.scrollY > 140);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleSort = (key: SortKey) => {
     let direction: SortDirection = 'asc';
@@ -184,9 +194,23 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   };
 
   return (
-    <div className="w-full">
-      <div className="bg-dhl-gray-light p-1 border-t-4 border-red-600 border-b border-dhl-gray-medium flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="w-full relative isolate">
+      <div className={`bg-dhl-gray-light border-t-4 border-red-600 border-b border-dhl-gray-medium sticky z-sticky transition-all duration-200 ${isScrolled ? 'top-2 shadow-lg rounded-sm p-2 mx-1' : 'top-0 p-1'}`}>
+        <div className="md:hidden flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setIsMobileSearchOpen(prev => !prev)}
+            className="flex-1 text-left bg-white border border-dhl-gray-medium rounded-sm px-3 py-2 text-[10px] font-black uppercase tracking-wide"
+          >
+            {isMobileSearchOpen ? 'Dolj Sokruta' : 'Visa Sokruta'}
+          </button>
+          <div className="text-[10px] font-black text-slate-500 uppercase bg-white border px-2 py-2 rounded-sm shadow-sm">
+            {filteredAndSortedData.length}
+          </div>
+        </div>
+
+        <div className={`${isMobileSearchOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center justify-between gap-4 mt-2 md:mt-0`}>
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <input
@@ -194,7 +218,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 placeholder="Filtrera lista..."
                 value={filters.global}
                 onChange={(e) => setFilters({...filters, global: e.target.value})}
-                className="pl-9 pr-3 py-2 w-64 text-xs border border-dhl-gray-medium rounded-sm focus:ring-red-600 focus:border-red-600 shadow-sm"
+                className="pl-9 pr-3 py-2 w-full md:w-64 text-xs border border-dhl-gray-medium rounded-sm focus:ring-red-600 focus:border-red-600 shadow-sm"
               />
             </div>
             {selectedIds.size > 0 && (
@@ -215,17 +239,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 </button>
               </div>
             )}
-        </div>
-        <div className="flex items-center gap-3">
+          </div>
+          <div className="hidden md:flex items-center gap-3">
             <div className="text-[10px] font-black text-slate-400 uppercase bg-white border px-3 py-2 rounded-sm shadow-sm flex items-center gap-2">
                 <LayoutList className="w-3 h-3" /> Antal i vyn: {filteredAndSortedData.length}
             </div>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white shadow-xl w-full overflow-x-auto">
+      <div className="bg-white shadow-xl w-full overflow-x-auto relative z-0">
         <div className="min-w-[1000px]">
-            <div className="grid grid-cols-[50px_120px_100px_minmax(200px,3fr)_minmax(120px,1fr)_130px_70px_minmax(150px,2fr)_160px] bg-yellow-400 border-b-2 border-red-600 text-[10px] font-black uppercase tracking-widest py-1 gap-2 px-2 text-red-900">
+            <div className="grid grid-cols-[50px_120px_100px_minmax(220px,3fr)_minmax(120px,1fr)_130px_70px_minmax(160px,2fr)_170px] bg-yellow-400 border-b-2 border-red-600 text-[10px] font-black uppercase tracking-widest py-1 gap-2 px-2 text-red-900 sticky top-0 z-10">
                 <div className="flex items-center justify-center">
                   <input 
                     type="checkbox" 
@@ -258,7 +283,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 return (
                     <div 
                         key={lead.id} 
-                        className={`grid grid-cols-[50px_120px_100px_minmax(200px,3fr)_minmax(120px,1fr)_130px_70px_minmax(150px,2fr)_160px] hover:bg-dhl-gray-light transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-dhl-gray-light border-red-600' : 'border-transparent'}`}
+                      className={`relative z-0 grid grid-cols-[50px_120px_100px_minmax(220px,3fr)_minmax(120px,1fr)_130px_70px_minmax(160px,2fr)_170px] hover:bg-dhl-gray-light transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-dhl-gray-light border-red-600' : 'border-transparent'}`}
                         onClick={() => onSelectLead?.(lead)}
                     >
                         <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>

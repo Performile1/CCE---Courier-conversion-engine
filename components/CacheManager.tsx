@@ -192,7 +192,7 @@ export const CacheManager: React.FC<CacheManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/60 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-4xl shadow-2xl border-t-8 border-slate-600 flex flex-col max-h-[90vh]">
         <div className="bg-dhl-black p-4 flex justify-between items-center border-b border-slate-700 text-white">
           <div className="flex items-center gap-3">

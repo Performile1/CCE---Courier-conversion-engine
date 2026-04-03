@@ -12,7 +12,7 @@ export const DailyBriefing: React.FC<DailyBriefingProps> = ({ isOpen, onClose, c
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/60 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-dhl-black w-full max-w-lg shadow-2xl border-t-4 border-red-600 relative text-slate-300 font-mono">
         <button 
           onClick={onClose}

@@ -190,7 +190,7 @@ export const InclusionManager: React.FC<InclusionManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-3xl shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
         
         {/* Header */}

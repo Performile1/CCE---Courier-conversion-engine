@@ -34,7 +34,7 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/60 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-6xl shadow-2xl border-t-8 border-red-600 flex flex-col max-h-[90vh]">
         <div className="bg-[#ffcc00] p-4 flex justify-between items-center border-b border-red-600">
           <h2 className="text-xl font-black italic uppercase flex items-center gap-3 text-black">

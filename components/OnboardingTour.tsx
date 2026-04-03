@@ -148,7 +148,7 @@ export const OnboardingTour: React.FC<TourProps> = ({ isOpen, onClose, onDemoFil
   }
 
   return (
-    <div className="fixed inset-0 z-[100] pointer-events-none">
+    <div className="fixed inset-0 z-modal pointer-events-none">
         {/* Semi-transparent background only for non-targeted steps to focus attention */}
         {!currentStep.targetId && (
             <div className="absolute inset-0 bg-black/20 pointer-events-auto" />

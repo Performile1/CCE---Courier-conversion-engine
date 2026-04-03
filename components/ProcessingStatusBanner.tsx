@@ -28,11 +28,11 @@ export const ProcessingStatusBanner: React.FC<ProcessingStatusBannerProps> = ({
   
   if (analysisResult) {
     return (
-      <div className="bg-dhl-yellow text-white shadow-2xl border-b-4 border-green-800 sticky top-0 z-[60] animate-slideDown cursor-pointer ring-4 ring-green-400/30" onClick={onOpenResult}>
+      <div className="bg-green-700 text-white shadow-2xl border-b-4 border-green-900 sticky top-0 z-banner animate-slideDown cursor-pointer ring-4 ring-green-400/30" onClick={onOpenResult}>
         <div className="max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <div className="bg-white p-2 rounded-full shadow-inner animate-bounce">
-              <Star className="w-6 h-6 text-dhl-yellow fill-green-600" />
+              <Star className="w-6 h-6 text-green-700 fill-green-500" />
             </div>
             <div className="min-w-0">
               <h3 className="text-lg font-black uppercase tracking-tighter truncate flex items-center gap-2">
@@ -64,7 +64,7 @@ export const ProcessingStatusBanner: React.FC<ProcessingStatusBannerProps> = ({
 
   if (loading || deepDiveLoading) {
     return (
-      <div className="bg-dhl-black text-white shadow-2xl border-b-4 border-red-600 sticky top-0 z-[60] animate-slideDown">
+      <div className="bg-dhl-black text-white shadow-2xl border-b-4 border-red-600 sticky top-0 z-banner animate-slideDown">
         <div className="max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Loader2 className="w-6 h-6 text-[#FFCC00] animate-spin" />

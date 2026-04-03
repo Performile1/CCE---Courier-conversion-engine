@@ -95,7 +95,7 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-2xl shadow-2xl border-t-4 border-red-600 flex flex-col max-h-[90vh]">
         
         <div className="bg-white p-4 flex justify-between items-center border-b border-dhl-gray-medium">
