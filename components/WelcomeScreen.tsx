@@ -42,9 +42,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userNam
         </h1>
 
         {/* Subtitle */}
-        <p className="text-xl text-dhl-black mb-8 font-bold">
-          Redo att optimera dina fraktkonverteringar
-        </p>
+        <div className="mb-8 space-y-3">
+          <p className="text-xl text-dhl-black font-bold">
+            Redo att optimera dina fraktkonverteringar
+          </p>
+          <p className="text-base text-dhl-black max-w-2xl mx-auto leading-relaxed">
+            Är du redo att hitta nya möjligheter eller fortsatt vara i kontroll i dina pågående affärer?
+          </p>
+        </div>
 
         {/* Loading Animation - Static indicator */}
         <div className="flex justify-center items-center space-x-2">
