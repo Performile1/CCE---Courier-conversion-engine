@@ -703,7 +703,10 @@ export const App: React.FC = () => {
           sniPercentages, 
           exclusionList, 
           activeCarrier, 
-          threePLProviders
+          threePLProviders,
+          undefined,
+          sourcePolicies,
+          activeSourceCountry
         );
         if (newLeads.length === 0) {
           setError("Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.");

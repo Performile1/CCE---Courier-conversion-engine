@@ -30,6 +30,7 @@ const AVAILABLE_LEADCARD_FIELDS = [
   'financialTrend',
   'financialSource',
   'decisionMakers',
+  'emailPattern',
   'paymentProvider',
   'checkoutOptions',
   'checkoutSolution',
@@ -40,6 +41,11 @@ const AVAILABLE_LEADCARD_FIELDS = [
   'marketCount',
   'activeMarkets',
   'techEvidence',
+  'dataConfidence.financial',
+  'dataConfidence.checkout',
+  'dataConfidence.contacts',
+  'dataConfidence.addresses',
+  'dataConfidence.emailPattern',
   'sourceCoverage',
   'latestNews'
 ];

@@ -394,15 +394,15 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
 
 function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): SourcePolicyConfig {
   const defaultFieldMappings: Record<string, string[]> = {
-    financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'creditRatingLabel'],
+    financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'profitMargin', 'creditRatingLabel', 'debtBalance', 'debtEquityRatio', 'paymentRemarks', 'legalStatus', 'financialSource'],
     revenue: ['revenue', 'revenueYear'],
     profit: ['profit', 'profitMargin'],
     solidity: ['solidity'],
     liquidityRatio: ['liquidityRatio'],
     addresses: ['address', 'visitingAddress', 'warehouseAddress'],
-    decisionMakers: ['decisionMakers'],
-    payment: ['paymentProvider', 'checkoutSolution'],
-    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence'],
+    decisionMakers: ['decisionMakers', 'emailPattern'],
+    payment: ['paymentProvider', 'checkoutSolution', 'checkoutOptions', 'carriers'],
+    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence', 'activeMarkets', 'marketCount', 'b2bPercentage', 'b2cPercentage'],
     news: ['latestNews']
   };
 
@@ -1370,10 +1370,24 @@ export async function generateLeads(
   exclusionList: string[],
   activeCarrier: string,
   threePLProviders: ThreePLProvider[],
-  model?: ModelName
+  model?: ModelName,
+  sourcePolicies?: SourcePolicyConfig,
+  activeCountry?: string
 ): Promise<LeadData[]> {
   const activeModel = model || selectedModel;
   try {
+    const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
+    const customDomains = Object.values(effectivePolicies.customCategories || {}).flat();
+    const preferredDomains = Array.from(new Set([
+      ...effectivePolicies.news,
+      ...effectivePolicies.financial,
+      ...effectivePolicies.addresses,
+      ...effectivePolicies.decisionMakers,
+      ...effectivePolicies.payment,
+      ...effectivePolicies.webSoftware,
+      ...customDomains
+    ].map(normalizeDomain).filter(Boolean)));
+
     const prompt = `Batch Scan: Ort: ${formData.geoArea}, Omsättningssegment: ${formData.financialScope}, Triggers: ${formData.triggers}, Antal: ${formData.leadCount}. 
     EXKLUDERA DESSA BOLAG (Returnera dem INTE): ${exclusionList.slice(0, 50).join(', ')}`;
 
@@ -1400,7 +1414,9 @@ export async function generateLeads(
     }
 
     const leadsArray = Array.isArray(data) ? data : (data.leads || data.results || []);
-    return leadsArray.filter((l: any) => l && typeof l === 'object').map((l: any) => {
+    const filteredLeads = leadsArray.filter((l: any) => l && typeof l === 'object');
+
+    const enrichedLeads = await Promise.all(filteredLeads.map(async (l: any, index: number) => {
       const logisticsMetrics = l.logisticsMetrics || l.logistics_metrics || {};
       const revenueRaw = pickString(l.revenue, l.revenue_tkr, l.revenueTKR);
       const rev = parseRevenueToTKR(revenueRaw);
@@ -1416,12 +1432,61 @@ export async function generateLeads(
       const domainRaw = pickString(l.domain, l.website, l.websiteUrl, l.url);
       const domain = domainRaw.replace(/^https?:\/\//, '');
       const websiteUrl = domain ? `https://${domain}` : '';
-      const decisionMakers = (l.decisionMakers || l.decision_makers || l.contacts || []).map((c: any) => ({
+      const baseDecisionMakers = (l.decisionMakers || l.decision_makers || l.contacts || []).map((c: any) => ({
         name: pickString(c?.name),
         title: pickString(c?.title),
         email: pickString(c?.email),
-        linkedin: pickString(c?.linkedin)
+        linkedin: pickString(c?.linkedin),
+        directPhone: pickString(c?.direct_phone, c?.directPhone),
+        verificationNote: ''
       }));
+
+      // Apply heavier evidence checks on the first leads to avoid quota spikes in large batches.
+      const shouldEnrich = index < 6;
+      let financialEvidence: { evidenceText: string; confidence: 'verified' | 'estimated' | 'missing' } = { evidenceText: '', confidence: 'missing' };
+      let checkoutEvidence: {
+        positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
+        evidenceSnippet: string;
+        confidence: 'crawled' | 'estimated' | 'missing';
+      } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+      let emailPattern = '';
+      let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
+      let dmConfidence: 'verified' | 'estimated' | 'missing' = baseDecisionMakers.length ? 'estimated' : 'missing';
+
+      if (shouldEnrich) {
+        try {
+          const [fin, checkout, email] = await Promise.all([
+            fetchVerifiedFinancials(pickString(l.orgNumber, l.org_number, l.organizationNumber), pickString(l.companyName, l.company_name, l.name)),
+            fetchCheckoutPositions(domain, activeCarrier),
+            detectEmailPattern(domain, `${pickString(l.companyName, l.company_name, l.name)} ${pickString(l.orgNumber, l.org_number, l.organizationNumber)}`)
+          ]);
+          financialEvidence = fin;
+          checkoutEvidence = checkout;
+          emailPattern = email;
+        } catch {
+          // Non-critical in batch mode
+        }
+
+        if (!baseDecisionMakers.length) {
+          try {
+            const dmResult = await fetchDecisionMakersTargeted(
+              pickString(l.companyName, l.company_name, l.name),
+              pickString(l.orgNumber, l.org_number, l.organizationNumber),
+              [formData.focusRole1, formData.focusRole2, formData.focusRole3],
+              preferredDomains
+            );
+            dmSupplement = dmResult.contacts;
+            dmConfidence = dmResult.confidence;
+          } catch {
+            dmSupplement = [];
+          }
+        }
+      }
+
+      const decisionMakers: DecisionMaker[] = [
+        ...baseDecisionMakers,
+        ...dmSupplement.filter(dc => !baseDecisionMakers.some(b => b.name.toLowerCase() === dc.name.toLowerCase()))
+      ].slice(0, 6);
 
       return {
         ...l,
@@ -1438,6 +1503,15 @@ export async function generateLeads(
         websiteUrl,
         decisionMakers,
         carriers: Array.isArray(l.carriers) ? l.carriers.join(', ') : pickString(l.carriers),
+        checkoutOptions: checkoutEvidence.confidence === 'crawled' && checkoutEvidence.positions.length > 0
+          ? checkoutEvidence.positions.map(cp => ({
+              position: cp.pos,
+              carrier: cp.carrier,
+              service: cp.service,
+              price: cp.price,
+              inCheckout: cp.inCheckout
+            }))
+          : (l.checkoutOptions || []),
         marketCount,
         annualPackages,
         pos1Volume,
@@ -1451,9 +1525,20 @@ export async function generateLeads(
         source: 'ai',
         analysisDate: '',
         aiModel: activeModel,
-        halluccinationScore: 0
+        halluccinationScore: 0,
+        financialSource: financialEvidence.confidence === 'verified' ? 'Allabolag/Ratsit (batch verification)' : pickString(l.financialSource),
+        emailPattern,
+        dataConfidence: {
+          financial: financialEvidence.confidence,
+          checkout: checkoutEvidence.confidence,
+          contacts: dmConfidence,
+          addresses: financialEvidence.confidence === 'verified' ? 'verified' : 'estimated',
+          emailPattern: emailPattern ? 'found' : 'missing'
+        }
       } as LeadData;
-    });
+    }));
+
+    return enrichedLeads;
   } catch (error: any) {
     throw error;
   }
