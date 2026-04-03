@@ -394,16 +394,16 @@ function getSourcePriorityBlock(preferredDomains: string[]): string {
 
 function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): SourcePolicyConfig {
   const defaultFieldMappings: Record<string, string[]> = {
-    financial: ['revenue', 'profit', 'solidity', 'liquidityRatio', 'profitMargin', 'creditRatingLabel', 'debtBalance', 'debtEquityRatio', 'paymentRemarks', 'legalStatus', 'financialSource'],
+    financial: ['revenue', 'revenueYear', 'profit', 'financialHistory', 'solidity', 'liquidityRatio', 'profitMargin', 'creditRatingLabel', 'debtBalance', 'debtEquityRatio', 'paymentRemarks', 'legalStatus', 'financialSource', 'freightBudget'],
     revenue: ['revenue', 'revenueYear'],
     profit: ['profit', 'profitMargin'],
     solidity: ['solidity'],
     liquidityRatio: ['liquidityRatio'],
-    addresses: ['address', 'visitingAddress', 'warehouseAddress'],
-    decisionMakers: ['decisionMakers', 'emailPattern'],
-    payment: ['paymentProvider', 'checkoutSolution', 'checkoutOptions', 'carriers'],
-    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence', 'activeMarkets', 'marketCount', 'b2bPercentage', 'b2cPercentage'],
-    news: ['latestNews']
+    addresses: ['address', 'visitingAddress', 'warehouseAddress', 'segment'],
+    decisionMakers: ['decisionMakers', 'emailPattern', 'strategicPitch'],
+    payment: ['paymentProvider', 'checkoutSolution', 'checkoutOptions', 'carriers', 'conversionScore', 'frictionAnalysis', 'dmtMatrix', 'recoveryPotentialSek'],
+    webSoftware: ['ecommercePlatform', 'taSystem', 'techEvidence', 'storeCount', 'activeMarkets', 'marketCount', 'b2bPercentage', 'b2cPercentage'],
+    news: ['latestNews', 'sourceCoverage', 'analysisDate']
   };
 
   const countryKey = (activeCountry || '').trim().toLowerCase();
