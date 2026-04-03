@@ -1085,7 +1085,7 @@ export const App: React.FC = () => {
         setLanguage={setAppLanguage}
       />
       
-      <main className="max-w-[1600px] mx-auto px-4 py-6 flex-1 w-full">
+      <main className="max-w-[1920px] mx-auto px-4 py-6 flex-1 w-full">
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-600 text-red-800 text-sm flex justify-between items-center animate-fadeIn shadow-sm">
              <div className="flex items-center gap-2">
@@ -1097,7 +1097,7 @@ export const App: React.FC = () => {
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          <div className="xl:col-span-3 sticky top-24">
+          <div className="xl:col-span-2 sticky top-24">
             <InputForm 
               onSubmit={handleSearch} 
               isLoading={loading || deepDiveLoading} 
@@ -1108,7 +1108,7 @@ export const App: React.FC = () => {
               resetTrigger={resetFormTrigger}
             />
           </div>
-          <div className="xl:col-span-9 space-y-6 min-w-0">
+          <div className="xl:col-span-10 space-y-6 min-w-0">
              {showRateLimit && (
                <RateLimitOverlay onComplete={() => setShowRateLimit(false)} />
              )}

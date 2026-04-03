@@ -200,12 +200,12 @@ export const App: React.FC = () => {
         setLanguage={setAppLanguage}
       />
       
-      <main className="max-w-[1600px] mx-auto px-4 py-6 flex-1 w-full">
+      <main className="max-w-[1920px] mx-auto px-4 py-6 flex-1 w-full">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          <div className="xl:col-span-3 sticky top-24">
+          <div className="xl:col-span-2 sticky top-24">
             <InputForm onSubmit={handleSearch} isLoading={loading || deepDiveLoading} protocolMode="deep" setProtocolMode={() => {}} onOpenTour={() => setShowTour(true)} />
           </div>
-          <div className="xl:col-span-9 space-y-6 min-w-0">
+          <div className="xl:col-span-10 space-y-6 min-w-0">
              <ProcessingStatusBanner loading={loading} deepDiveLoading={deepDiveLoading} analyzingCompany={analyzingCompany} subStatus={analysisSubStatus} analysisResult={analysisResult} onDismiss={() => setAnalysisResult(null)} />
              {deepDiveLead && (
                <LeadCard 
