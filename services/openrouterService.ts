@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -425,6 +425,7 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?
     webSoftware: pickList(countryOverrides?.webSoftware, sourcePolicies?.webSoftware, WEBSOFTWARE_SOURCE_DOMAINS),
     news: pickList(countryOverrides?.news, sourcePolicies?.news, ['ehandel.se', 'market.se', 'breakit.se']),
     strictCompanyMatch: countryOverrides?.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
+    earliestNewsYear: countryOverrides?.earliestNewsYear ?? sourcePolicies?.earliestNewsYear ?? (new Date().getFullYear() - 1),
     customCategories: {
       ...(sourcePolicies?.customCategories || {}),
       ...(countryOverrides?.customCategories || {})
@@ -436,6 +437,54 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?
     },
     countrySourcePolicies: sourcePolicies?.countrySourcePolicies || {}
   };
+}
+
+function parseResultDate(value: any): Date | null {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseLikelyPublishedDate(item: any): Date | null {
+  return parseResultDate(item?.published_date)
+    || parseResultDate(item?.publishedDate)
+    || parseResultDate(item?.date)
+    || parseResultDate(item?.metadata?.published_date)
+    || null;
+}
+
+function normalizeFinancialHistoryEntries(history: any[], evidenceText?: string): FinancialYear[] {
+  const normalized = (Array.isArray(history) ? history : [])
+    .map((entry: any) => {
+      const year = pickString(entry?.year);
+      if (!/^20\d{2}$/.test(year)) return null;
+      return {
+        year,
+        revenue: `${parseRevenueToTKR(entry?.revenue || 0).toLocaleString('sv-SE')} tkr`,
+        profit: `${parseRevenueToTKR(entry?.profit || 0).toLocaleString('sv-SE')} tkr`
+      } as FinancialYear;
+    })
+    .filter(Boolean) as FinancialYear[];
+
+  const deduped = Array.from(new Map(normalized.map(entry => [entry.year, entry])).values())
+    .sort((a, b) => Number(b.year) - Number(a.year))
+    .slice(0, 3);
+
+  if (deduped.length >= 3) return deduped;
+
+  const fallbackMatches = Array.from(String(evidenceText || '').matchAll(/\b(20\d{2})\b[^\n]{0,80}?([\d\s.]+)\s*tkr[^\n]{0,80}?([\d\s.\-]+)\s*tkr/gi));
+  const fallback = fallbackMatches
+    .map(match => ({
+      year: match[1],
+      revenue: `${parseRevenueToTKR(`${match[2]} tkr`).toLocaleString('sv-SE')} tkr`,
+      profit: `${parseRevenueToTKR(`${match[3]} tkr`).toLocaleString('sv-SE')} tkr`
+    }))
+    .filter(entry => /^20\d{2}$/.test(entry.year))
+    .sort((a, b) => Number(b.year) - Number(a.year));
+
+  return Array.from(new Map([...deduped, ...fallback].map(entry => [entry.year, entry])).values())
+    .sort((a, b) => Number(b.year) - Number(a.year))
+    .slice(0, 3);
 }
 
 function getSourcePriorityByPartBlock(sourcePolicies?: SourcePolicyConfig): string {
@@ -674,13 +723,77 @@ async function fetchTechEvidenceFromCrawl(domain: string): Promise<string> {
   }
 }
 
+type VerifiedRegistryFields = {
+  orgNumber?: string;
+  registeredAddress?: string;
+  revenueTkr?: number;
+  profitTkr?: number;
+};
+
+type VerifiedFinancialEvidence = {
+  evidenceText: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+  sourceUrl?: string;
+  parsed: VerifiedRegistryFields;
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseLabeledTkrValue(text: string, labels: string[]): number | undefined {
+  const source = String(text || '');
+  for (const label of labels) {
+    const pattern = new RegExp(`${escapeRegExp(label)}[^\d\n]{0,40}([\d\s.]+)\s*tkr`, 'i');
+    const match = source.match(pattern);
+    if (!match?.[1]) continue;
+    const parsed = parseRevenueToTKR(`${match[1]} tkr`);
+    if (parsed > 0 || String(match[1]).includes('0')) return parsed;
+  }
+  return undefined;
+}
+
+function parseLabeledAddress(text: string, labels: string[]): string {
+  const source = String(text || '');
+  for (const label of labels) {
+    const pattern = new RegExp(`${escapeRegExp(label)}\s*:?\s*([^\n|]{8,140})`, 'i');
+    const match = source.match(pattern);
+    const candidate = pickString(match?.[1])
+      .replace(/\s{2,}/g, ' ')
+      .replace(/[.;,\s]+$/, '')
+      .trim();
+    if (candidate && /\d/.test(candidate) && /,/.test(candidate)) return candidate;
+  }
+  return '';
+}
+
+function parseVerifiedRegistryFields(text: string, requestedOrgNumber?: string): VerifiedRegistryFields {
+  const source = String(text || '');
+  if (!source) return {};
+
+  const detectedOrg = extractOrgNumberFromText(source);
+  const normalizedRequestedOrg = normalizeOrgNumber(requestedOrgNumber || '');
+  const normalizedDetectedOrg = normalizeOrgNumber(detectedOrg);
+
+  if (normalizedRequestedOrg && normalizedDetectedOrg && normalizedRequestedOrg !== normalizedDetectedOrg) {
+    return {};
+  }
+
+  return {
+    orgNumber: detectedOrg || requestedOrgNumber,
+    registeredAddress: parseLabeledAddress(source, ['registrerad adress', 'adress', 'besöksadress']),
+    revenueTkr: parseLabeledTkrValue(source, ['omsättning', 'nettoomsättning']),
+    profitTkr: parseLabeledTkrValue(source, ['resultat efter finansnetto', 'efter finansnetto', 'årets resultat', 'resultat'])
+  };
+}
+
 // ── Phase 1: Verified Financial Data from Allabolag/Ratsit ────────────────
 async function fetchVerifiedFinancials(
   orgNumber: string,
   companyName: string
-): Promise<{ evidenceText: string; confidence: 'verified' | 'estimated' | 'missing' }> {
+): Promise<VerifiedFinancialEvidence> {
   const cleanOrg = normalizeOrgNumber(orgNumber);
-  if (!cleanOrg && !companyName) return { evidenceText: '', confidence: 'missing' };
+  if (!cleanOrg && !companyName) return { evidenceText: '', confidence: 'missing', parsed: {} };
   try {
     const orgFormatted = cleanOrg.length >= 10
       ? `${cleanOrg.slice(0, 6)}-${cleanOrg.slice(6, 10)}`
@@ -720,10 +833,16 @@ async function fetchVerifiedFinancials(
         if (crawled) snippets.unshift(`[${normalizeDomain(allabolagUrl)} — DIREKT CRAWL]\n${crawled}`);
       } catch { /* fall back to Tavily snippet */ }
     }
-    if (!snippets.length) return { evidenceText: '', confidence: 'missing' };
-    return { evidenceText: snippets.join('\n\n---\n\n'), confidence: 'verified' };
+    if (!snippets.length) return { evidenceText: '', confidence: 'missing', parsed: {} };
+    const evidenceText = snippets.join('\n\n---\n\n');
+    return {
+      evidenceText,
+      confidence: 'verified',
+      sourceUrl: allabolagUrl,
+      parsed: parseVerifiedRegistryFields(evidenceText, cleanOrg)
+    };
   } catch {
-    return { evidenceText: '', confidence: 'missing' };
+    return { evidenceText: '', confidence: 'missing', parsed: {} };
   }
 }
 
@@ -778,13 +897,16 @@ async function fetchDecisionMakersTargeted(
   confidence: 'verified' | 'estimated' | 'missing';
 }> {
   if (!companyName) return { contacts: [], confidence: 'missing' };
+  const aliases = buildCompanyAliases(companyName);
   const roleSynonyms = [...focusRoles.filter(Boolean), 'VD', 'logistikchef', 'inköpschef', 'e-handelschef', 'COO'];
   const roleClause = roleSynonyms.slice(0, 5).map(r => `"${r}"`).join(' OR ');
   const orgNormalized = normalizeOrgNumber(orgNumber);
   const queries = [
     `"${companyName}" (${roleClause}) site:linkedin.com`,
     `"${companyName}" (styrelse OR ledning OR vd) site:allabolag.se`,
-    orgNormalized ? `"${orgNormalized}" (VD OR styrelseledamot OR logistikchef) site:ratsit.se` : null
+    orgNormalized ? `"${orgNormalized}" (VD OR styrelseledamot OR logistikchef) site:ratsit.se` : null,
+    `"${companyName}" (${roleClause}) LinkedIn`,
+    `"${companyName}" (${roleClause})`
   ].filter(Boolean) as string[];
 
   const found: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
@@ -796,16 +918,31 @@ async function fetchDecisionMakersTargeted(
       for (const r of results) {
         const text = `${pickString(r?.title)} ${pickString(r?.content)}`;
         const url = pickString(r?.url);
+        const lowered = `${text} ${url}`.toLowerCase();
         const nameMatches = text.match(/\b([A-ZÅÄÖ][a-zåäö-]+\s+[A-ZÅÄÖ][a-zåäö-]+)\b/g) || [];
         const roleMatches = text.match(/(VD|CEO|logistikchef|inköpschef|e-handelschef|CMO|CFO|COO|styrelseordförande|styrelseledamot|Supply Chain|Head of Logistics)/gi) || [];
         if (!nameMatches.length || !roleMatches.length) continue;
+        const aliasMatch = aliases.some(alias => lowered.includes(alias.toLowerCase()));
+        const orgMatch = orgNormalized ? normalizeOrgNumber(lowered).includes(orgNormalized) : false;
+        const linkedinVerified = url.includes('linkedin.com') && aliasMatch;
+        const companyVerified = aliasMatch || orgMatch;
+        if (!companyVerified) continue;
         const name = nameMatches[0];
         const role = roleMatches[0];
         if (/rickard|wigrund/i.test(name)) continue;
         if (isLikelyGenericPersonName(name)) continue;
         if (seenNames.has(name.toLowerCase())) continue;
         seenNames.add(name.toLowerCase());
-        found.push({ name, title: role, email: '', linkedin: url.includes('linkedin.com') ? url : '', directPhone: '', verificationNote: `Källa: ${normalizeDomain(url)}` });
+        found.push({
+          name,
+          title: role,
+          email: '',
+          linkedin: url.includes('linkedin.com') ? url : '',
+          directPhone: '',
+          verificationNote: linkedinVerified
+            ? `Verifierad via LinkedIn + bolagsmatch (${normalizeDomain(url)})`
+            : `Verifierad via bolagsmatch (${normalizeDomain(url)})`
+        });
       }
     } catch { /* continue to next query */ }
   }
@@ -859,7 +996,7 @@ function parseRetryAfterSeconds(error: any): number {
 async function fetchLatestNews(
   companyName: string,
   domains: string[],
-  options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean }
+  options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean; earliestNewsYear?: number }
 ): Promise<string> {
   if (!companyName) return '';
 
@@ -870,6 +1007,7 @@ async function fetchLatestNews(
   const orgNumber = pickString(options?.orgNumber);
   const orgClause = orgNumber ? ` OR "${orgNumber}"` : '';
   const strictCompanyMatch = options?.strictCompanyMatch !== false;
+  const earliestNewsYear = options?.earliestNewsYear || (new Date().getFullYear() - 1);
   const contactNames = (options?.contactNames || [])
     .map((n) => String(n || '').trim())
     .filter((n) => n.length > 4)
@@ -881,7 +1019,8 @@ async function fetchLatestNews(
   const query = `(${companyClause}${orgClause}${contactClause}) (${siteQuery}) (nyheter OR pressmeddelande OR expansion OR rekrytering)`;
 
   try {
-    const response = await axios.post(
+    const [response, broadResponse] = await Promise.all([
+      axios.post(
       buildApiUrl('/api/tavily'),
       {
         query,
@@ -891,9 +1030,21 @@ async function fetchLatestNews(
       {
         timeout: 15000
       }
-    );
+    ),
+      axios.post(
+        buildApiUrl('/api/tavily'),
+        {
+          query: `${companyName} ${contactNames.join(' ')} nyheter pressmeddelande expansion`,
+          action: 'search',
+          maxResults: 4
+        },
+        {
+          timeout: 15000
+        }
+      )
+    ]);
 
-    const results = response.data?.results || [];
+    const results = [...(response.data?.results || []), ...(broadResponse.data?.results || [])];
     if (!Array.isArray(results) || results.length === 0) return '';
 
     const orgNormalized = normalizeOrgNumber(orgNumber);
@@ -902,6 +1053,9 @@ async function fetchLatestNews(
       const content = pickString(item?.content);
       const url = pickString(item?.url);
       const sourceText = `${title} ${content} ${url}`.toLowerCase();
+      const publishedDate = parseLikelyPublishedDate(item);
+
+      if (publishedDate && publishedDate.getFullYear() < earliestNewsYear) return false;
 
       if (strictCompanyMatch && isConflictingCompanyVariant(sourceText, aliases)) return false;
 
@@ -923,7 +1077,9 @@ async function fetchLatestNews(
     const topEntries = safeResults.slice(0, 3).map((item: any) => {
       const title = pickString(item?.title, item?.content, 'Nyhet');
       const url = pickString(item?.url);
-      return url ? `${title} (${url})` : title;
+      const publishedDate = parseLikelyPublishedDate(item);
+      const prefix = publishedDate ? `${publishedDate.toISOString().slice(0, 10)} · ` : '';
+      return url ? `${prefix}${title} (${url})` : `${prefix}${title}`;
     });
 
     return topEntries.join(' | ');
@@ -1115,6 +1271,10 @@ Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
 ${getSourcePriorityBlock(preferredDomains)}
 ${getSourcePriorityByPartBlock(effectivePolicies)}
 
+### NEWS RUNTIME RULES
+- Tidigaste tillåtna nyhetsår: ${effectivePolicies.earliestNewsYear || (new Date().getFullYear() - 1)}
+- Google/Tavily-fallback ska alltid användas om kategori-domänerna inte räcker.
+
 ### CATEGORY FIELD MAPPINGS
 ${getCategoryFieldMappingBlock(effectivePolicies)}
 
@@ -1211,9 +1371,11 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       }
     } catch { /* Phase 3 non-critical — proceed with LLM contacts */ }
 
-    const revenueTKR = parseRevenueToTKR(
+    const registryFields = financialEvidence.parsed || {};
+    const revenueTKR = registryFields.revenueTkr ?? parseRevenueToTKR(
       pickNumber(companyData?.revenue_tkr, companyData?.revenueTKR, companyData?.revenue) || 0
     );
+    const profitTKR = registryFields.profitTkr ?? parseRevenueToTKR(financials?.history?.[0]?.profit || 0);
     const marketCount = pickNumber(companyData?.market_count, companyData?.marketCount) || 1;
     const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
     const metrics = calculateRickardMetrics(revenueTKR, sniCode, sniPercentages, marketCount);
@@ -1247,7 +1409,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       {
         orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
         contactNames,
-        strictCompanyMatch: strictCompanyMatchEnabled
+        strictCompanyMatch: strictCompanyMatchEnabled,
+        earliestNewsYear: effectivePolicies.earliestNewsYear
       }
     );
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
@@ -1255,29 +1418,37 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
 
+    const verifiedRegistrySnapshot: VerifiedRegistrySnapshot | undefined = financialEvidence.confidence === 'verified'
+      ? {
+          sourceUrl: financialEvidence.sourceUrl,
+          sourceLabel: financialEvidence.sourceUrl ? normalizeDomain(financialEvidence.sourceUrl) : 'allabolag.se',
+          orgNumber: pickString(registryFields.orgNumber, strictOrgNumber),
+          registeredAddress: pickString(registryFields.registeredAddress),
+          revenue: revenueTKR ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '',
+          profit: profitTKR || profitTKR === 0 ? `${profitTKR.toLocaleString('sv-SE')} tkr` : '',
+          capturedAt: new Date().toISOString()
+        }
+      : undefined;
+
     const lead: LeadData = {
       id: crypto.randomUUID(),
       companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
-      orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
+      orgNumber: pickString(registryFields.orgNumber, companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
       domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
       sniCode,
-      address: pickString(companyData?.visiting_address, companyData?.address, companyData?.street_address),
-      visitingAddress: pickString(companyData?.visiting_address, companyData?.address, companyData?.street_address),
+      address: pickString(registryFields.registeredAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
+      visitingAddress: pickString(companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
       warehouseAddress: pickString(companyData?.warehouse_address, companyData?.warehouseAddress),
       revenue: `${revenueTKR.toLocaleString('sv-SE')} tkr`,
       revenueYear: pickString(companyData?.revenue_year, companyData?.revenueYear),
-      profit: `${parseRevenueToTKR(financials?.history?.[0]?.profit || 0).toLocaleString('sv-SE')} tkr`,
+      profit: `${profitTKR.toLocaleString('sv-SE')} tkr`,
       activeMarkets: companyData?.active_markets || companyData?.activeMarkets || [],
       marketCount: marketCount,
       estimatedAOV: metrics.estimatedAOV,
       b2bPercentage: pickNumber(companyData?.b2b_percentage, companyData?.b2bPercentage) || 0,
       b2cPercentage: pickNumber(companyData?.b2c_percentage, companyData?.b2cPercentage) || 0,
       
-      financialHistory: (financials?.history || []).map((h: any) => ({
-        year: h.year,
-        revenue: `${parseRevenueToTKR(h.revenue).toLocaleString('sv-SE')} tkr`,
-        profit: `${parseRevenueToTKR(h.profit).toLocaleString('sv-SE')} tkr`
-      })),
+      financialHistory: normalizeFinancialHistoryEntries(financials?.history || [], financialEvidence.evidenceText),
       solidity: pickString(financials?.solidity, financials?.equity_ratio) || '0%',
       liquidityRatio: pickString(financials?.liquidity_ratio, financials?.liquidityRatio) || '0%',
       profitMargin: pickString(financials?.profit_margin, financials?.profitMargin) || '0%',
@@ -1285,7 +1456,9 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       debtBalance: pickString(financials?.debt_balance_tkr, financials?.debtBalance, '0'),
       paymentRemarks: pickString(financials?.payment_remarks, financials?.paymentRemarks),
       isBankruptOrLiquidated: Boolean(financials?.is_bankrupt_or_liquidated || financials?.isBankruptOrLiquidated),
-      financialSource: pickString(financials?.financial_source, financials?.source) || (sourceGroundingEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
+      financialSource: pickString(financials?.financial_source, financials?.source)
+        || (financialEvidence.sourceUrl ? `Verifierad registerkälla: ${normalizeDomain(financialEvidence.sourceUrl)}` : '')
+        || (sourceGroundingEvidence ? 'Kategori-styrd Tavily+Crawl4ai' : 'Officiella källor'),
       
       ecommercePlatform: pickString(logistics?.ecommerce_platform, logistics?.ecommercePlatform) || 'Okänd',
       paymentProvider: pickString(logistics?.payment_provider, logistics?.paymentProvider) || 'Okänd', 
@@ -1343,6 +1516,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       halluccinationScore: 0, // Will be updated by Tavily
       sourceCoverage: sourceBundle.coverage,
       emailPattern: detectedEmailPattern,
+      verifiedRegistrySnapshot,
       dataConfidence: {
         financial: financialEvidence.confidence,
         checkout: checkoutCrawlResult.confidence,
@@ -1443,7 +1617,7 @@ export async function generateLeads(
 
       // Apply heavier evidence checks on the first leads to avoid quota spikes in large batches.
       const shouldEnrich = index < 6;
-      let financialEvidence: { evidenceText: string; confidence: 'verified' | 'estimated' | 'missing' } = { evidenceText: '', confidence: 'missing' };
+      let financialEvidence: VerifiedFinancialEvidence = { evidenceText: '', confidence: 'missing', parsed: {} };
       let checkoutEvidence: {
         positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
         evidenceSnippet: string;
@@ -1483,21 +1657,34 @@ export async function generateLeads(
         }
       }
 
+      const registryFields = financialEvidence.parsed || {};
       const decisionMakers: DecisionMaker[] = [
         ...baseDecisionMakers,
         ...dmSupplement.filter(dc => !baseDecisionMakers.some(b => b.name.toLowerCase() === dc.name.toLowerCase()))
       ].slice(0, 6);
 
+      const verifiedRegistrySnapshot: VerifiedRegistrySnapshot | undefined = financialEvidence.confidence === 'verified'
+        ? {
+            sourceUrl: financialEvidence.sourceUrl,
+            sourceLabel: financialEvidence.sourceUrl ? normalizeDomain(financialEvidence.sourceUrl) : 'allabolag.se',
+            orgNumber: pickString(registryFields.orgNumber, l.orgNumber, l.org_number, l.organizationNumber),
+            registeredAddress: pickString(registryFields.registeredAddress),
+            revenue: registryFields.revenueTkr !== undefined ? `${registryFields.revenueTkr.toLocaleString('sv-SE')} tkr` : '',
+            profit: registryFields.profitTkr !== undefined ? `${registryFields.profitTkr.toLocaleString('sv-SE')} tkr` : '',
+            capturedAt: new Date().toISOString()
+          }
+        : undefined;
+
       return {
         ...l,
         id: crypto.randomUUID(),
         companyName: pickString(l.companyName, l.company_name, l.name),
-        orgNumber: pickString(l.orgNumber, l.org_number, l.organizationNumber),
+        orgNumber: pickString(registryFields.orgNumber, l.orgNumber, l.org_number, l.organizationNumber),
         phoneNumber: pickString(l.phoneNumber, l.phone_number),
         sniCode,
-        revenue: `${rev.toLocaleString('sv-SE')} tkr`,
-        address: pickString(l.address, l.visitingAddress, l.visiting_address),
-        visitingAddress: pickString(l.visitingAddress, l.visiting_address, l.address),
+        revenue: `${(registryFields.revenueTkr ?? rev).toLocaleString('sv-SE')} tkr`,
+        address: pickString(registryFields.registeredAddress, l.address, l.visitingAddress, l.visiting_address),
+        visitingAddress: pickString(l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
         warehouseAddress: pickString(l.warehouseAddress, l.warehouse_address),
         domain,
         websiteUrl,
@@ -1526,7 +1713,13 @@ export async function generateLeads(
         analysisDate: '',
         aiModel: activeModel,
         halluccinationScore: 0,
-        financialSource: financialEvidence.confidence === 'verified' ? 'Allabolag/Ratsit (batch verification)' : pickString(l.financialSource),
+        profit: registryFields.profitTkr !== undefined
+          ? `${registryFields.profitTkr.toLocaleString('sv-SE')} tkr`
+          : pickString(l.profit),
+        financialSource: financialEvidence.confidence === 'verified'
+          ? `Verifierad registerkälla: ${normalizeDomain(financialEvidence.sourceUrl || 'allabolag.se')}`
+          : pickString(l.financialSource),
+        verifiedRegistrySnapshot,
         emailPattern,
         dataConfidence: {
           financial: financialEvidence.confidence,

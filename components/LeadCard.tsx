@@ -575,6 +575,50 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     </div>
                   )}
+                  {editData.verifiedRegistrySnapshot && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-none">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                            Verifierad Registry Snapshot
+                          </p>
+                          <ConfidenceBadge level="verified" />
+                        </div>
+                        {editData.verifiedRegistrySnapshot.sourceUrl && (
+                          <a
+                            href={editData.verifiedRegistrySnapshot.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] font-bold text-emerald-700 hover:underline"
+                          >
+                            {editData.verifiedRegistrySnapshot.sourceLabel || 'Källa'}
+                          </a>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="bg-white border border-emerald-100 p-2 rounded-sm">
+                          <div className="text-slate-500 uppercase font-bold">Org.nr</div>
+                          <div className="font-black text-dhl-black">{editData.verifiedRegistrySnapshot.orgNumber || '-'}</div>
+                        </div>
+                        <div className="bg-white border border-emerald-100 p-2 rounded-sm">
+                          <div className="text-slate-500 uppercase font-bold">Omsättning</div>
+                          <div className="font-black text-dhl-black">{editData.verifiedRegistrySnapshot.revenue || '-'}</div>
+                        </div>
+                        <div className="bg-white border border-emerald-100 p-2 rounded-sm col-span-2">
+                          <div className="text-slate-500 uppercase font-bold">Registrerad adress</div>
+                          <div className="font-black text-dhl-black">{editData.verifiedRegistrySnapshot.registeredAddress || '-'}</div>
+                        </div>
+                        <div className="bg-white border border-emerald-100 p-2 rounded-sm">
+                          <div className="text-slate-500 uppercase font-bold">Resultat</div>
+                          <div className="font-black text-dhl-black">{editData.verifiedRegistrySnapshot.profit || '-'}</div>
+                        </div>
+                        <div className="bg-white border border-emerald-100 p-2 rounded-sm">
+                          <div className="text-slate-500 uppercase font-bold">Kontrollerad</div>
+                          <div className="font-black text-dhl-black">{new Date(editData.verifiedRegistrySnapshot.capturedAt).toLocaleDateString('sv-SE')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 gap-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">

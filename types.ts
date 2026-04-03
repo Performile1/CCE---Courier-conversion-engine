@@ -81,6 +81,7 @@ export interface SourcePolicyConfig {
   webSoftware: string[];
   news: string[];
   strictCompanyMatch?: boolean;
+  earliestNewsYear?: number;
   customCategories?: Record<string, string[]>;
   categoryFieldMappings?: Record<string, string[]>;
   countrySourcePolicies?: Record<string, {
@@ -91,6 +92,7 @@ export interface SourcePolicyConfig {
     webSoftware?: string[];
     news?: string[];
     strictCompanyMatch?: boolean;
+    earliestNewsYear?: number;
     customCategories?: Record<string, string[]>;
     categoryFieldMappings?: Record<string, string[]>;
   }>;
@@ -173,6 +175,16 @@ export interface LeadFieldChange {
   previous: string;
   current: string;
   detectedAt: string;
+}
+
+export interface VerifiedRegistrySnapshot {
+  sourceUrl?: string;
+  sourceLabel?: string;
+  orgNumber?: string;
+  registeredAddress?: string;
+  revenue?: string;
+  profit?: string;
+  capturedAt: string;
 }
 
 export interface LeadData {
@@ -275,6 +287,7 @@ export interface LeadData {
   // ── Anti-hallucination: per-field source confidence ──────────────────────
   emailPattern?: string;
   dataConfidence?: DataConfidence;
+  verifiedRegistrySnapshot?: VerifiedRegistrySnapshot;
 
   // ── Change monitoring (bokslut/risk deltas between scans) ─────────────────
   changeHighlights?: LeadFieldChange[];
