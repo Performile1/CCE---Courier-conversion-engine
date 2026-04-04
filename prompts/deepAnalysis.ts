@@ -15,19 +15,19 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
 ### ANTI-HALLUCINATION PROTOCOL
 - Org-nummer: Verifiera ALLTID org-numret mot bolagsnamnet och domenen. Om du inte hittar ett 100% sakert org-nummer, svara "Ej hittat". Gissa ALDRIG.
 - Data-kallor: Prioritera Ratsit, Allabolag och officiella kallor via Google Search.
-- Source Manager / Grounding: Om ett block med "SOURCE EVIDENCE" finns i prompten maste dessa kallor prioriteras foran fria antaganden. Om evidens saknas, returnera tom strang eller 0 enligt schema.
+- Source Manager / Grounding: Om ett block med "SOURCE EVIDENCE" finns i prompten maste dessa kallor prioriteras foran fria antaganden. Om evidens saknas, returnera tom strang, tom array eller null enligt schema. Fyll aldrig i 0 eller defaulttext for att maskera saknad data.
 - FINANSIELL DATA (Omsattning, Vinst, Soliditet, Likviditet):
   * Hallucinera ALDRIG finansiell data.
   * ENHET: All omsattning och vinst SKA anges i TKR (Tusentals kronor).
   * VARNING: Om Allabolag visar "41 198", svara "41198".
-  * Om data saknas helt, returnera 0. Skriv ALDRIG "(Estimering)" i finansiella falt.
-  * Ange kallan i "financial_source"-faltet (t.ex. "Allabolag 2024" eller "Internal Data").
+  * Om data saknas helt, returnera null eller tom strang beroende pa faltet. Skriv ALDRIG "(Estimering)" i finansiella falt.
+  * Ange kallan i "financial_source"-faltet (t.ex. "Allabolag 2024"). Om ingen verifierad kalla hittas, lamna faltet tomt.
 
 ### 1. LOGISTICS & TECH
 - Carriers: Identifiera transportorer (Pos 1, 2, 3). Endast verifierade fynd.
-- Markets: Identifiera vilka marknader foretaget saljer pa (t.ex. Sverige, Norge, Finland, Tyskland, USA). Ange antal marknader.
+- Markets: Identifiera vilka marknader foretaget saljer pa ENDAST om detta framgar explicit av källan, t.ex. landval, fraktvillkor, butiksländer, lokala domäner eller uttalad expansion. Använd inte bolagets hemland eller adress som proxy. Om evidens saknas ska active_markets vara [] och market_count vara null.
 - Model: "Pure Player" (fokus box/last-mile) vs "Retailer" (fokus butiksnarvaro).
-- Distribution: Estimera fordelning mellan B2B och B2C (t.ex. 20% B2B, 80% B2C) baserat pa sortiment och kundsegment.
+- Distribution: Ange B2B/B2C endast om det finns explicit evidens i källan, t.ex. "for business", återförsäljare, wholesale-portal eller tydligt konsumentfokus i verifierad källa. Gissa aldrig procentfördelning. Om evidens saknas ska b2b_percentage och b2c_percentage vara null.
 - Stack: Detektera e-handelsplattform (Shopify, WooCommerce, Magento, Centra, Norce) och TA-system (nShift/Unifaun, Centiro, Ingrid, Logtrade).
 - Checkout-positioner: Granska "FINANSIELL REGISTERDATA" och "SOURCE EVIDENCE" for kassainnehall. Lista transportorer efter position (pos 1, 2, 3...). VIKTIG REGEL: Om fokustransportoren INTE syns i kassans data, lagg alltid till en extra post med pos: 0, service: "EJ I CHECKOUT", price: "—". Gissa ALDRIG positioner utan evidens.
 - Stack: Detektera e-handelsplattform (Shopify, WooCommerce, Magento, Centra, Norce) och TA-system (nShift/Unifaun, Centiro, Ingrid, Logtrade).
@@ -74,23 +74,23 @@ Rickard Wigrund ar ANVANDAREN av detta verktyg. Han ska ALDRIG inkluderas som en
     "financial_trend": "Stabil|Vaxande|Minskande",
     "financial_trend_motivation": "string",
     "business_model": "Retailer|PurePlayer|Manufacturer",
-    "revenue_tkr": number, "revenue_year": "string", "legal_status": "string", "vat_registered": boolean,
+    "revenue_tkr": "number|null", "revenue_year": "string", "legal_status": "string", "vat_registered": "boolean|null",
     "visiting_address": "string", "warehouse_address": "string", "phone_number": "string",
-    "active_markets": ["string"], "market_count": number,
-    "b2b_percentage": number, "b2c_percentage": number
+    "active_markets": ["string"], "market_count": "number|null",
+    "b2b_percentage": "number|null", "b2c_percentage": "number|null"
   },
   "financials": {
     "history": [{"year": "string", "revenue": "tkr", "profit": "tkr"}],
     "debt_equity_ratio": "string", "debt_balance_tkr": "string", "profit_margin": "string",
     "solidity": "string", "liquidity_ratio": "string",
-    "payment_remarks": "string", "is_bankrupt_or_liquidated": boolean, "est_shipping_budget_tkr": number,
+    "payment_remarks": "string", "is_bankrupt_or_liquidated": "boolean|null", "est_shipping_budget_tkr": "number|null",
     "financial_source": "string"
   },
   "logistics": {
     "carriers": ["string"],
     "checkout_positions": [{"carrier": "string", "pos": number, "service": "string", "price": "string", "in_checkout": true}],
     "ecommerce_platform": "string", "checkout_solution": "string", "ta_system": "string", "tech_evidence": "string",
-    "store_count": number, "strategic_pitch": "string"
+    "store_count": "number|null", "strategic_pitch": "string"
   },
   "email_pattern": "string (t.ex. fornamn.efternamn@domän.se — tom om ej hittad)",
   "news": [
@@ -105,4 +105,5 @@ Var extremt koncis i dina interna tankesteg. Leverera JSON-objektet direkt for a
 ### EXTRA RULES
 - "financials.history" ska innehalla de 3 senaste tillgangliga aren med omsattning och resultat, sorterade nyast till aldst.
 - Beslutsfattare ska verifieras mot bolagsnamn + roll + LinkedIn nar sadan URL finns. Om person inte kan verifieras mot bolaget, utelamna personen.
+- Om ett falt inte kan verifieras ska det lamnas tomt eller null. Svara aldrig med "Okand", "N/A", "Aktiv" eller 0 som fallback om kallan saknas.
 `;

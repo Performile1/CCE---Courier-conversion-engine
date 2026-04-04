@@ -100,7 +100,7 @@ export const CacheManager: React.FC<CacheManagerProps> = ({
           segment: Segment.UNKNOWN, 
           revenue: parts[3] || "",
           freightBudget: "",
-          legalStatus: "Okänd (Importerad)",
+          legalStatus: "",
           creditRatingLabel: "",
           decisionMakers: [],
           websiteUrl: "",

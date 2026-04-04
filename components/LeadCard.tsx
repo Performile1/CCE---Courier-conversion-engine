@@ -80,71 +80,61 @@ const LeadCard: React.FC<LeadCardProps> = ({
   const printRef = useRef<HTMLDivElement>(null);
 
   // --- Konstanter ---
-  const activeCarrier = activeCarrierProp || "PostNord";
-  const calendarUrl = calendarUrlProp || "https://calendly.com/ditt-namn";
+  const activeCarrier = activeCarrierProp || "";
+  const calendarUrl = calendarUrlProp || "";
 
   // Initial data
   const [editData, setEditData] = useState<LeadData>({
     id: data?.id ?? crypto.randomUUID(),
-    companyName: data?.companyName ?? "Exempelbolaget AB",
-    orgNumber: data?.orgNumber ?? "556000-0000",
-    revenue: data?.revenue ?? "45 000 tkr",
-    revenueYear: data?.revenueYear ?? "2023",
-    profit: data?.profit ?? "2 400 tkr",
-    segment: data?.segment ?? Segment.FS,
-    address: data?.address ?? "Storgatan 1, 111 22 Stockholm",
-    visitingAddress: data?.visitingAddress ?? "Storgatan 1, 111 22 Stockholm",
-    warehouseAddress: data?.warehouseAddress ?? "Logistikvägen 10, 504 62 Borås",
-    annualPackages: data?.annualPackages ?? 12500,
-    pos1Volume: data?.pos1Volume ?? 7500,
-    pos2Volume: data?.pos2Volume ?? 2750,
-    freightBudget: data?.freightBudget ?? "1 250 tkr",
-    ecommercePlatform: data?.ecommercePlatform ?? "Shopify",
-    paymentProvider: data?.paymentProvider ?? "Klarna",
+    companyName: data?.companyName ?? "",
+    orgNumber: data?.orgNumber ?? "",
+    revenue: data?.revenue ?? "",
+    revenueYear: data?.revenueYear ?? "",
+    profit: data?.profit ?? "",
+    segment: data?.segment ?? Segment.UNKNOWN,
+    address: data?.address ?? "",
+    visitingAddress: data?.visitingAddress ?? "",
+    warehouseAddress: data?.warehouseAddress ?? "",
+    annualPackages: data?.annualPackages,
+    pos1Volume: data?.pos1Volume,
+    pos2Volume: data?.pos2Volume,
+    freightBudget: data?.freightBudget ?? "",
+    ecommercePlatform: data?.ecommercePlatform ?? "",
+    paymentProvider: data?.paymentProvider ?? "",
     latestNews: data?.latestNews ?? "",
     sourceCoverage: data?.sourceCoverage ?? [],
-    taSystem: data?.taSystem ?? "nShift",
-    techEvidence: data?.techEvidence ?? "Detekterade Shopify-scripts och Klarna Checkout v3.",
-    marketCount: data?.marketCount ?? 3,
-    activeMarkets: data?.activeMarkets ?? ["Sverige", "Norge", "Finland"],
-    b2bPercentage: data?.b2bPercentage ?? 15,
-    b2cPercentage: data?.b2cPercentage ?? 85,
-    strategicPitch: data?.strategicPitch ?? "Bolaget har en hög returgrad inom mode-segmentet. Genom att implementera DHL Retur-portal kan vi sänka hanteringskostnaden med 22%.",
+    taSystem: data?.taSystem ?? "",
+    techEvidence: data?.techEvidence ?? "",
+    marketCount: data?.marketCount,
+    activeMarkets: data?.activeMarkets ?? [],
+    b2bPercentage: data?.b2bPercentage,
+    b2cPercentage: data?.b2cPercentage,
+    strategicPitch: data?.strategicPitch ?? "",
     phoneNumber: data?.phoneNumber ?? "",
-    decisionMakers: data?.decisionMakers ?? [
-      { name: "Anders Andersson", title: "E-handelschef", email: "anders@bolaget.se", linkedin: "#" },
-      { name: "Beata Bengtsson", title: "Logistikansvarig", email: "beata@bolaget.se", linkedin: "#" }
-    ],
-    businessModel: data?.businessModel ?? "Pure Player",
-    storeCount: data?.storeCount ?? 0,
-    debtEquityRatio: data?.debtEquityRatio ?? "1.2",
-    debtBalance: data?.debtBalance ?? "500 tkr",
-    solidity: data?.solidity ?? "35%",
-    liquidityRatio: data?.liquidityRatio ?? "1.5",
-    profitMargin: data?.profitMargin ?? "5.3%",
-    legalStatus: data?.legalStatus ?? "Aktiv",
-    creditRatingLabel: data?.creditRatingLabel ?? "A (God kreditvärdighet)",
+    decisionMakers: data?.decisionMakers ?? [],
+    businessModel: data?.businessModel ?? "",
+    storeCount: data?.storeCount,
+    debtEquityRatio: data?.debtEquityRatio ?? "",
+    debtBalance: data?.debtBalance ?? "",
+    solidity: data?.solidity ?? "",
+    liquidityRatio: data?.liquidityRatio ?? "",
+    profitMargin: data?.profitMargin ?? "",
+    legalStatus: data?.legalStatus ?? "",
+    creditRatingLabel: data?.creditRatingLabel ?? "",
     creditRatingMotivation: data?.creditRatingMotivation ?? "",
     riskProfile: data?.riskProfile ?? "",
     financialTrend: data?.financialTrend ?? "",
-    websiteUrl: data?.websiteUrl ?? "https://bolaget.se",
-    carriers: data?.carriers ?? "PostNord, Budbee",
-    checkoutOptions: data?.checkoutOptions ?? [
-      { position: 1, carrier: "PostNord", service: "Mypack Collect", price: "49 kr" },
-      { position: 2, carrier: "Budbee", service: "Home Delivery", price: "79 kr" }
-    ],
-    financialHistory: data?.financialHistory?.length ? data.financialHistory : [
-      { year: "2023", revenue: "45 000 tkr", profit: "2 400 tkr" },
-      { year: "2022", revenue: "42 500 tkr", profit: "1 800 tkr" },
-      { year: "2021", revenue: "38 200 tkr", profit: "1 200 tkr" }
-    ],
+    websiteUrl: data?.websiteUrl ?? "",
+    carriers: data?.carriers ?? "",
+    checkoutOptions: data?.checkoutOptions ?? [],
+    financialHistory: data?.financialHistory?.length ? data.financialHistory : [],
     paymentRemarks: data?.paymentRemarks ?? "",
     recoveryPotentialSek: data?.recoveryPotentialSek ?? "",
-    conversionScore: data?.conversionScore ?? 0,
-    frictionAnalysis: data?.frictionAnalysis ?? { companyClicks: 0, benchmarkClicks: 0, frictionNote: "" },
+    conversionScore: data?.conversionScore,
+    frictionAnalysis: data?.frictionAnalysis,
     dmtMatrix: data?.dmtMatrix ?? [],
-    estimatedAOV: data?.estimatedAOV ?? 0,
-    employeesCount: data?.employeesCount ?? 0,
+    estimatedAOV: data?.estimatedAOV,
+    employeesCount: data?.employeesCount,
   });
 
   const [is3PLModalOpen, setIs3PLModalOpen] = useState(false);
@@ -245,6 +235,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const getStatusColor = (status: string) => {
+    if (!status.trim()) return 'bg-white border-slate-100 text-dhl-gray-dark';
     const s = status.toLowerCase();
     // Include user's specific keywords and potential typos
     if (
@@ -266,6 +257,17 @@ const LeadCard: React.FC<LeadCardProps> = ({
     if (ratio <= 1.0) return 'bg-emerald-50 border-emerald-100 text-emerald-700';
     if (ratio < 2.0) return 'bg-dhl-gray-light border-orange-100 text-orange-700';
     return 'bg-dhl-gray-light border-red-100 text-red-700';
+  };
+
+  const displayValue = (value?: string | number | null) => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'string' && value.trim() === '') return '—';
+    return String(value);
+  };
+
+  const displayNumber = (value?: number | null) => {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('sv-SE');
   };
 
   const renderRiskFieldSource = (field: 'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio') => {
@@ -338,12 +340,12 @@ const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const getLiquidityStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
     const hasPercent = valStr.includes('%');
     // Strip symbols like < or > before parsing
-    let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
+    let cleanValStr = valStr.replace(/[<>]/g, '').replace(/[−–]/g, '-').replace(',', '.').replace('%', '').trim();
     let val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
     
     // If it's a ratio (e.g. 1.5) instead of percentage (e.g. 150)
     if (!hasPercent && val < 10) val = val * 100;
@@ -356,10 +358,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const getProfitMarginStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
-    let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
+    let cleanValStr = valStr.replace(/[<>]/g, '').replace(/[−–]/g, '-').replace(',', '.').replace('%', '').trim();
     const val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
 
     if (val >= 15) return { className: 'bg-emerald-800 text-white border-emerald-900', label: 'Mycket bra' };
     if (val >= 10) return { className: 'bg-emerald-600 text-white border-emerald-700', label: 'Bra' };
@@ -369,10 +371,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const getSolidityStyle = (valStr: string) => {
-    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
-    let cleanValStr = valStr.replace(/[<>]/g, '').replace(',', '.').replace('%', '').trim();
+    if (!valStr || valStr === '-' || valStr === 'N/A') return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
+    let cleanValStr = valStr.replace(/[<>]/g, '').replace(/[−–]/g, '-').replace(',', '.').replace('%', '').trim();
     const val = parseFloat(cleanValStr);
-    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: 'N/A' };
+    if (isNaN(val)) return { className: 'bg-dhl-gray-light border-slate-100 text-dhl-gray-dark', label: '—' };
 
     if (val >= 40) return { className: 'bg-emerald-800 text-white border-emerald-900', label: 'Mycket bra' };
     if (val >= 18) return { className: 'bg-emerald-600 text-white border-emerald-700', label: 'Bra' };
@@ -540,15 +542,15 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <div className="grid grid-cols-3 gap-3">
                           <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
                             <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Org Nummer</p>
-                            <p className="text-sm font-bold text-dhl-black">{editData.orgNumber || 'N/A'}</p>
+                            <p className="text-sm font-bold text-dhl-black">{displayValue(editData.orgNumber)}</p>
                           </div>
                           <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
                             <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Segment</p>
-                            <p className={`text-sm font-bold px-2 py-1 rounded-sm w-fit ${getSegmentBadgeStyle(editData.segment || 'FS')}`}>{editData.segment}</p>
+                            <p className={`text-sm font-bold px-2 py-1 rounded-sm w-fit ${getSegmentBadgeStyle(editData.segment || Segment.UNKNOWN)}`}>{displayValue(editData.segment)}</p>
                           </div>
                           <div className="p-3 bg-white border border-dhl-gray-medium rounded-sm">
                             <p className="text-xs font-bold text-dhl-gray-dark uppercase mb-1">Status</p>
-                            <p className="text-sm font-bold text-dhl-black">{editData.legalStatus || 'Okänd'}</p>
+                            <p className="text-sm font-bold text-dhl-black">{displayValue(editData.legalStatus)}</p>
                           </div>
                         </div>
                       </div>
@@ -641,11 +643,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">
                         <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider mb-1">Fraktestimat</p>
-                        <p className="text-sm font-black text-black">{editData.freightBudget}</p>
+                        <p className="text-sm font-black text-black">{displayValue(editData.freightBudget)}</p>
                       </div>
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">
                         <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider mb-1">Årliga Paket</p>
-                        <p className="text-sm font-black text-black">{editData.annualPackages.toLocaleString()}</p>
+                        <p className="text-sm font-black text-black">{displayNumber(editData.annualPackages)}</p>
                       </div>
                     </div>
 
@@ -667,20 +669,20 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div className={`p-3 rounded-none border ${getSolidityStyle(editData.solidity || '0').className}`}>
+                      <div className={`p-3 rounded-none border ${getSolidityStyle(editData.solidity || '').className}`}>
                         <p className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">Soliditet</p>
-                        <p className="text-sm font-bold">{(!editData.solidity || editData.solidity === '-') ? 'N/A' : editData.solidity}</p>
-                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getSolidityStyle(editData.solidity || '0').label}</p>
+                        <p className="text-sm font-bold">{displayValue(editData.solidity)}</p>
+                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getSolidityStyle(editData.solidity || '').label}</p>
                       </div>
-                      <div className={`p-3 rounded-none border ${getLiquidityStyle(editData.liquidityRatio || '0').className}`}>
+                      <div className={`p-3 rounded-none border ${getLiquidityStyle(editData.liquidityRatio || '').className}`}>
                         <p className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">Likviditet</p>
-                        <p className="text-sm font-bold">{(!editData.liquidityRatio || editData.liquidityRatio === '-') ? 'N/A' : editData.liquidityRatio}</p>
-                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getLiquidityStyle(editData.liquidityRatio || '0').label}</p>
+                        <p className="text-sm font-bold">{displayValue(editData.liquidityRatio)}</p>
+                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getLiquidityStyle(editData.liquidityRatio || '').label}</p>
                       </div>
-                      <div className={`p-3 rounded-none border ${getProfitMarginStyle(editData.profitMargin || '0').className}`}>
+                      <div className={`p-3 rounded-none border ${getProfitMarginStyle(editData.profitMargin || '').className}`}>
                         <p className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">Vinstmarginal</p>
-                        <p className="text-sm font-bold">{(!editData.profitMargin || editData.profitMargin === '-') ? 'N/A' : editData.profitMargin}</p>
-                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getProfitMarginStyle(editData.profitMargin || '0').label}</p>
+                        <p className="text-sm font-bold">{displayValue(editData.profitMargin)}</p>
+                        <p className="text-[8px] font-bold uppercase mt-1 opacity-80">{getProfitMarginStyle(editData.profitMargin || '').label}</p>
                       </div>
                     </div>
 
@@ -719,51 +721,53 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </p>
                       <div className="space-y-2">
                         {/* Status */}
-                        <div className={`flex items-center justify-between gap-3 p-2 border ${getStatusColor(editData.legalStatus || 'Aktiv')}`}>
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${getStatusColor(editData.legalStatus || '')}`}>
                           <span className="text-[10px] font-bold uppercase">Status</span>
                           <div className="flex flex-col items-end gap-1 text-right">
-                            <span className="text-xs font-black uppercase">{editData.legalStatus || 'Aktiv'}</span>
+                            <span className="text-xs font-black uppercase">{displayValue(editData.legalStatus)}</span>
                             {renderRiskFieldSource('legalStatus')}
                           </div>
                         </div>
 
                         {/* Betalningsanmärkningar */}
                         <div className={`flex items-center justify-between gap-3 p-2 border ${
-                          (!editData.paymentRemarks || 
+                          (!editData.paymentRemarks 
+                            ? 'bg-white border-slate-100 text-dhl-gray-dark'
+                            : (
                            editData.paymentRemarks.toLowerCase().includes('inga') || 
                            editData.paymentRemarks.toLowerCase().includes('saknas')) 
                             ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                            : 'bg-dhl-gray-light border-red-100 text-red-700'
+                            : 'bg-dhl-gray-light border-red-100 text-red-700')
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Betalningsanm.</span>
                           <div className="flex flex-col items-end gap-1 text-right">
-                            <span className="text-xs font-black uppercase">{editData.paymentRemarks || 'Inga'}</span>
+                            <span className="text-xs font-black uppercase">{displayValue(editData.paymentRemarks)}</span>
                             {renderRiskFieldSource('paymentRemarks')}
                           </div>
                         </div>
 
                         {/* Skuldsaldo */}
                         <div className={`flex items-center justify-between gap-3 p-2 border ${
-                          (!editData.debtBalance || 
-                           editData.debtBalance === '0 kr' || 
-                           editData.debtBalance === '0' || 
+                          (!editData.debtBalance 
+                            ? 'bg-white border-slate-100 text-dhl-gray-dark'
+                            : (
                            (editData.debtBalance && editData.debtBalance.toLowerCase().includes('saknas')) || 
                            (editData.debtBalance && editData.debtBalance.toLowerCase().includes('inga'))) 
                             ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                            : 'bg-dhl-gray-light border-red-100 text-red-700'
+                            : 'bg-dhl-gray-light border-red-100 text-red-700')
                         }`}>
                           <span className="text-[10px] font-bold uppercase">Skuldsaldo (KFM)</span>
                           <div className="flex flex-col items-end gap-1 text-right">
-                            <span className="text-xs font-black uppercase">{editData.debtBalance || '0 kr'}</span>
+                            <span className="text-xs font-black uppercase">{displayValue(editData.debtBalance)}</span>
                             {renderRiskFieldSource('debtBalance')}
                           </div>
                         </div>
 
                         {/* Skuldsättningsgrad */}
-                        <div className={`flex items-center justify-between gap-3 p-2 border ${getDebtEquityColor(editData.debtEquityRatio || '0')}`}>
+                        <div className={`flex items-center justify-between gap-3 p-2 border ${getDebtEquityColor(editData.debtEquityRatio || '')}`}>
                           <span className="text-[10px] font-bold uppercase">Skuldsättningsgrad</span>
                           <div className="flex flex-col items-end gap-1 text-right">
-                            <span className="text-xs font-black uppercase">{editData.debtEquityRatio || 'N/A'}</span>
+                            <span className="text-xs font-black uppercase">{displayValue(editData.debtEquityRatio)}</span>
                             {renderRiskFieldSource('debtEquityRatio')}
                           </div>
                         </div>
@@ -921,13 +925,17 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Marknader</p>
-                    <div className="flex flex-wrap gap-1">
-                      {editData.activeMarkets?.map((m, i) => (
-                        <span key={i} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">
-                          {m}
-                        </span>
-                      ))}
-                    </div>
+                    {editData.activeMarkets?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {editData.activeMarkets.map((m, i) => (
+                          <span key={i} className="px-1.5 py-0.5 bg-white border border-slate-100 rounded-none text-[9px] font-bold text-dhl-gray-dark uppercase">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs font-bold text-dhl-black">—</p>
+                    )}
                   </div>
 
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
@@ -936,19 +944,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       <div>
                         <div className="flex justify-between text-[10px] mb-1">
                           <span className="text-slate-500">B2C</span>
-                          <span className="font-bold text-dhl-black">{editData.b2cPercentage}%</span>
+                          <span className="font-bold text-dhl-black">{editData.b2cPercentage !== undefined ? `${editData.b2cPercentage}%` : '—'}</span>
                         </div>
                         <div className="w-full bg-dhl-gray-medium h-1 rounded-none overflow-hidden">
-                          <div className="bg-[#D40511] h-full" style={{ width: `${editData.b2cPercentage}%` }} />
+                          <div className="bg-[#D40511] h-full" style={{ width: `${editData.b2cPercentage ?? 0}%` }} />
                         </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-[10px] mb-1">
                           <span className="text-slate-500">B2B</span>
-                          <span className="font-bold text-dhl-black">{editData.b2bPercentage}%</span>
+                          <span className="font-bold text-dhl-black">{editData.b2bPercentage !== undefined ? `${editData.b2bPercentage}%` : '—'}</span>
                         </div>
                         <div className="w-full bg-dhl-gray-medium h-1 rounded-none overflow-hidden">
-                          <div className="bg-emerald-600 h-full" style={{ width: `${editData.b2bPercentage}%` }} />
+                          <div className="bg-emerald-600 h-full" style={{ width: `${editData.b2bPercentage ?? 0}%` }} />
                         </div>
                       </div>
                     </div>
@@ -1125,7 +1133,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     ) : (
                       <p className="text-xs text-dhl-gray-dark leading-relaxed break-words">
-                        {editData.latestNews || 'Inga nyhetskällor hittades i senaste analysen.'}
+                        {editData.latestNews || '—'}
                       </p>
                     )}
                   </div>
@@ -1163,11 +1171,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     </div>
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Antal Butiker</p>
-                      <p className="text-xs font-bold text-dhl-black">{editData.storeCount || 0}</p>
+                      <p className="text-xs font-bold text-dhl-black">{displayValue(editData.storeCount)}</p>
                     </div>
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bransch & Beskrivning</p>
-                      <p className="text-xs font-bold text-dhl-black mb-1">{editData.industry || 'N/A'}</p>
+                      <p className="text-xs font-bold text-dhl-black mb-1">{displayValue(editData.industry)}</p>
                       {editData.industryDescription && (
                         <p className="text-[10px] text-dhl-gray-dark leading-relaxed">{editData.industryDescription}</p>
                       )}
@@ -1370,7 +1378,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-wider">Revenue Recovery Potential</h4>
                         <TrendingUp className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <p className="text-3xl font-black text-emerald-700 mb-2">{editData.recoveryPotentialSek || '245 000 kr'}</p>
+                      <p className="text-3xl font-black text-emerald-700 mb-2">{displayValue(editData.recoveryPotentialSek)}</p>
                       <p className="text-xs text-emerald-600 leading-relaxed">
                         Beräknad årlig besparing genom optimerad carrier-mix och sänkta returkostnader.
                       </p>
@@ -1380,7 +1388,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <h4 className="text-sm font-bold text-red-800 uppercase tracking-wider">Conversion Impact</h4>
                         <CheckCircle2 className="w-5 h-5 text-[#D40511]" />
                       </div>
-                      <p className="text-3xl font-black text-red-700 mb-2">+{editData.conversionScore || '4.2'}%</p>
+                      <p className="text-3xl font-black text-red-700 mb-2">{editData.conversionScore !== undefined ? `+${editData.conversionScore}%` : '—'}</p>
                       <p className="text-xs text-red-600 leading-relaxed">
                         Estimerad ökning i checkout-konvertering vid implementering av {activeCarrier} Express.
                       </p>
@@ -1446,14 +1454,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Antal klick till köp:</span>
-                          <span className="font-bold text-dhl-black">{editData.frictionAnalysis?.companyClicks || 5}</span>
+                          <span className="font-bold text-dhl-black">{displayValue(editData.frictionAnalysis?.companyClicks)}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Benchmark:</span>
-                          <span className="font-bold text-emerald-600">{editData.frictionAnalysis?.benchmarkClicks || 3}</span>
+                          <span className="font-bold text-emerald-600">{displayValue(editData.frictionAnalysis?.benchmarkClicks)}</span>
                         </div>
                         <p className="text-xs text-dhl-gray-dark mt-2 bg-white p-2 rounded-none border border-slate-100">
-                          {editData.frictionAnalysis?.frictionNote || 'Hög friktion vid val av utlämningsställe.'}
+                          {displayValue(editData.frictionAnalysis?.frictionNote)}
                         </p>
                       </div>
                     </div>
@@ -1771,8 +1779,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">B2C %</label>
                   <input 
                     type="number" 
-                    value={editData.b2cPercentage || 0} 
-                    onChange={e => setEditData({...editData, b2cPercentage: parseInt(e.target.value) || 0})}
+                    value={editData.b2cPercentage ?? ''} 
+                    onChange={e => setEditData({...editData, b2cPercentage: e.target.value === '' ? undefined : parseInt(e.target.value, 10)})}
                     className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
@@ -1780,8 +1788,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">B2B %</label>
                   <input 
                     type="number" 
-                    value={editData.b2bPercentage || 0} 
-                    onChange={e => setEditData({...editData, b2bPercentage: parseInt(e.target.value) || 0})}
+                    value={editData.b2bPercentage ?? ''} 
+                    onChange={e => setEditData({...editData, b2bPercentage: e.target.value === '' ? undefined : parseInt(e.target.value, 10)})}
                     className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
                   />
                 </div>
@@ -1904,7 +1912,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
             <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Surgical Analysis Report | {activeCarrier}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-slate-400">Analysdatum: {editData.analysisDate || new Date().toLocaleDateString()}</p>
+            <p className="text-xs text-slate-400">Analysdatum: {displayValue(editData.analysisDate)}</p>
             <p className="text-xs text-slate-400">Org.nr: {editData.orgNumber}</p>
           </div>
         </div>
@@ -1972,7 +1980,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
             </div>
             <div className="p-3 border border-slate-100">
               <p className="text-[9px] font-bold text-slate-400 uppercase">Checkout</p>
-              <p className="text-xs font-bold">{editData.checkoutSolution || 'N/A'}</p>
+              <p className="text-xs font-bold">{displayValue(editData.checkoutSolution)}</p>
             </div>
             <div className="p-3 border border-slate-100">
               <p className="text-[9px] font-bold text-slate-400 uppercase">TA-System</p>
@@ -1991,11 +1999,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
           <div className="grid grid-cols-2 gap-6">
             <div className="p-6 bg-emerald-50 border border-emerald-100">
               <p className="text-xs font-bold text-emerald-800 uppercase mb-2">Revenue Recovery Potential</p>
-              <p className="text-3xl font-black text-emerald-700">{editData.recoveryPotentialSek || 'N/A'}</p>
+              <p className="text-3xl font-black text-emerald-700">{displayValue(editData.recoveryPotentialSek)}</p>
             </div>
             <div className="p-6 bg-dhl-gray-light border border-red-100">
               <p className="text-xs font-bold text-red-800 uppercase mb-2">Conversion Impact</p>
-              <p className="text-3xl font-black text-red-700">+{editData.conversionScore || '0'}%</p>
+              <p className="text-3xl font-black text-red-700">{editData.conversionScore !== undefined ? `+${editData.conversionScore}%` : '—'}</p>
             </div>
           </div>
           <div className="p-6 bg-dhl-gray-light border border-slate-100">

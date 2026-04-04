@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, Segment } from "../types";
 
 /**
  * PERFORMILE - TURBO ENGINE (v25.1)
@@ -79,6 +79,11 @@ function parseRevenueToTKR(val: any): number {
   else if (str.includes('MSEK') || str.includes('M')) num *= 1000;
   
   return Math.round(isNegative ? -num : num);
+}
+
+function parseRevenueToTKROptional(val: any): number | undefined {
+  if (val === null || val === undefined || val === '' || val === 'Ej tillgänglig') return undefined;
+  return parseRevenueToTKR(val);
 }
 
 async function callGeminiWithRetry(
@@ -210,9 +215,11 @@ export async function generateDeepDiveSequential(
     let rawData;
     try { rawData = JSON.parse(text); } catch (e) { rawData = JSON.parse(repairJson(text)); }
 
-    const revenueTKR = parseRevenueToTKR(rawData.company_data?.revenue_tkr || 0);
-    const marketCount = rawData.company_data?.market_count || 1;
-    const metrics = calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount);
+    const revenueTKR = parseRevenueToTKROptional(rawData.company_data?.revenue_tkr);
+    const marketCount = rawData.company_data?.market_count;
+    const metrics = revenueTKR !== undefined
+      ? calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount || 1)
+      : undefined;
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
@@ -223,31 +230,33 @@ export async function generateDeepDiveSequential(
       address: rawData.company_data?.visiting_address || '',
       visitingAddress: rawData.company_data?.visiting_address || '',
       warehouseAddress: rawData.company_data?.warehouse_address || '',
-      revenue: `${revenueTKR.toLocaleString('sv-SE')} tkr`,
+      revenue: revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '',
       revenueYear: rawData.company_data?.revenue_year || '',
-      profit: `${parseRevenueToTKR(rawData.financials?.history?.[0]?.profit || 0).toLocaleString('sv-SE')} tkr`,
-      activeMarkets: rawData.company_data?.active_markets || [],
+      profit: parseRevenueToTKROptional(rawData.financials?.history?.[0]?.profit) !== undefined
+        ? `${parseRevenueToTKROptional(rawData.financials?.history?.[0]?.profit)!.toLocaleString('sv-SE')} tkr`
+        : '',
+      activeMarkets: [],
       marketCount: marketCount,
-      estimatedAOV: metrics.estimatedAOV,
-      b2bPercentage: rawData.company_data?.b2b_percentage || 0,
-      b2cPercentage: rawData.company_data?.b2c_percentage || 0,
+      estimatedAOV: metrics?.estimatedAOV,
+      b2bPercentage: undefined,
+      b2cPercentage: undefined,
       
       financialHistory: (rawData.financials?.history || []).map((h: any) => ({
         year: h.year,
         revenue: `${parseRevenueToTKR(h.revenue).toLocaleString('sv-SE')} tkr`,
         profit: `${parseRevenueToTKR(h.profit).toLocaleString('sv-SE')} tkr`
       })),
-      solidity: rawData.financials?.solidity || '0%',
-      liquidityRatio: rawData.financials?.liquidity_ratio || '0%',
-      profitMargin: rawData.financials?.profit_margin || '0%',
+      solidity: rawData.financials?.solidity || '',
+      liquidityRatio: rawData.financials?.liquidity_ratio || '',
+      profitMargin: rawData.financials?.profit_margin || '',
       debtEquityRatio: rawData.financials?.debt_equity_ratio || '',
-      debtBalance: rawData.financials?.debt_balance_tkr || '0',
+      debtBalance: rawData.financials?.debt_balance_tkr || '',
       paymentRemarks: rawData.financials?.payment_remarks || '',
       isBankruptOrLiquidated: rawData.financials?.is_bankrupt_or_liquidated || false,
-      financialSource: rawData.financials?.financial_source || 'Officiella källor',
+      financialSource: rawData.financials?.financial_source || '',
       
-      ecommercePlatform: rawData.logistics?.ecommerce_platform || 'Okänd',
-      paymentProvider: rawData.logistics?.payment_provider || 'Okänd', 
+      ecommercePlatform: rawData.logistics?.ecommerce_platform || '',
+      paymentProvider: rawData.logistics?.payment_provider || '', 
       checkoutSolution: rawData.logistics?.checkout_solution || '',
       taSystem: rawData.logistics?.ta_system || '',
       techEvidence: rawData.logistics?.tech_evidence || '',
@@ -259,17 +268,17 @@ export async function generateDeepDiveSequential(
         name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || ''
       })),
       
-      potentialSek: metrics.shippingBudgetSEK,
-      freightBudget: `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr`,
-      annualPackages: metrics.annualPackages,
-      pos1Volume: metrics.pos1Volume,
-      pos2Volume: metrics.pos2Volume,
-      segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
+      potentialSek: metrics?.shippingBudgetSEK,
+      freightBudget: metrics ? `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr` : '',
+      annualPackages: metrics?.annualPackages,
+      pos1Volume: metrics?.pos1Volume,
+      pos2Volume: metrics?.pos2Volume,
+      segment: metrics ? determineSegmentByPotential(metrics.shippingBudgetSEK) : Segment.UNKNOWN,
       analysisDate: new Date().toISOString(),
       source: 'ai',
-      legalStatus: rawData.company_data?.legal_status || 'Aktiv',
+      legalStatus: rawData.company_data?.legal_status || '',
       vatRegistered: rawData.company_data?.vat_registered || false,
-      creditRatingLabel: rawData.company_data?.credit_rating || 'N/A',
+      creditRatingLabel: rawData.company_data?.credit_rating || '',
       creditRatingMotivation: rawData.company_data?.credit_rating_motivation || '',
       riskProfile: rawData.company_data?.risk_profile || '',
       financialTrend: rawData.company_data?.financial_trend || '',
@@ -278,16 +287,16 @@ export async function generateDeepDiveSequential(
       websiteUrl: rawData.company_data?.domain ? `https://${rawData.company_data.domain}` : '',
       
       businessModel: rawData.company_data?.business_model || '',
-      storeCount: rawData.logistics?.store_count || 0,
-      checkoutOptions: (rawData.logistics?.checkout_positions || []).map((cp: any) => ({
-        position: cp.pos || 0,
+      storeCount: rawData.logistics?.store_count,
+      checkoutOptions: (rawData.logistics?.checkout_positions || []).map((cp: any, index: number) => ({
+        position: cp.pos ?? index + 1,
         carrier: cp.carrier || '',
         service: cp.service || '',
-        price: cp.price || 'N/A'
+        price: cp.price || ''
       })),
 
       // Mappa även in initial QuickScan data om AI skickar det direkt
-      conversionScore: rawData.logistics?.conversion_score || 0,
+      conversionScore: rawData.logistics?.conversion_score,
       deepScanPerformed: false 
     };
 
@@ -342,20 +351,22 @@ export async function generateLeads(
 
     const leadsArray = Array.isArray(data) ? data : (data.leads || []);
     return leadsArray.filter((l: any) => l && typeof l === 'object').map((l: any) => {
-      const rev = parseRevenueToTKR(l.revenue);
-      const marketCount = l.marketCount || 1;
-      const metrics = calculateRickardMetrics(rev, l.sniCode || '', sniPercentages, marketCount);
+      const rev = parseRevenueToTKROptional(l.revenue);
+      const marketCount = l.marketCount;
+      const metrics = rev !== undefined
+        ? calculateRickardMetrics(rev, l.sniCode || '', sniPercentages, marketCount || 1)
+        : undefined;
       
       // Map nested logisticsMetrics to top-level LeadData fields if they exist
-      const annualPackages = l.logisticsMetrics?.estimatedAnnualPackages || metrics.annualPackages;
-      const pos1Volume = l.logisticsMetrics?.pos1_volume || metrics.pos1Volume;
-      const pos2Volume = l.logisticsMetrics?.pos2_volume || metrics.pos2Volume;
+      const annualPackages = l.logisticsMetrics?.estimatedAnnualPackages || metrics?.annualPackages;
+      const pos1Volume = l.logisticsMetrics?.pos1_volume || metrics?.pos1Volume;
+      const pos2Volume = l.logisticsMetrics?.pos2_volume || metrics?.pos2Volume;
       const strategicPitch = l.logisticsMetrics?.strategic_pitch || '';
 
       return {
         ...l,
         id: crypto.randomUUID(),
-        revenue: `${rev.toLocaleString('sv-SE')} tkr`,
+        revenue: rev !== undefined ? `${rev.toLocaleString('sv-SE')} tkr` : '',
         visitingAddress: l.visitingAddress || l.address || '',
         warehouseAddress: l.warehouseAddress || '',
         marketCount,
@@ -363,7 +374,7 @@ export async function generateLeads(
         pos1Volume,
         pos2Volume,
         strategicPitch,
-        segment: determineSegmentByPotential(metrics.shippingBudgetSEK),
+        segment: metrics ? determineSegmentByPotential(metrics.shippingBudgetSEK) : (l.segment || Segment.UNKNOWN),
         source: 'ai',
         analysisDate: '' 
       } as LeadData;
@@ -398,8 +409,8 @@ export async function generateEmailSuggestion(
     
     KONTEXT FÖR FÖRETAGET:
     Företag: ${lead.companyName}
-    Bransch: ${lead.industry || 'E-handel'}
-    Plattform: ${lead.ecommercePlatform || 'Okänd'}
+    Bransch: ${lead.industry || ''}
+    Plattform: ${lead.ecommercePlatform || ''}
     Problem/Pitch: ${lead.strategicPitch || ''}
     Omsättning: ${lead.revenue || ''}
     Potential: ${lead.freightBudget || ''}

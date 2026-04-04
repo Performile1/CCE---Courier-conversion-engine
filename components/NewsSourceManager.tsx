@@ -95,9 +95,9 @@ const LEADCARD_DATA_PARTS: Array<{ id: string; label: string; headline: string; 
 const DEFAULT_DATAPART_SOURCES: Record<string, string[]> = {
   omsattning: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
   resultat: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se'],
-  soliditet: ['allabolag.se', 'ratsit.se'],
-  likviditet: ['allabolag.se', 'ratsit.se'],
-  riskstatus: ['allabolag.se', 'ratsit.se', 'kronofogden.se'],
+  soliditet: ['allabolag.se', 'ratsit.se', 'bolagsverket.se'],
+  likviditet: ['allabolag.se', 'ratsit.se', 'bolagsverket.se'],
+  riskstatus: ['allabolag.se', 'ratsit.se', 'kronofogden.se', 'bolagsverket.se'],
   status: ['allabolag.se', 'bolagsverket.se', 'ratsit.se'],
   betalningsanmarkning: ['ratsit.se', 'allabolag.se', 'kronofogden.se'],
   skuldsaldo: ['kronofogden.se', 'ratsit.se', 'allabolag.se'],
@@ -109,7 +109,7 @@ const DEFAULT_DATAPART_SOURCES: Record<string, string[]> = {
   checkout: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
   beslutsfattare: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
   epostmonster: ['company website', 'linkedin.com'],
-  nyheter: ['ehandel.se', 'market.se', 'breakit.se']
+  nyheter: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se']
 };
 
 const DEFAULT_DATAPART_FIELD_MAPPINGS: Record<string, string[]> = Object.fromEntries(

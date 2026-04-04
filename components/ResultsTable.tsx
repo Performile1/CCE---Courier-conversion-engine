@@ -28,7 +28,7 @@ const parseFinancialValue = (raw: any): number => {
 };
 
 const extractCity = (address: string | undefined) => {
-    if (!address || address === "-") return "Okänd ort";
+  if (!address || address === "-") return "—";
     const parts = String(address).split(',');
     const lastPart = parts[parts.length - 1].trim();
     const cityMatch = lastPart.match(/(?:\d{3}\s?\d{2})\s?(.+)/);

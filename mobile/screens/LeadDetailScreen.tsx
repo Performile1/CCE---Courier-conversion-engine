@@ -33,6 +33,12 @@ export function LeadDetailScreen(): React.ReactElement {
   const [editedLead, setEditedLead] = useState<LeadData>(lead);
   const [saving, setSaving] = useState(false);
 
+  const displayValue = (value?: string | number | null) => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'string' && value.trim() === '') return '—';
+    return String(value);
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -146,18 +152,18 @@ export function LeadDetailScreen(): React.ReactElement {
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Annual Packages</Text>
-            <Text style={styles.fieldValue}>{editedLead.annualPackages.toLocaleString()}</Text>
+            <Text style={styles.fieldValue}>{editedLead.annualPackages ? editedLead.annualPackages.toLocaleString() : '—'}</Text>
           </View>
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>E-commerce Platform</Text>
-            <Text style={styles.fieldValue}>{editedLead.ecommercePlatform || 'N/A'}</Text>
+            <Text style={styles.fieldValue}>{displayValue(editedLead.ecommercePlatform)}</Text>
           </View>
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Markets</Text>
             <Text style={styles.fieldValue}>
-              {editedLead.activeMarkets?.join(', ') || 'N/A'}
+              {editedLead.activeMarkets?.length ? editedLead.activeMarkets.join(', ') : '—'}
             </Text>
           </View>
         </View>
