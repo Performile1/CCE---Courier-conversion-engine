@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ShieldBan, Target, Database, Settings, ChevronDown, Radar, PlusCircle, 
   Check, Truck, Mail, Layers, Newspaper, Percent, Plus, Package, 
-   TrendingUp, History, Globe, Search, Download, LogOut, User, Clock3
+   TrendingUp, History, Globe, Search, Download, LogOut, User, Clock3, Cpu
 } from 'lucide-react';
 import { Language, LANGUAGE_LABELS } from '../services/i18n';
 
@@ -16,6 +16,7 @@ interface HeaderProps {
   onOpenMailTemplate: () => void;
   onOpenIntegrations: () => void;
   onOpenNewsSources: () => void;
+   onOpenTechSolutions?: () => void;
   onOpenSNISettings: () => void;
   onOpenThreePL: () => void;
   onOpenCarrierSettings: () => void;
@@ -57,7 +58,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   onOpenExclusions, onOpenInclusions, onOpenCache, onOpenBriefing, onOpenBackups, 
-  onOpenMailTemplate, onOpenIntegrations, onOpenNewsSources, onOpenSNISettings, 
+   onOpenMailTemplate, onOpenIntegrations, onOpenNewsSources, onOpenTechSolutions, onOpenSNISettings, 
   onOpenThreePL, onOpenCarrierSettings, onOpenModelSelector, onOpenCustomAPI, 
   onOpenCustomIntegration, onOpenCustomReport, onOpenCampaignAnalytics, 
   onOpenCampaignPerformance, onOpenCostAnalysis, onOpenCRMManager, 
@@ -240,6 +241,13 @@ export const Header: React.FC<HeaderProps> = ({
                                           <div className="flex flex-col">
                                              <span className="text-xs font-black text-slate-800 uppercase">Source Managers</span>
                                              <span className="text-[9px] text-slate-400 font-medium">Källor per SNI och per datadel</span>
+                                          </div>
+                                       </button>}
+                                       {hasTool('techSolutions') && onOpenTechSolutions && <button onClick={() => { onOpenTechSolutions(); setIsToolsOpen(false); }} className="w-full text-left px-3 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group border-t border-slate-100">
+                                          <Cpu className="w-4 h-4 text-red-600" />
+                                          <div className="flex flex-col">
+                                             <span className="text-xs font-black text-slate-800 uppercase">Tech Solution Manager</span>
+                                             <span className="text-[9px] text-slate-400 font-medium">Plattformar, checkout, betalning och TA</span>
                                           </div>
                                        </button>}
                                        {hasTool('cronJobs') && onOpenCronJobs && <button onClick={() => { onOpenCronJobs(); setIsToolsOpen(false); }} className="w-full text-left px-3 py-3 hover:bg-dhl-gray-light flex items-center gap-3 group border-t border-slate-100">

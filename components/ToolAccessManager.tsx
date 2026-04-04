@@ -23,6 +23,7 @@ const TOOL_LABELS: Record<string, string> = {
   backups: 'System Backup',
   threePL: '3PL Manager',
   newsSources: 'Source Managers',
+  techSolutions: 'Tech Solution Manager',
   modelSelector: 'AI Model Selection',
   campaignAnalytics: 'Kampanj Analytics',
   campaignPerformance: 'Performance Dashboard',

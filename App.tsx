@@ -13,6 +13,7 @@ import { ManualAddModal } from './components/ManualAddModal';
 import { MailTemplateManager } from './components/MailTemplateManager';
 import { DEFAULT_AVAILABLE_SYSTEMS, IntegrationManager } from './components/IntegrationManager';
 import { NewsSourceManager } from './components/NewsSourceManager';
+import { TechSolutionManager } from './components/TechSolutionManager';
 import { SNISettingsManager } from './components/SNISettingsManager';
 import { ThreePLManager } from './components/ThreePLManager';
 import { CarrierSettingsManager, DEFAULT_CARRIER_SETTINGS } from './components/CarrierSettingsManager';
@@ -49,6 +50,7 @@ import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobs
 import { createBackupRecord, deleteBackupRecord, loadBackupRecords, loadSharedSettings, loadUserSettings, saveSharedSetting, saveUserSetting, SHARED_SETTING_KEYS, USER_SETTING_KEYS } from './services/appConfigService';
 import { deletePersistedLead, loadPersistedLeads, loadSharedExclusions, replacePersistedLeads, replaceSharedExclusions, upsertPersistedLead } from './services/leadRepository';
 import { signOut, supabase } from './services/supabaseClient';
+import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from './services/techSolutionConfig';
 import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
 import { Language, translate } from './services/i18n';
@@ -61,6 +63,7 @@ import {
   UserRole,
   IntegrationSystem,
   SNIPercentage, 
+  TechSolutionConfig,
   ThreePLProvider, 
   RemovalReason,
   Segment,
@@ -145,11 +148,12 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
 const DEFAULT_ROLE_TOOL_ACCESS: Record<UserRole, string[]> = {
   admin: [
     'carrierSettings', 'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'backups', 'threePL', 'newsSources',
+    'techSolutions',
     'modelSelector', 'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'customApi', 'customIntegration',
     'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess', 'cronJobs'
   ],
   user: [
-    'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'threePL', 'newsSources', 'modelSelector',
+    'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'threePL', 'newsSources', 'techSolutions', 'modelSelector',
     'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport', 'cronJobs'
   ],
   viewer: ['cache', 'newsSources', 'campaignPerformance', 'exportManager']
@@ -191,6 +195,7 @@ export const App: React.FC = () => {
   const [isMailTemplateOpen, setIsMailTemplateOpen] = useState(false);
   const [isIntegrationOpen, setIsIntegrationOpen] = useState(false);
   const [isNewsSourceOpen, setIsNewsSourceOpen] = useState(false);
+  const [isTechSolutionsOpen, setIsTechSolutionsOpen] = useState(false);
   const [isSNISettingsOpen, setIsSNISettingsOpen] = useState(false);
   const [isThreePLOpen, setIsThreePLOpen] = useState(false);
   const [isCarrierSettingsOpen, setIsCarrierSettingsOpen] = useState(false);
@@ -247,6 +252,7 @@ export const App: React.FC = () => {
   const [sniPercentages, setSNIPercentages] = useState<SNIPercentage[]>([]);
   const [threePLProviders, setThreePLProviders] = useState<ThreePLProvider[]>([]);
   const [marketSettings, setMarketSettings] = useState<CarrierSettings[]>(DEFAULT_CARRIER_SETTINGS);
+  const [techSolutionConfig, setTechSolutionConfig] = useState<TechSolutionConfig>(DEFAULT_TECH_SOLUTION_CONFIG);
   const [newsSourceMappings, setNewsSourceMappings] = useState<NewsSourceMapping[]>(DEFAULT_NEWS_SOURCE_MAPPINGS);
   const [sourcePolicies, setSourcePolicies] = useState<SourcePolicyConfig>(DEFAULT_SOURCE_POLICIES);
   const [activeSourceCountry, setActiveSourceCountry] = useState<string>('global');
@@ -409,7 +415,8 @@ export const App: React.FC = () => {
             SHARED_SETTING_KEYS.sniPercentages,
             SHARED_SETTING_KEYS.threePLProviders,
             SHARED_SETTING_KEYS.marketSettings,
-            SHARED_SETTING_KEYS.activeCarrier
+            SHARED_SETTING_KEYS.activeCarrier,
+            SHARED_SETTING_KEYS.techSolutions
           ]),
           loadBackupRecords(user.id)
         ]);
@@ -466,6 +473,11 @@ export const App: React.FC = () => {
         const sharedActiveCarrier = sharedSettings[SHARED_SETTING_KEYS.activeCarrier];
         if (typeof sharedActiveCarrier === 'string' && sharedActiveCarrier.trim()) {
           setActiveCarrier(sharedActiveCarrier);
+        }
+
+        const sharedTechSolutions = sharedSettings[SHARED_SETTING_KEYS.techSolutions];
+        if (sharedTechSolutions) {
+          setTechSolutionConfig(normalizeTechSolutionConfig(sharedTechSolutions));
         }
 
         setBackups(backupRecords);
@@ -568,6 +580,14 @@ export const App: React.FC = () => {
       console.warn('Could not persist active carrier:', error);
     });
   }, [activeCarrier, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.techSolutions, techSolutionConfig, user.id).catch((error) => {
+      console.warn('Could not persist tech solution config:', error);
+    });
+  }, [techSolutionConfig, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -1241,7 +1261,8 @@ export const App: React.FC = () => {
         threePLProviders,
         undefined,
         sourcePolicies,
-        activeSourceCountry
+        activeSourceCountry,
+        techSolutionConfig
       );
 
       const mergedLead = mergeMonitoredLead(candidate.lead, { ...refreshed, id: candidate.lead.id });
@@ -1278,7 +1299,8 @@ export const App: React.FC = () => {
           threePLProviders,
           undefined,
           sourcePolicies,
-          activeSourceCountry
+          activeSourceCountry,
+          techSolutionConfig
         );
         if (newLeads.length === 0) {
           setError("Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.");
@@ -1351,7 +1373,8 @@ export const App: React.FC = () => {
         threePLProviders,
         undefined,
         sourcePolicies,
-        activeSourceCountry
+        activeSourceCountry,
+        techSolutionConfig
       );
       if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) return;
       setDeepDiveLead(final);
@@ -1730,7 +1753,7 @@ export const App: React.FC = () => {
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry, useRemoteCronExecution]);
+  }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry, techSolutionConfig, useRemoteCronExecution]);
 
   const resolvedCronExpression = getResolvedCronExpression();
   const isCronFormValid = isValidCronExpression(resolvedCronExpression);
@@ -1766,6 +1789,7 @@ export const App: React.FC = () => {
         onOpenMailTemplate={() => setIsMailTemplateOpen(true)}
         onOpenIntegrations={() => setIsIntegrationOpen(true)}
         onOpenNewsSources={() => setIsNewsSourceOpen(true)}
+        onOpenTechSolutions={() => setIsTechSolutionsOpen(true)}
         onOpenSNISettings={() => setIsSNISettingsOpen(true)}
         onOpenThreePL={() => setIsThreePLOpen(true)}
         onOpenCarrierSettings={() => setIsCarrierSettingsOpen(true)}
@@ -1892,6 +1916,7 @@ export const App: React.FC = () => {
       <ExclusionManager isOpen={isExclusionOpen} onClose={() => setIsExclusionOpen(false)} existingCustomers={existingCustomers} setExistingCustomers={(list) => { void persistExclusionList('customer', list); }} downloadedLeads={downloadedLeads} setDownloadedLeads={(list) => { void persistExclusionList('history', list); }} />
       <InclusionManager isOpen={isInclusionOpen} onClose={() => setIsInclusionOpen(false)} includedKeywords={includedKeywords} setIncludedKeywords={setIncludedKeywords} />
       <IntegrationManager isOpen={isIntegrationOpen} onClose={() => setIsIntegrationOpen(false)} availableSystems={availableSystems} selectedIntegrations={integrations} onSave={handleSaveIntegrationSettings} />
+      <TechSolutionManager isOpen={isTechSolutionsOpen} onClose={() => setIsTechSolutionsOpen(false)} config={techSolutionConfig} onSave={setTechSolutionConfig} />
       <SNISettingsManager isOpen={isSNISettingsOpen} onClose={() => setIsSNISettingsOpen(false)} settings={sniPercentages} onSave={setSNIPercentages} />
       <ThreePLManager isOpen={isThreePLOpen} onClose={() => setIsThreePLOpen(false)} providers={threePLProviders} onSave={handleSaveThreePL} />
       <CarrierSettingsManager isOpen={isCarrierSettingsOpen} onClose={() => setIsCarrierSettingsOpen(false)} onSave={handleSaveMarketSettings} currentSettings={marketSettings} />

@@ -97,6 +97,9 @@ export interface SourcePolicyConfig {
   payment: string[];
   webSoftware: string[];
   news: string[];
+  trustedDomains?: string[];
+  categoryPageHints?: Record<string, string[]>;
+  batchEnrichmentLimit?: number;
   strictCompanyMatch?: boolean;
   earliestNewsYear?: number;
   customCategories?: Record<string, string[]>;
@@ -108,6 +111,9 @@ export interface SourcePolicyConfig {
     payment?: string[];
     webSoftware?: string[];
     news?: string[];
+    trustedDomains?: string[];
+    categoryPageHints?: Record<string, string[]>;
+    batchEnrichmentLimit?: number;
     strictCompanyMatch?: boolean;
     earliestNewsYear?: number;
     customCategories?: Record<string, string[]>;
@@ -166,6 +172,25 @@ export interface IntegrationSystem {
   id: string;
   name: string;
   type: string;
+}
+
+export type TechSolutionCategory =
+  | 'ecommercePlatforms'
+  | 'checkoutSolutions'
+  | 'paymentProviders'
+  | 'taSystems'
+  | 'logisticsSignals';
+
+export interface TechSolutionDefinition {
+  id: string;
+  category: TechSolutionCategory;
+  label: string;
+  keywords: string[];
+  enabled: boolean;
+}
+
+export interface TechSolutionConfig {
+  solutions: TechSolutionDefinition[];
 }
 
 /**
@@ -366,4 +391,7 @@ export interface LeadData {
   changeHighlights?: LeadFieldChange[];
   hasMonitoredChanges?: boolean;
   lastMonitoredCheckAt?: string;
+  analysisCompleteness?: 'full' | 'partial' | 'thin';
+  analysisWarnings?: string[];
+  analysisTelemetry?: string[];
 }

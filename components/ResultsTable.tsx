@@ -280,6 +280,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <div className="divide-y divide-dhl-gray-medium">
             {paginatedData.map((lead) => {
                 const isAnalyzed = !!lead.analysisDate && lead.analysisDate !== "";
+              const isThinLead = lead.analysisCompleteness === 'thin';
+              const isPartialLead = lead.analysisCompleteness === 'partial';
                 return (
                     <div 
                         key={lead.id} 
@@ -309,8 +311,23 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   Datadel ändrad
                                 </span>
                               )}
+                              {isThinLead && (
+                                <span className="bg-red-50 text-red-700 border border-red-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Quick-scan
+                                </span>
+                              )}
+                              {isPartialLead && (
+                                <span className="bg-yellow-50 text-yellow-700 border border-yellow-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Delvis verifierad
+                                </span>
+                              )}
                             </div>
                             {!isAnalyzed && <span className="text-[8px] font-black text-dhl-yellow uppercase flex items-center gap-0.5"><AlertCircle className="w-2 h-2"/> DeepScan Required</span>}
+                            {!!lead.analysisWarnings?.length && (
+                              <span className="text-[8px] font-black text-slate-500 uppercase truncate">
+                                {lead.analysisWarnings[0]}
+                              </span>
+                            )}
                         </div>
                         <div className="text-xs font-bold text-dhl-gray-dark truncate flex items-center gap-1.5">
                             <MapPin className="w-3.5 h-3.5 text-red-600" />

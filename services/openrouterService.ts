@@ -3,7 +3,8 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig } from "../types";
+import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig';
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -76,6 +77,7 @@ export function resetCostTracker(): void {
 
 const MIN_INTERVAL = 300; // Keep fast by default; rely on adaptive backoff on 429
 let lastCallTime = 0;
+const DEFAULT_BATCH_ENRICHMENT_LIMIT = 10;
 const DEFAULT_TRUSTED_DOMAINS = [
   'allabolag.se',
   'kreditrapporten.se',
@@ -91,38 +93,55 @@ const ADDRESS_SOURCE_DOMAINS = ['allabolag.se', 'boolag.se', 'ratsit.se', 'bolag
 const CONTACT_SOURCE_DOMAINS = ['ratsit.se', 'allabolag.se', 'linkedin.com', 'hitta.se'];
 const PAYMENT_SOURCE_DOMAINS = ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'];
 const WEBSOFTWARE_SOURCE_DOMAINS = ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com', 'magento.com'];
-const TECH_SOLUTION_KEYWORDS = {
-  ecommercePlatforms: ['shopify', 'woocommerce', 'magento', 'adobe commerce', 'centra', 'norce', 'prestashop', 'viskan', 'askas', 'litium', 'jetshop', 'wikinggruppen'],
-  checkoutSolutions: ['klarna checkout', 'kco', 'qliro checkout', 'stripe checkout', 'adyen checkout', 'nets easy', 'walley checkout', 'svea checkout', 'avarda checkout'],
-  paymentProviders: ['klarna', 'adyen', 'stripe', 'checkout.com', 'nets', 'svea', 'qliro', 'walley', 'payex', 'avarda', 'resurs', 'collector'],
-  taSystems: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade', 'shipmondo', 'consignor', 'pacsoft', 'nyce'],
-  logisticsSignals: ['instabox', 'budbee', 'bring', 'postnord', 'dhl', 'db schenker', 'airmee']
-};
+type TechSolutionPattern = { label: string; keywords: string[] };
 
-const ECOMMERCE_PLATFORM_PATTERNS: Array<{ label: string; keywords: string[] }> = [
-  { label: 'Shopify', keywords: ['shopify'] },
-  { label: 'WooCommerce', keywords: ['woocommerce'] },
-  { label: 'Magento', keywords: ['magento', 'adobe commerce'] },
-  { label: 'Centra', keywords: ['centra'] },
-  { label: 'Norce', keywords: ['norce'] },
-  { label: 'PrestaShop', keywords: ['prestashop'] },
-  { label: 'Viskan', keywords: ['viskan'] },
-  { label: 'Askås', keywords: ['askas', 'askås'] },
-  { label: 'Litium', keywords: ['litium'] },
-  { label: 'Jetshop', keywords: ['jetshop'] },
-  { label: 'Wikinggruppen', keywords: ['wikinggruppen'] }
-];
+function getEffectiveTechSolutionConfig(config?: TechSolutionConfig): TechSolutionConfig {
+  return normalizeTechSolutionConfig(config || DEFAULT_TECH_SOLUTION_CONFIG);
+}
 
-const TA_SYSTEM_PATTERNS: Array<{ label: string; keywords: string[] }> = [
-  { label: 'nShift', keywords: ['nshift', 'consignor'] },
-  { label: 'Unifaun', keywords: ['unifaun', 'pacsoft'] },
-  { label: 'Centiro', keywords: ['centiro'] },
-  { label: 'Ingrid', keywords: ['ingrid'] },
-  { label: 'Logtrade', keywords: ['logtrade'] },
-  { label: 'Shipmondo', keywords: ['shipmondo'] },
-  { label: 'Nyce', keywords: ['nyce'] }
-];
-const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
+function getTechPatterns(config: TechSolutionConfig | undefined, category: TechSolutionCategory): TechSolutionPattern[] {
+  return getTechSolutionsByCategory(getEffectiveTechSolutionConfig(config), category).map((solution) => ({
+    label: solution.label,
+    keywords: solution.keywords
+  }));
+}
+
+function getTechKeywords(config: TechSolutionConfig | undefined, category?: TechSolutionCategory): string[] {
+  const effective = getEffectiveTechSolutionConfig(config);
+  const categories: TechSolutionCategory[] = category
+    ? [category]
+    : ['ecommercePlatforms', 'checkoutSolutions', 'paymentProviders', 'taSystems', 'logisticsSignals'];
+
+  return categories.flatMap((item) => getTechSolutionsByCategory(effective, item).flatMap((solution) => solution.keywords));
+}
+
+function dedupeMessages(messages: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(messages.map((message) => String(message || '').trim()).filter(Boolean)));
+}
+
+function determineAnalysisCompleteness(input: {
+  revenue?: string;
+  websiteUrl?: string;
+  decisionMakers?: DecisionMaker[];
+  latestNews?: string;
+  checkoutCount?: number;
+  techDetections?: string[];
+  warnings?: string[];
+}): 'full' | 'partial' | 'thin' {
+  const signals = [
+    Boolean(input.revenue),
+    Boolean(input.websiteUrl),
+    Boolean(input.decisionMakers?.length),
+    Boolean(input.latestNews),
+    Boolean((input.checkoutCount || 0) > 0),
+    Boolean(input.techDetections?.length)
+  ].filter(Boolean).length;
+
+  if (signals >= 5 && !(input.warnings || []).length) return 'full';
+  if (signals >= 3) return 'partial';
+  return 'thin';
+}
+const DEFAULT_CATEGORY_PAGE_HINTS: Record<string, string[]> = {
   financial: ['bokslut', 'omsättning', 'resultat', 'soliditet', 'likviditet', 'annual report'],
   revenue: ['omsättning', 'nettoomsättning', 'bokslut'],
   omsattning: ['omsättning', 'nettoomsättning', 'bokslut'],
@@ -147,6 +166,24 @@ const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
   tasystem: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade'],
   news: ['nyheter', 'pressmeddelande', 'expansion', 'förvärv', 'ärende', 'årsredovisning', 'nyemission', 'registrerat']
 };
+
+function getConfiguredTrustedDomains(sourcePolicies?: SourcePolicyConfig): string[] {
+  return Array.from(new Set((sourcePolicies?.trustedDomains?.length ? sourcePolicies.trustedDomains : DEFAULT_TRUSTED_DOMAINS)
+    .map((domain) => normalizeDomain(domain))
+    .filter(Boolean)));
+}
+
+function getConfiguredCategoryPageHints(sourcePolicies?: SourcePolicyConfig): Record<string, string[]> {
+  return {
+    ...DEFAULT_CATEGORY_PAGE_HINTS,
+    ...(sourcePolicies?.categoryPageHints || {})
+  };
+}
+
+function getBatchEnrichmentLimit(sourcePolicies?: SourcePolicyConfig): number {
+  const configured = Number(sourcePolicies?.batchEnrichmentLimit);
+  return Number.isFinite(configured) && configured > 0 ? Math.max(1, Math.round(configured)) : DEFAULT_BATCH_ENRICHMENT_LIMIT;
+}
 
 function resolveApiBaseUrl(): string {
   const configuredBaseUrl = String(
@@ -436,7 +473,7 @@ async function resolveCompanyIdentity(
   }
 }
 
-function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sniCode?: string): string[] {
+function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sourcePolicies?: SourcePolicyConfig, sniCode?: string): string[] {
   const normalizedSni = (sniCode || '').trim();
   const fromMappings = newsSourceMappings
     .filter((m) => {
@@ -446,15 +483,15 @@ function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sniCode?: 
     })
     .flatMap((m) => m.sources || []);
 
-  const merged = [...DEFAULT_TRUSTED_DOMAINS, ...fromMappings]
+  const merged = [...getConfiguredTrustedDomains(sourcePolicies), ...fromMappings]
     .map((d) => normalizeDomain(d))
     .filter(Boolean);
 
   return Array.from(new Set(merged));
 }
 
-function getSourcePriorityBlock(preferredDomains: string[]): string {
-  const merged = Array.from(new Set([...preferredDomains, ...DEFAULT_TRUSTED_DOMAINS]));
+function getSourcePriorityBlock(preferredDomains: string[], sourcePolicies?: SourcePolicyConfig): string {
+  const merged = Array.from(new Set([...preferredDomains, ...getConfiguredTrustedDomains(sourcePolicies)]));
   const pickByCategory = (domains: string[]) => domains.filter((d) => merged.includes(d));
 
   const financial = pickByCategory(FINANCIAL_SOURCE_DOMAINS);
@@ -515,6 +552,13 @@ function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?
     payment: pickList(countryOverrides?.payment, sourcePolicies?.payment, PAYMENT_SOURCE_DOMAINS),
     webSoftware: pickList(countryOverrides?.webSoftware, sourcePolicies?.webSoftware, WEBSOFTWARE_SOURCE_DOMAINS),
     news: pickList(countryOverrides?.news, sourcePolicies?.news, ['ehandel.se', 'market.se', 'breakit.se']),
+    trustedDomains: pickList(countryOverrides?.trustedDomains, sourcePolicies?.trustedDomains, DEFAULT_TRUSTED_DOMAINS),
+    categoryPageHints: {
+      ...DEFAULT_CATEGORY_PAGE_HINTS,
+      ...(sourcePolicies?.categoryPageHints || {}),
+      ...(countryOverrides?.categoryPageHints || {})
+    },
+    batchEnrichmentLimit: countryOverrides?.batchEnrichmentLimit ?? sourcePolicies?.batchEnrichmentLimit ?? DEFAULT_BATCH_ENRICHMENT_LIMIT,
     strictCompanyMatch: countryOverrides?.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
     earliestNewsYear: countryOverrides?.earliestNewsYear ?? sourcePolicies?.earliestNewsYear ?? (new Date().getFullYear() - 1),
     customCategories: {
@@ -1009,25 +1053,27 @@ async function fetchCategoryExactPageEvidenceBundle(
   };
 }
 
-function getTechWatchlistText(): string {
-  return [
-    `E-handelsplattformar: ${TECH_SOLUTION_KEYWORDS.ecommercePlatforms.join(', ')}`,
-    `Checkout-lösningar: ${TECH_SOLUTION_KEYWORDS.checkoutSolutions.join(', ')}`,
-    `Betalproviders: ${TECH_SOLUTION_KEYWORDS.paymentProviders.join(', ')}`,
-    `TA-system: ${TECH_SOLUTION_KEYWORDS.taSystems.join(', ')}`,
-    `Logistiksignaler: ${TECH_SOLUTION_KEYWORDS.logisticsSignals.join(', ')}`
-  ].join('\n');
+function getTechWatchlistText(config?: TechSolutionConfig): string {
+  const effective = getEffectiveTechSolutionConfig(config);
+  const categories: TechSolutionCategory[] = ['ecommercePlatforms', 'checkoutSolutions', 'paymentProviders', 'taSystems', 'logisticsSignals'];
+
+  return categories.map((category) => {
+    const values = getTechSolutionsByCategory(effective, category)
+      .map((solution) => `${solution.label} (${solution.keywords.join(', ')})`)
+      .join(', ');
+    return `${TECH_SOLUTION_CATEGORY_LABELS[category]}: ${values}`;
+  }).join('\n');
 }
 
-function detectTechSignals(content: string): string[] {
+function detectTechSignals(content: string, config?: TechSolutionConfig): string[] {
   const haystack = (content || '').toLowerCase();
   if (!haystack) return [];
 
-  const keywords = Object.values(TECH_SOLUTION_KEYWORDS).flat();
+  const keywords = getTechKeywords(config);
   return keywords.filter((k) => haystack.includes(k.toLowerCase()));
 }
 
-async function fetchTechEvidenceFromCrawl(domain: string): Promise<string> {
+async function fetchTechEvidenceFromCrawl(domain: string, config?: TechSolutionConfig): Promise<string> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) return '';
 
@@ -1047,7 +1093,7 @@ async function fetchTechEvidenceFromCrawl(domain: string): Promise<string> {
     );
 
     const content = response.data?.content || '';
-    const hits = detectTechSignals(content);
+    const hits = detectTechSignals(content, config);
     if (!hits.length) return '';
 
     return `Verifierade tekniska signaler via Crawl4ai: ${hits.slice(0, 8).join(', ')}`;
@@ -1122,28 +1168,6 @@ const RISK_FIELD_KEYWORDS: Record<'legalStatus' | 'paymentRemarks' | 'debtBalanc
   debtBalance: ['skuldsaldo', 'kfm', 'kronofogden'],
   debtEquityRatio: ['skuldsättningsgrad', 'skuldsattningsgrad', 'skuld', 'eget kapital']
 };
-
-const PAYMENT_PROVIDER_PATTERNS: Array<{ label: string; keywords: string[] }> = [
-  { label: 'Klarna', keywords: ['klarna checkout', 'klarna payments', 'klarna'] },
-  { label: 'Adyen', keywords: ['adyen checkout', 'adyen'] },
-  { label: 'Stripe', keywords: ['stripe checkout', 'stripe'] },
-  { label: 'Qliro', keywords: ['qliro checkout', 'qliro'] },
-  { label: 'Walley', keywords: ['walley checkout', 'walley'] },
-  { label: 'Svea', keywords: ['svea checkout', 'svea'] },
-  { label: 'Nets', keywords: ['nets easy', 'nets'] },
-  { label: 'Checkout.com', keywords: ['checkout.com'] },
-  { label: 'PayEx', keywords: ['payex'] }
-];
-
-const CHECKOUT_SOLUTION_PATTERNS: Array<{ label: string; keywords: string[] }> = [
-  { label: 'Klarna Checkout', keywords: ['klarna checkout', 'kco'] },
-  { label: 'Adyen Checkout', keywords: ['adyen checkout'] },
-  { label: 'Stripe Checkout', keywords: ['stripe checkout'] },
-  { label: 'Qliro Checkout', keywords: ['qliro checkout'] },
-  { label: 'Walley Checkout', keywords: ['walley checkout'] },
-  { label: 'Nets Easy', keywords: ['nets easy'] },
-  { label: 'Checkout.com', keywords: ['checkout.com'] }
-];
 
 function findPatternMatch(
   haystack: string,
@@ -1400,7 +1424,8 @@ async function fetchVerifiedFinancials(
 // ── Phase 2: Checkout Position Crawl ─────────────────────────────────────
 async function fetchCheckoutPositions(
   domain: string,
-  focusCarrier: string
+  focusCarrier: string,
+  techSolutionConfig?: TechSolutionConfig
 ) : Promise<CheckoutEvidence> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
@@ -1425,7 +1450,7 @@ async function fetchCheckoutPositions(
   }
   if (!checkoutContent) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
   const haystack = checkoutContent.toLowerCase();
-  const allCarriers = TECH_SOLUTION_KEYWORDS.logisticsSignals;
+  const allCarriers = getTechPatterns(techSolutionConfig, 'logisticsSignals').flatMap((pattern) => pattern.keywords);
   const foundCarriers = allCarriers.filter(c => haystack.includes(c.toLowerCase()));
   const positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }> = foundCarriers.map((carrier, i) => ({
     carrier, pos: i + 1, service: '', price: '', inCheckout: true
@@ -1439,7 +1464,7 @@ async function fetchCheckoutPositions(
   return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled', sourceUrl: sourceUrl || undefined };
 }
 
-async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymentEvidence> {
+async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: TechSolutionConfig): Promise<VerifiedPaymentEvidence> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) {
     return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
@@ -1471,8 +1496,8 @@ async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymen
     return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
   }
 
-  const paymentMatch = findPatternMatch(haystack, PAYMENT_PROVIDER_PATTERNS);
-  const checkoutMatch = findPatternMatch(haystack, CHECKOUT_SOLUTION_PATTERNS);
+  const paymentMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'paymentProviders'));
+  const checkoutMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
   const keywords = [paymentMatch.keyword, checkoutMatch.keyword].filter(Boolean) as string[];
 
   if (!paymentMatch.label && !checkoutMatch.label) {
@@ -1494,7 +1519,7 @@ async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymen
   };
 }
 
-async function fetchStructuredTechProfile(domain: string): Promise<StructuredTechProfile> {
+async function fetchStructuredTechProfile(domain: string, techSolutionConfig?: TechSolutionConfig): Promise<StructuredTechProfile> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) {
     return { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
@@ -1521,10 +1546,10 @@ async function fetchStructuredTechProfile(domain: string): Promise<StructuredTec
     }
   }
 
-  const platforms = detectStructuredLabels(combinedContent, ECOMMERCE_PLATFORM_PATTERNS);
-  const taSystems = detectStructuredLabels(combinedContent, TA_SYSTEM_PATTERNS);
-  const paymentProviders = detectStructuredLabels(combinedContent, PAYMENT_PROVIDER_PATTERNS);
-  const checkoutSolutions = detectStructuredLabels(combinedContent, CHECKOUT_SOLUTION_PATTERNS);
+  const platforms = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'ecommercePlatforms'));
+  const taSystems = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'taSystems'));
+  const paymentProviders = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'paymentProviders'));
+  const checkoutSolutions = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
   const keywords = [...platforms, ...taSystems, ...paymentProviders, ...checkoutSolutions].slice(0, 6);
 
   return {
@@ -1984,9 +2009,20 @@ export async function generateDeepDiveSequential(
   threePLProviders: ThreePLProvider[],
   model?: ModelName,
   sourcePolicies?: SourcePolicyConfig,
-  activeCountry?: string
+  activeCountry?: string,
+  techSolutionConfig?: TechSolutionConfig
 ): Promise<LeadData> {
   const activeModel = model || selectedModel;
+  const analysisTelemetry: string[] = [];
+  const analysisWarnings: string[] = [];
+  const pushTelemetry = (message: string) => {
+    const normalized = String(message || '').trim();
+    if (normalized) analysisTelemetry.push(normalized);
+  };
+  const pushWarning = (message: string) => {
+    const normalized = String(message || '').trim();
+    if (normalized) analysisWarnings.push(normalized);
+  };
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
   const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
@@ -2040,7 +2076,7 @@ För varje kategori, använd Tavily med site:-filter på kategori-domäner och f
 Vid osäkerhet, använd Crawl4ai på den mest relevanta URL:en för att extrahera verifierad text innan slutsats.
 
 ### TECH WATCHLIST (Tavily + Crawl4ai)
-${getTechWatchlistText()}
+${getTechWatchlistText(techSolutionConfig)}
 
 Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med kort sammanfattning och URL.`;
 
@@ -2052,6 +2088,10 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
       fetchVerifiedFinancials(strictOrgNumber, strictCompanyName)
     ]);
     const sourceGroundingEvidence = sourceBundle.promptEvidence;
+    pushTelemetry(sourceGroundingEvidence ? 'Source grounding hittades via Tavily/Crawl4ai.' : 'Source grounding gav inga externa träffar.');
+    pushTelemetry(financialEvidence.confidence === 'verified'
+      ? 'Finansiell registerdata verifierad.'
+      : 'Finansiell registerdata saknas eller kunde inte verifieras.');
     onUpdate({}, financialEvidence.confidence === 'verified'
       ? '✓ Finansiell registerdata hämtad från Allabolag/Ratsit'
       : 'Finansiell registerdata ej tillgänglig — AI nyttjar källbevis');
@@ -2102,9 +2142,9 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
       const phase24 = await Promise.all([
-        fetchCheckoutPositions(parsedDomain, activeCarrier),
-        fetchVerifiedPaymentSetup(parsedDomain),
-        fetchStructuredTechProfile(parsedDomain),
+        fetchCheckoutPositions(parsedDomain, activeCarrier, techSolutionConfig),
+        fetchVerifiedPaymentSetup(parsedDomain, techSolutionConfig),
+        fetchStructuredTechProfile(parsedDomain, techSolutionConfig),
         fetchRetailFootprint(parsedDomain),
         detectEmailPattern(parsedDomain, sourceGroundingEvidence + ' ' + (financialEvidence.evidenceText || ''))
       ]);
@@ -2113,7 +2153,23 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       techProfile = phase24[2];
       retailEvidence = phase24[3];
       detectedEmailPattern = phase24[4];
-    } catch { /* Phase 2+4 non-critical — proceed with LLM data */ }
+      pushTelemetry(checkoutCrawlResult.positions.length
+        ? `Checkout crawl verifierade ${checkoutCrawlResult.positions.length} checkout-positioner.`
+        : 'Checkout crawl gav inga verifierade checkout-positioner.');
+      pushTelemetry(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution
+        ? 'Payment-detection hittade verifierad betalsetup.'
+        : 'Payment-detection hittade ingen verifierad betalsetup.');
+      pushTelemetry(techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length
+        ? 'Tech-profil verifierad via crawl.'
+        : 'Tech-profil gav inga verifierade träffar.');
+      pushTelemetry(detectedEmailPattern
+        ? 'E-postmönster identifierat.'
+        : 'E-postmönster kunde inte identifieras.');
+    } catch {
+      pushWarning('Checkout crawl, payment-detection eller tech crawl misslyckades. AI-svaret kan därför vara tunnare än normalt.');
+      pushTelemetry('Phase 2+4 misslyckades och föll tillbaka till AI-data.');
+      onUpdate({}, 'Varning: checkout crawl/tech-detection gav inget verifierat underlag.');
+    }
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
     const llmContactCount = Array.isArray(contactsRaw) ? contactsRaw.length : 0;
@@ -2131,8 +2187,15 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         );
         dmSupplement = dmResult.contacts;
         dmConfidence = dmResult.confidence;
+        pushTelemetry(dmResult.contacts.length
+          ? `Beslutsfattarsökning kompletterade med ${dmResult.contacts.length} kontakter.`
+          : 'Beslutsfattarsökning gav inga extra kontakter.');
       }
-    } catch { /* Phase 3 non-critical — proceed with LLM contacts */ }
+    } catch {
+      pushWarning('Beslutsfattarsökning misslyckades. Kontaktdata kan vara ofullständig.');
+      pushTelemetry('Phase 3 misslyckades och föll tillbaka till befintliga kontaktfält.');
+      onUpdate({}, 'Varning: beslutsfattarsökning gav inga verifierade kompletteringar.');
+    }
 
     const registryFields = financialEvidence.parsed || {};
     const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
@@ -2213,9 +2276,11 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       }
     );
     const finalLatestNews = verifiedNews.summary || '';
+    pushTelemetry(verifiedNews.summary ? 'Nyhetssökning hittade verifierade nyheter.' : 'Nyhetssökning gav inga verifierade nyheter.');
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
-      pickString(companyData?.domain, companyData?.website, companyData?.url)
+      pickString(companyData?.domain, companyData?.website, companyData?.url),
+      techSolutionConfig
     );
 
     const capturedAt = new Date().toISOString();
@@ -2437,6 +2502,34 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       emailPattern: detectedEmailPattern,
       verifiedRegistrySnapshot,
       verifiedFieldEvidence,
+      analysisWarnings: dedupeMessages([
+        ...analysisWarnings,
+        financialEvidence.confidence !== 'verified' ? 'Finansiell registerdata saknas eller är inte verifierad.' : '',
+        !sourceGroundingEvidence ? 'Source grounding gav begränsat eller inget externt underlag.' : '',
+        !finalLatestNews ? 'Inga verifierade nyheter hittades inom nuvarande source-regler.' : '',
+        !detectedEmailPattern ? 'E-postmönster kunde inte identifieras.' : '',
+        !checkoutCrawlResult.positions.length ? 'Checkout crawl hittade inga verifierade checkout-positioner.' : '',
+        !(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution) ? 'Ingen verifierad betalsetup hittades.' : '',
+        !(techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length) ? 'Ingen verifierad tech-profil hittades.' : ''
+      ]),
+      analysisTelemetry: dedupeMessages(analysisTelemetry),
+      analysisCompleteness: determineAnalysisCompleteness({
+        revenue: revenueTKR !== undefined ? `${revenueTKR}` : '',
+        websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url),
+        decisionMakers: (() => {
+          const llmContacts: DecisionMaker[] = (Array.isArray(contactsRaw) ? contactsRaw : []).map((c: any) => ({
+            name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || '',
+            directPhone: c.direct_phone || c.directPhone || '', verificationNote: ''
+          }));
+          const supplement: DecisionMaker[] = dmSupplement
+            .map(dc => ({ name: dc.name, title: dc.title, email: dc.email, linkedin: dc.linkedin, directPhone: dc.directPhone, verificationNote: dc.verificationNote }));
+          return dedupeDecisionMakers([...llmContacts, ...supplement], 6);
+        })(),
+        latestNews: finalLatestNews || latestNewsFromModel || '',
+        checkoutCount: checkoutCrawlResult.positions.length,
+        techDetections: [...techProfile.platforms, ...techProfile.taSystems, ...techProfile.paymentProviders, ...techProfile.checkoutSolutions],
+        warnings: dedupeMessages(analysisWarnings)
+      }),
       dataConfidence: {
         financial: financialEvidence.confidence,
         checkout: checkoutCrawlResult.confidence,
@@ -2468,7 +2561,8 @@ export async function generateLeads(
   threePLProviders: ThreePLProvider[],
   model?: ModelName,
   sourcePolicies?: SourcePolicyConfig,
-  activeCountry?: string
+  activeCountry?: string,
+  techSolutionConfig?: TechSolutionConfig
 ): Promise<LeadData[]> {
   const activeModel = model || selectedModel;
   try {
@@ -2538,7 +2632,9 @@ export async function generateLeads(
       }));
 
       // Apply heavier evidence checks on the first leads to avoid quota spikes in large batches.
-      const shouldEnrich = index < 6;
+      const shouldEnrich = index < BATCH_ENRICHMENT_LIMIT;
+      const analysisWarnings: string[] = [];
+      const analysisTelemetry: string[] = [];
       let financialEvidence: VerifiedFinancialEvidence = { evidenceText: '', confidence: 'missing', parsed: {} };
       let checkoutEvidence: CheckoutEvidence = { positions: [], evidenceSnippet: '', confidence: 'missing' };
       let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
@@ -2553,9 +2649,9 @@ export async function generateLeads(
         try {
           const [fin, checkout, payment, tech, retail, email, news] = await Promise.all([
             fetchVerifiedFinancials(pickString(l.orgNumber, l.org_number, l.organizationNumber), pickString(l.companyName, l.company_name, l.name)),
-            fetchCheckoutPositions(domain, activeCarrier),
-            fetchVerifiedPaymentSetup(domain),
-            fetchStructuredTechProfile(domain),
+            fetchCheckoutPositions(domain, activeCarrier, techSolutionConfig),
+            fetchVerifiedPaymentSetup(domain, techSolutionConfig),
+            fetchStructuredTechProfile(domain, techSolutionConfig),
             fetchRetailFootprint(domain),
             detectEmailPattern(domain, `${pickString(l.companyName, l.company_name, l.name)} ${pickString(l.orgNumber, l.org_number, l.organizationNumber)}`),
             fetchLatestNews(
@@ -2575,8 +2671,12 @@ export async function generateLeads(
           retailEvidence = retail;
           emailPattern = email;
           newsEvidence = news;
+          analysisTelemetry.push(financialEvidence.confidence === 'verified' ? 'Finansiell verifiering lyckades.' : 'Finansiell verifiering gav inget säkert utfall.');
+          analysisTelemetry.push(checkoutEvidence.positions.length ? 'Checkout crawl hittade verifierade positioner.' : 'Checkout crawl gav inga verifierade positioner.');
+          analysisTelemetry.push(newsEvidence.summary ? 'Nyhetssökning hittade verifierade nyheter.' : 'Nyhetssökning gav inga verifierade nyheter.');
         } catch {
-          // Non-critical in batch mode
+          analysisWarnings.push('Extern enrichment misslyckades. Leadet bygger främst på quick-scan-data.');
+          analysisTelemetry.push('Extern enrichment misslyckades och föll tillbaka till quick-scan-data.');
         }
 
         if (!baseDecisionMakers.length) {
@@ -2592,8 +2692,12 @@ export async function generateLeads(
             dmConfidence = dmResult.confidence;
           } catch {
             dmSupplement = [];
+            analysisWarnings.push('Beslutsfattarsökning misslyckades i batch enrichment.');
           }
         }
+      } else {
+        analysisWarnings.push(`Endast quick-scan användes i batch. Full enrichment körs på de första ${BATCH_ENRICHMENT_LIMIT} leadsen i varje körning.`);
+        analysisTelemetry.push('Leadet markerades som quick-scan på grund av batchbegränsning.');
       }
 
       const registryFields = financialEvidence.parsed || {};
@@ -2897,6 +3001,26 @@ export async function generateLeads(
         verifiedRegistrySnapshot,
         verifiedFieldEvidence,
         emailPattern,
+        analysisWarnings: dedupeMessages([
+          ...analysisWarnings,
+          financialEvidence.confidence !== 'verified' ? 'Finansiell registerdata saknas eller är inte verifierad.' : '',
+          !newsEvidence.summary ? 'Inga verifierade nyheter hittades för leadet.' : '',
+          !emailPattern ? 'E-postmönster kunde inte identifieras.' : '',
+          !checkoutEvidence.positions.length ? 'Checkout crawl hittade inga verifierade checkout-positioner.' : '',
+          !(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution) ? 'Ingen verifierad betalsetup hittades.' : ''
+        ]),
+        analysisTelemetry: dedupeMessages(analysisTelemetry),
+        analysisCompleteness: shouldEnrich
+          ? determineAnalysisCompleteness({
+              revenue: effectiveRevenueTkr !== undefined ? `${effectiveRevenueTkr}` : '',
+              websiteUrl,
+              decisionMakers,
+              latestNews: newsEvidence.summary || '',
+              checkoutCount: checkoutEvidence.positions.length,
+              techDetections: [...techProfile.platforms, ...techProfile.taSystems, ...techProfile.paymentProviders, ...techProfile.checkoutSolutions],
+              warnings: dedupeMessages(analysisWarnings)
+            })
+          : 'thin',
         dataConfidence: {
           financial: financialEvidence.confidence,
           checkout: checkoutEvidence.confidence,

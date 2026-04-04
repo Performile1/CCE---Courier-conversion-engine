@@ -12,7 +12,8 @@ export const SHARED_SETTING_KEYS = {
   sniPercentages: 'sni_percentages',
   threePLProviders: 'three_pl_providers',
   marketSettings: 'market_settings',
-  activeCarrier: 'active_carrier'
+  activeCarrier: 'active_carrier',
+  techSolutions: 'tech_solutions'
 } as const;
 
 export interface BackupRecord {

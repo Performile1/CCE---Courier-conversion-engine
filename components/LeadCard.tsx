@@ -4,7 +4,7 @@ import {
   MapPin, Building, Package, DollarSign, Microscope, 
   TrendingUp, CheckCircle2, ShieldAlert, Layout, Truck, ThumbsUp, ThumbsDown, Edit, Download,
   ArrowDownRight, RefreshCw, UserCheck, Calendar as CalendarIcon,
-  MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2
+  MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2, AlertCircle
 } from 'lucide-react';
 import { LeadData, Segment, ThreePLProvider, VerifiedLeadField } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -616,6 +616,50 @@ const LeadCard: React.FC<LeadCardProps> = ({
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
+              {((editData.analysisWarnings?.length || 0) > 0 || (editData.analysisTelemetry?.length || 0) > 0) && (
+                <div className="border border-slate-200 bg-slate-50 rounded-none p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-4 h-4 text-[#D40511]" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-dhl-black">Analysdiagnostik</h3>
+                    {editData.analysisCompleteness && (
+                      <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${
+                        editData.analysisCompleteness === 'full'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : editData.analysisCompleteness === 'partial'
+                            ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {editData.analysisCompleteness === 'full' ? 'Full' : editData.analysisCompleteness === 'partial' ? 'Partial' : 'Thin'}
+                      </span>
+                    )}
+                  </div>
+                  {(editData.analysisWarnings?.length || 0) > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Varningar</p>
+                      <div className="space-y-1.5">
+                        {editData.analysisWarnings?.map((warning, index) => (
+                          <div key={`warning-${index}`} className="text-[10px] bg-white border border-slate-200 p-2 rounded-sm text-slate-700">
+                            {warning}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(editData.analysisTelemetry?.length || 0) > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Stegstatus</p>
+                      <div className="space-y-1.5">
+                        {editData.analysisTelemetry?.map((entry, index) => (
+                          <div key={`telemetry-${index}`} className="text-[10px] bg-white border border-slate-200 p-2 rounded-sm text-slate-700">
+                            {entry}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Show basic info only if analysis not complete */}
               {!scanComplete && !editData.analysisDate && (
                 <div className="bg-dhl-gray-light border-l-4 border-dhl-red p-6 rounded-sm">

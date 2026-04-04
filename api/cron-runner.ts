@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateDeepDiveSequential, generateLeads } from '../services/openrouterService';
 import { computeNextRun, CronJob } from '../services/cronJobService';
 import { LeadData, SearchFormData } from '../types';
+import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from '../services/techSolutionConfig';
 import { createAdminClient, rowToJob, setCors } from './_scheduledJobs';
 
 function isAuthorized(req: VercelRequest): boolean {
@@ -66,6 +67,18 @@ async function loadSharedExclusionValues(adminClient: any) {
   return (data || []).map((row: any) => row.value).filter(Boolean);
 }
 
+async function loadTechSolutionConfig(adminClient: any) {
+  const { data, error } = await adminClient
+    .from('app_shared_settings')
+    .select('value')
+    .eq('setting_key', 'tech_solutions')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return normalizeTechSolutionConfig(data?.value || DEFAULT_TECH_SOLUTION_CONFIG);
+}
+
 async function upsertLead(adminClient: any, userId: string, lead: LeadData, existingLeadId?: string, bucket: 'active' | 'reservoir' = 'active') {
   let leadId = existingLeadId;
 
@@ -122,6 +135,8 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
   const query = String(job.payload.companyNameOrOrg || '').trim();
   if (!query) throw new Error('Deep dive job missing companyNameOrOrg');
 
+  const techSolutionConfig = await loadTechSolutionConfig(adminClient);
+
   const lead = await generateDeepDiveSequential(
     getDefaultSearchForm(query),
     () => {},
@@ -133,7 +148,8 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
     [],
     undefined,
     undefined,
-    'global'
+    'global',
+    techSolutionConfig
   );
 
   await upsertLead(adminClient, userId, lead);
@@ -142,12 +158,13 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
 }
 
 async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
-  const [{ data: existingLeads }, sharedExclusions] = await Promise.all([
+  const [{ data: existingLeads }, sharedExclusions, techSolutionConfig] = await Promise.all([
     adminClient
       .from('leads')
       .select('company_name, org_number')
       .eq('user_id', userId),
-    loadSharedExclusionValues(adminClient)
+    loadSharedExclusionValues(adminClient),
+    loadTechSolutionConfig(adminClient)
   ]);
 
   const exclusionList = [
@@ -170,7 +187,8 @@ async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
     [],
     undefined,
     undefined,
-    'global'
+    'global',
+    techSolutionConfig
   );
 
   for (const lead of leads) {
@@ -202,6 +220,8 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
   const { data: candidates, error } = await query;
   if (error) throw error;
 
+  const techSolutionConfig = await loadTechSolutionConfig(adminClient);
+
   let processed = 0;
   for (const candidate of candidates || []) {
     const queryValue = String(candidate.org_number || candidate.company_name || '').trim();
@@ -218,7 +238,8 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
       [],
       undefined,
       undefined,
-      'global'
+      'global',
+      techSolutionConfig
     );
 
     await upsertLead(
