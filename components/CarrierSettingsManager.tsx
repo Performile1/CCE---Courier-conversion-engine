@@ -10,7 +10,7 @@ interface CarrierSettingsManagerProps {
   currentSettings: CarrierSettings[];
 }
 
-const DEFAULT_SETTINGS: CarrierSettings[] = [
+export const DEFAULT_CARRIER_SETTINGS: CarrierSettings[] = [
   { name: 'PostNord', marketShare: 45.0, avgPrice: 51, dmt: 4.6, sulfur: 1.0, volumeOmbud: 46170000, volumeSkap: 20520000, volumeHem: 35910000 },
   { name: 'Instabee', marketShare: 15.0, avgPrice: 46, dmt: 11.0, sulfur: 0, volumeOmbud: 0, volumeSkap: 23940000, volumeHem: 10260000 },
   { name: 'DHL Freight', marketShare: 8.0, avgPrice: 49, dmt: 21.8, sulfur: 3.5, volumeOmbud: 12768000, volumeSkap: 3648000, volumeHem: 1824000 },
@@ -18,7 +18,13 @@ const DEFAULT_SETTINGS: CarrierSettings[] = [
 ];
 
 export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ isOpen, onClose, onSave, currentSettings }) => {
-  const [settings, setSettings] = useState<CarrierSettings[]>(currentSettings.length ? currentSettings : DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<CarrierSettings[]>(currentSettings.length ? currentSettings : DEFAULT_CARRIER_SETTINGS);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSettings(currentSettings.length ? currentSettings : DEFAULT_CARRIER_SETTINGS);
+    }
+  }, [currentSettings, isOpen]);
 
   const handleChange = (index: number, field: keyof CarrierSettings, value: string | number) => {
     const updated = [...settings];

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Code2, Plus, Trash2, CheckCircle, AlertCircle, Copy, Download } from 'lucide-react';
+import { createCustomConnector, deleteCustomConnector, loadCustomConnectors } from '../services/automationConfigService';
 
 interface CustomConnector {
   id: string;
@@ -53,26 +54,36 @@ export const CustomAPIConnectorBuilder: React.FC<CustomAPIConnectorBuilderProps>
     responseMapping: {},
   });
 
-  const handleAddConnector = () => {
+  useEffect(() => {
+    const hydrateConnectors = async () => {
+      try {
+        const items = await loadCustomConnectors(userId);
+        setConnectors(items);
+      } catch (err) {
+        console.error('Error loading custom connectors:', err);
+      }
+    };
+
+    hydrateConnectors();
+  }, [userId]);
+
+  const handleAddConnector = async () => {
     if (!connectorName || !baseUrl) {
       alert('Enter connector name and base URL');
       return;
     }
 
-    const newConnector: CustomConnector = {
-      id: Date.now().toString(),
+    const newConnector = await createCustomConnector(userId, {
       name: connectorName,
       baseUrl,
       authType,
       authConfig,
       description: connectorDescription,
-      endpoints,
-      createdAt: new Date().toISOString(),
-    };
+      endpoints
+    });
 
     const updated = [...connectors, newConnector];
     setConnectors(updated);
-    localStorage.setItem(`customConnectors_${userId}`, JSON.stringify(updated));
 
     // Reset form
     setConnectorName('');
@@ -104,10 +115,9 @@ export const CustomAPIConnectorBuilder: React.FC<CustomAPIConnectorBuilderProps>
     setCurrentEndpoint({ method: 'GET', requestMapping: {}, responseMapping: {} });
   };
 
-  const handleDeleteConnector = (id: string) => {
-    const updated = connectors.filter((c) => c.id !== id);
-    setConnectors(updated);
-    localStorage.setItem(`customConnectors_${userId}`, JSON.stringify(updated));
+  const handleDeleteConnector = async (id: string) => {
+    await deleteCustomConnector(userId, id);
+    setConnectors((prev) => prev.filter((c) => c.id !== id));
   };
 
   const handleExportConnector = (connector: CustomConnector) => {

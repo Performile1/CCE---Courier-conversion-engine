@@ -47,15 +47,12 @@ export const ExclusionManager: React.FC<ExclusionManagerProps> = ({
   const clearHistory = () => {
     if (window.confirm("Är du säker på att du vill rensa ALL historik över nedladdade leads? Detta kan inte ångras.")) {
       setDownloadedLeads([]);
-      // Force immediate persistence if needed, though App.tsx handles state sync
-      localStorage.setItem('dhl_downloaded_leads', JSON.stringify([]));
     }
   };
 
   const removeSingleHistoryItem = (itemToRemove: string) => {
     const updated = downloadedLeads.filter(item => item !== itemToRemove);
     setDownloadedLeads(updated);
-    localStorage.setItem('dhl_downloaded_leads', JSON.stringify(updated));
   };
 
   const handleDownloadTemplate = () => {

@@ -7,6 +7,7 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userName = 'User' }) => {
   const [opacity, setOpacity] = useState(1);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -29,11 +30,20 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userNam
       style={{ opacity }}
     >
       <div className="text-center">
-        {/* Welcome Icon */}
+        {/* Welcome Logo */}
         <div className="mb-8">
-          <div className="w-24 h-24 bg-dhl-red rounded-sm mx-auto flex items-center justify-center shadow-md">
-            <span className="text-white text-3xl font-black">✓</span>
-          </div>
+          {!logoLoadFailed ? (
+            <img
+              src="/cce-logo.png"
+              alt="CCE logo"
+              className="w-[360px] max-w-[85vw] h-auto mx-auto rounded-sm shadow-md"
+              onError={() => setLogoLoadFailed(true)}
+            />
+          ) : (
+            <div className="w-44 h-24 bg-dhl-red rounded-sm mx-auto flex items-center justify-center shadow-md">
+              <span className="text-dhl-yellow text-5xl font-black italic tracking-tight">CCE</span>
+            </div>
+          )}
         </div>
 
         {/* Welcome Text */}

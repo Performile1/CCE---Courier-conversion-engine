@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings, Plus, Edit2, Trash2, CheckCircle, AlertCircle, Code, TestTube } from 'lucide-react';
+import { createCustomAdapter, deleteCustomAdapter, loadCustomAdapters } from '../services/automationConfigService';
 
 interface CustomAdapter {
   id: string;
@@ -67,6 +68,19 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState('');
 
+  useEffect(() => {
+    const hydrateAdapters = async () => {
+      try {
+        const items = await loadCustomAdapters(userId);
+        setAdapters(items);
+      } catch (err) {
+        console.error('Error loading custom adapters:', err);
+      }
+    };
+
+    hydrateAdapters();
+  }, [userId]);
+
   const handleAddAdapter = async () => {
     if (!adapterName) {
       alert('Enter adapter name');
@@ -76,19 +90,16 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
     setSaving(true);
 
     try {
-      const newAdapter: CustomAdapter = {
-        id: Date.now().toString(),
+      const newAdapter = await createCustomAdapter(userId, {
         name: adapterName,
         description: adapterDescription,
         type: selectedType,
         config,
-        active: true,
-        createdAt: new Date().toISOString(),
-      };
+        active: true
+      });
 
       const updated = [...adapters, newAdapter];
       setAdapters(updated);
-      localStorage.setItem(`adapters_${userId}`, JSON.stringify(updated));
 
       setAdapterName('');
       setAdapterDescription('');
@@ -347,10 +358,9 @@ export const CustomIntegrationAdapter: React.FC<CustomIntegrationAdapterProps> =
                     <TestTube className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
-                      const updated = adapters.filter((a) => a.id !== adapter.id);
-                      setAdapters(updated);
-                      localStorage.setItem(`adapters_${userId}`, JSON.stringify(updated));
+                    onClick={async () => {
+                      await deleteCustomAdapter(userId, adapter.id);
+                      setAdapters((prev) => prev.filter((a) => a.id !== adapter.id));
                     }}
                     className="p-1 hover:bg-dhl-gray-light rounded text-red-600"
                   >

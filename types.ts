@@ -162,6 +162,12 @@ export interface ThreePLProvider {
   address: string;
 }
 
+export interface IntegrationSystem {
+  id: string;
+  name: string;
+  type: string;
+}
+
 /**
  * NEW: DeepScan Specific Types
  */

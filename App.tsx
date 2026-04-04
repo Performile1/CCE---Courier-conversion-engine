@@ -11,11 +11,11 @@ import { BackupManager } from './components/BackupManager';
 import { DailyBriefing } from './components/DailyBriefing';
 import { ManualAddModal } from './components/ManualAddModal';
 import { MailTemplateManager } from './components/MailTemplateManager';
-import { IntegrationManager } from './components/IntegrationManager';
+import { DEFAULT_AVAILABLE_SYSTEMS, IntegrationManager } from './components/IntegrationManager';
 import { NewsSourceManager } from './components/NewsSourceManager';
 import { SNISettingsManager } from './components/SNISettingsManager';
 import { ThreePLManager } from './components/ThreePLManager';
-import { CarrierSettingsManager } from './components/CarrierSettingsManager';
+import { CarrierSettingsManager, DEFAULT_CARRIER_SETTINGS } from './components/CarrierSettingsManager';
 import { ProcessingStatusBanner } from './components/ProcessingStatusBanner';
 import { RateLimitOverlay } from './components/RateLimitOverlay';
 import { QuotaTimer } from './components/QuotaTimer';
@@ -46,6 +46,8 @@ import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobsApi';
+import { createBackupRecord, deleteBackupRecord, loadBackupRecords, loadSharedSettings, loadUserSettings, saveSharedSetting, saveUserSetting, SHARED_SETTING_KEYS, USER_SETTING_KEYS } from './services/appConfigService';
+import { deletePersistedLead, loadPersistedLeads, loadSharedExclusions, replacePersistedLeads, replaceSharedExclusions, upsertPersistedLead } from './services/leadRepository';
 import { signOut, supabase } from './services/supabaseClient';
 import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
@@ -57,6 +59,7 @@ import {
   SourcePolicyConfig,
   ToolAccessConfig,
   UserRole,
+  IntegrationSystem,
   SNIPercentage, 
   ThreePLProvider, 
   RemovalReason,
@@ -71,6 +74,7 @@ const DEFAULT_MAIL_TEMPLATE_SV = `Hej {fornamn},<br/><br/>Jag har gjort en analy
 const DEFAULT_MAIL_TEMPLATE_EN = `Hi {fornamn},<br/><br/>I have conducted an analysis of <strong>{foretag}</strong> and your current delivery potential via our Strategic Analysis engine. Based on industry standards, we estimate your annual shipping budget to be approximately <strong>{potential}</strong>. With that volume, I see a significant upside in optimizing your checkout strategy together with us at {active_carrier}.<br/><br/>Our statistics show that a strategic move to <strong>Position 1</strong> in the checkout yields an average <strong>conversion lift of 27%</strong>. This is because up to 60% of customers prefer the store to guide them to the right choice; they feel secure knowing you have selected the best partner for them.<br/><br/><strong>Smart value management via plugins:</strong><br/>We have built advanced logic directly into our plugins for major platforms (Shopify, WooCommerce, Magento) that adapts delivery choices based on cart value. For premium orders, extended cargo insurance and strict ID verification are automatically activated to protect your margins.<br/><br/><strong>Flexibility and reach:</strong><br/>{pitch}<br/><br/><strong>{active_carrier} value-adds for {foretag}:</strong><br/>- <strong>Parcel Lockers:</strong> Access to Sweden's most eco-smart locker network (iBoxen).<br/>- <strong>Seamless Customer Journey:</strong> Full transparency and easy returns via QR code.<br/>- <strong>Total Control:</strong> A partner that handles everything from individual parcels to global Freight shipments.<br/><br/>I would love to present my full analysis and discuss how we can increase your Customer Lifetime Value.<br/><br/><div style="text-align: center; margin: 30px 0;"><a href="{kalender_lank}" style="background-color: #cc0000; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block;">Book a meeting in my calendar here</a></div>`;
 
 const DEFAULT_CARRIERS = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'];
+const AUTO_DEEP_DIVE_COOLDOWN_MS = 3 * 60 * 1000;
 const SEGMENT_OPTIONS = [Segment.DM, Segment.TS, Segment.FS, Segment.KAM];
 const DEFAULT_NEWS_SOURCE_MAPPINGS: NewsSourceMapping[] = [
   {
@@ -165,18 +169,14 @@ export const App: React.FC = () => {
     return (saved as Language) || 'sv';
   });
   const [leads, setLeads] = useState<LeadData[]>([]);
-  const [activeCarrier, setActiveCarrier] = useState<string>(() => localStorage.getItem('dhl_active_carrier') || 'DHL');
+  const [activeCarrier, setActiveCarrier] = useState<string>('DHL');
   const [carriers, setCarriers] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('dhl_carriers');
       return saved ? JSON.parse(saved) : DEFAULT_CARRIERS;
     } catch (e) { return DEFAULT_CARRIERS; }
   });
-  const [backups, setBackups] = useState<any[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('dhl_backups') || '[]');
-    } catch (e) { return []; }
-  });
+  const [backups, setBackups] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [showRateLimit, setShowRateLimit] = useState(false);
@@ -242,66 +242,22 @@ export const App: React.FC = () => {
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
   const [includedKeywords, setIncludedKeywords] = useState<string[]>([]);
   const [cacheData, setCacheData] = useState<LeadData[]>([]);
-  const [integrations, setIntegrations] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('dhl_integrations') || '[]');
-    } catch (e) { return []; }
-  });
+  const [integrations, setIntegrations] = useState<string[]>([]);
+  const [availableSystems, setAvailableSystems] = useState<IntegrationSystem[]>(DEFAULT_AVAILABLE_SYSTEMS);
+  const [sniPercentages, setSNIPercentages] = useState<SNIPercentage[]>([]);
+  const [threePLProviders, setThreePLProviders] = useState<ThreePLProvider[]>([]);
+  const [marketSettings, setMarketSettings] = useState<CarrierSettings[]>(DEFAULT_CARRIER_SETTINGS);
+  const [newsSourceMappings, setNewsSourceMappings] = useState<NewsSourceMapping[]>(DEFAULT_NEWS_SOURCE_MAPPINGS);
+  const [sourcePolicies, setSourcePolicies] = useState<SourcePolicyConfig>(DEFAULT_SOURCE_POLICIES);
+  const [activeSourceCountry, setActiveSourceCountry] = useState<string>('global');
+  const [toolAccessConfig, setToolAccessConfig] = useState<ToolAccessConfig>({ userRoles: {}, roleToolAccess: DEFAULT_ROLE_TOOL_ACCESS });
 
-  const [sniPercentages, setSNIPercentages] = useState<SNIPercentage[]>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_sni_percentages');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-
-  const [threePLProviders, setThreePLProviders] = useState<ThreePLProvider[]>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_3pl_providers');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-
-  const [newsSourceMappings, setNewsSourceMappings] = useState<NewsSourceMapping[]>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_news_sources');
-      return saved ? JSON.parse(saved) : DEFAULT_NEWS_SOURCE_MAPPINGS;
-    } catch (e) { return DEFAULT_NEWS_SOURCE_MAPPINGS; }
-  });
-  const [sourcePolicies, setSourcePolicies] = useState<SourcePolicyConfig>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_source_policies');
-      return saved ? JSON.parse(saved) : DEFAULT_SOURCE_POLICIES;
-    } catch (e) { return DEFAULT_SOURCE_POLICIES; }
-  });
-  const [activeSourceCountry, setActiveSourceCountry] = useState<string>(() => {
-    return localStorage.getItem('dhl_active_source_country') || 'global';
-  });
-  const [toolAccessConfig, setToolAccessConfig] = useState<ToolAccessConfig>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_tool_access_config');
-      return saved ? JSON.parse(saved) : { userRoles: {}, roleToolAccess: DEFAULT_ROLE_TOOL_ACCESS };
-    } catch (e) {
-      return { userRoles: {}, roleToolAccess: DEFAULT_ROLE_TOOL_ACCESS };
-    }
-  });
-
-  const [mailTemplateSv, setMailTemplateSv] = useState(() => localStorage.getItem('dhl_mail_template_sv') || DEFAULT_MAIL_TEMPLATE_SV);
-  const [mailTemplateEn, setMailTemplateEn] = useState(() => localStorage.getItem('dhl_mail_template_en') || DEFAULT_MAIL_TEMPLATE_EN);
-  const [mailSignature, setMailSignature] = useState(() => localStorage.getItem('dhl_mail_signature') || 'Med vänlig hälsning,<br/>Account Manager, {active_carrier}');
-  const [calendarUrl, setCalendarUrl] = useState(() => localStorage.getItem('dhl_user_calendar') || '');
-  const [mailAttachments, setMailAttachments] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_mail_attachments');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-  const [mailFocusWords, setMailFocusWords] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('dhl_mail_focus_words');
-      return saved ? JSON.parse(saved) : ['Checkout-strategi', 'Paketskåp', 'Konverteringslyft', 'Last Mile'];
-    } catch (e) { return ['Checkout-strategi', 'Paketskåp', 'Konverteringslyft', 'Last Mile']; }
-  });
+  const [mailTemplateSv, setMailTemplateSv] = useState(DEFAULT_MAIL_TEMPLATE_SV);
+  const [mailTemplateEn, setMailTemplateEn] = useState(DEFAULT_MAIL_TEMPLATE_EN);
+  const [mailSignature, setMailSignature] = useState('Med vänlig hälsning,<br/>Account Manager, {active_carrier}');
+  const [calendarUrl, setCalendarUrl] = useState('');
+  const [mailAttachments, setMailAttachments] = useState<string[]>([]);
+  const [mailFocusWords, setMailFocusWords] = useState<string[]>(['Checkout-strategi', 'Paketskåp', 'Konverteringslyft', 'Last Mile']);
 
   const [deepDiveLead, setDeepDiveLead] = useState<LeadData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -310,14 +266,41 @@ export const App: React.FC = () => {
   const [analysisSubStatus, setAnalysisSubStatus] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
   const abortControllerRef = useRef<boolean>(false);
+  const activeAnalysisRunIdRef = useRef(0);
+  const deepDiveCooldownRef = useRef<Record<string, number>>({});
   const cronExecutionRef = useRef<boolean>(false);
   const cronJobsHydratedRef = useRef(false);
+  const settingsHydratedRef = useRef(false);
+  const backupsHydratedRef = useRef(false);
 
   const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
   const [resetFormTrigger, setResetFormTrigger] = useState(0);
 
+  const persistReservoirData = useCallback(async (nextCacheData: LeadData[]) => {
+    setCacheData(nextCacheData);
+
+    if (!user?.id) return;
+
+    try {
+      await replacePersistedLeads(user.id, nextCacheData, 'reservoir');
+    } catch (persistError: any) {
+      console.error('Could not persist reservoir leads:', persistError);
+      setError(persistError?.message || 'Kunde inte spara reservoaren till Supabase.');
+    }
+  }, [user?.id]);
+
   const persistExclusionList = useCallback(async (type: 'customer' | 'history', list: string[]) => {
     const uniqueList = Array.from(new Set((list || []).map(v => String(v).trim()).filter(Boolean)));
+
+    if (user?.id) {
+      try {
+        await replaceSharedExclusions(type, uniqueList, user.id);
+      } catch (persistError: any) {
+        console.error('Could not persist shared exclusions:', persistError);
+        setError(persistError?.message || 'Kunde inte spara delade exkluderingar till Supabase.');
+        return;
+      }
+    }
 
     if (type === 'customer') {
       setExistingCustomers(uniqueList);
@@ -341,7 +324,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.warn('Could not persist exclusions to DB:', e);
     }
-  }, [dbStatus]);
+  }, [dbStatus, user?.id]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -403,20 +386,188 @@ export const App: React.FC = () => {
     setIsShareLeadOpen(true);
   };
 
-  // Persistence for mail settings
-  useEffect(() => { localStorage.setItem('dhl_mail_template_sv', mailTemplateSv); }, [mailTemplateSv]);
-  useEffect(() => { localStorage.setItem('dhl_mail_template_en', mailTemplateEn); }, [mailTemplateEn]);
-  useEffect(() => { localStorage.setItem('dhl_mail_signature', mailSignature); }, [mailSignature]);
-  useEffect(() => { localStorage.setItem('dhl_user_calendar', calendarUrl); }, [calendarUrl]);
-  useEffect(() => { localStorage.setItem('dhl_mail_attachments', JSON.stringify(mailAttachments)); }, [mailAttachments]);
-  useEffect(() => { localStorage.setItem('dhl_mail_focus_words', JSON.stringify(mailFocusWords)); }, [mailFocusWords]);
-  useEffect(() => { localStorage.setItem('dhl_news_sources', JSON.stringify(newsSourceMappings)); }, [newsSourceMappings]);
-  useEffect(() => { localStorage.setItem('dhl_source_policies', JSON.stringify(sourcePolicies)); }, [sourcePolicies]);
-  useEffect(() => { localStorage.setItem('dhl_active_source_country', activeSourceCountry); }, [activeSourceCountry]);
-  useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
   useEffect(() => { localStorage.setItem('dhl_app_language', appLanguage); }, [appLanguage]);
-  useEffect(() => { localStorage.setItem('dhl_candidate_cache', JSON.stringify(cacheData)); }, [cacheData]);
   useEffect(() => { saveCronJobs(cronJobs); }, [cronJobs]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      settingsHydratedRef.current = false;
+      backupsHydratedRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateConfig = async () => {
+      try {
+        const [userSettings, sharedSettings, backupRecords] = await Promise.all([
+          loadUserSettings(user.id, [USER_SETTING_KEYS.mailSettings, USER_SETTING_KEYS.selectedIntegrations]),
+          loadSharedSettings([
+            SHARED_SETTING_KEYS.sourceConfiguration,
+            SHARED_SETTING_KEYS.toolAccessConfig,
+            SHARED_SETTING_KEYS.availableSystems,
+            SHARED_SETTING_KEYS.sniPercentages,
+            SHARED_SETTING_KEYS.threePLProviders,
+            SHARED_SETTING_KEYS.marketSettings,
+            SHARED_SETTING_KEYS.activeCarrier
+          ]),
+          loadBackupRecords(user.id)
+        ]);
+
+        if (cancelled) return;
+
+        const mailSettings = userSettings[USER_SETTING_KEYS.mailSettings];
+        if (mailSettings) {
+          if (typeof mailSettings.templateSv === 'string') setMailTemplateSv(mailSettings.templateSv);
+          if (typeof mailSettings.templateEn === 'string') setMailTemplateEn(mailSettings.templateEn);
+          if (typeof mailSettings.signature === 'string') setMailSignature(mailSettings.signature);
+          if (typeof mailSettings.calendarUrl === 'string') setCalendarUrl(mailSettings.calendarUrl);
+          if (Array.isArray(mailSettings.attachments)) setMailAttachments(mailSettings.attachments);
+          if (Array.isArray(mailSettings.focusWords)) setMailFocusWords(mailSettings.focusWords);
+        }
+
+        const selectedIntegrationsSetting = userSettings[USER_SETTING_KEYS.selectedIntegrations];
+        if (Array.isArray(selectedIntegrationsSetting)) {
+          setIntegrations(selectedIntegrationsSetting);
+        }
+
+        const sharedSourceConfig = sharedSettings[SHARED_SETTING_KEYS.sourceConfiguration];
+        if (sharedSourceConfig) {
+          if (Array.isArray(sharedSourceConfig.newsSourceMappings)) setNewsSourceMappings(sharedSourceConfig.newsSourceMappings);
+          if (sharedSourceConfig.sourcePolicies) setSourcePolicies(sharedSourceConfig.sourcePolicies);
+          if (typeof sharedSourceConfig.activeSourceCountry === 'string') setActiveSourceCountry(sharedSourceConfig.activeSourceCountry);
+        }
+
+        const sharedToolAccessConfig = sharedSettings[SHARED_SETTING_KEYS.toolAccessConfig];
+        if (sharedToolAccessConfig) {
+          setToolAccessConfig(sharedToolAccessConfig);
+        }
+
+        const sharedAvailableSystems = sharedSettings[SHARED_SETTING_KEYS.availableSystems];
+        if (Array.isArray(sharedAvailableSystems)) {
+          setAvailableSystems(sharedAvailableSystems);
+        }
+
+        const sharedSNIPercentages = sharedSettings[SHARED_SETTING_KEYS.sniPercentages];
+        if (Array.isArray(sharedSNIPercentages)) {
+          setSNIPercentages(sharedSNIPercentages);
+        }
+
+        const sharedThreePLProviders = sharedSettings[SHARED_SETTING_KEYS.threePLProviders];
+        if (Array.isArray(sharedThreePLProviders)) {
+          setThreePLProviders(sharedThreePLProviders);
+        }
+
+        const sharedMarketSettings = sharedSettings[SHARED_SETTING_KEYS.marketSettings];
+        if (Array.isArray(sharedMarketSettings)) {
+          setMarketSettings(sharedMarketSettings);
+        }
+
+        const sharedActiveCarrier = sharedSettings[SHARED_SETTING_KEYS.activeCarrier];
+        if (typeof sharedActiveCarrier === 'string' && sharedActiveCarrier.trim()) {
+          setActiveCarrier(sharedActiveCarrier);
+        }
+
+        setBackups(backupRecords);
+      } catch (error) {
+        console.warn('Could not hydrate app config from Supabase:', error);
+      } finally {
+        if (!cancelled) {
+          settingsHydratedRef.current = true;
+          backupsHydratedRef.current = true;
+        }
+      }
+    };
+
+    hydrateConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveUserSetting(user.id, USER_SETTING_KEYS.mailSettings, {
+      templateSv: mailTemplateSv,
+      templateEn: mailTemplateEn,
+      signature: mailSignature,
+      calendarUrl,
+      attachments: mailAttachments,
+      focusWords: mailFocusWords
+    }).catch((error) => {
+      console.warn('Could not persist mail settings:', error);
+    });
+  }, [calendarUrl, mailAttachments, mailFocusWords, mailSignature, mailTemplateEn, mailTemplateSv, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveUserSetting(user.id, USER_SETTING_KEYS.selectedIntegrations, integrations).catch((error) => {
+      console.warn('Could not persist selected integrations:', error);
+    });
+  }, [integrations, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.sourceConfiguration, {
+      newsSourceMappings,
+      sourcePolicies,
+      activeSourceCountry
+    }, user.id).catch((error) => {
+      console.warn('Could not persist shared source configuration:', error);
+    });
+  }, [activeSourceCountry, newsSourceMappings, sourcePolicies, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.toolAccessConfig, toolAccessConfig, user.id).catch((error) => {
+      console.warn('Could not persist tool access config:', error);
+    });
+  }, [toolAccessConfig, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.availableSystems, availableSystems, user.id).catch((error) => {
+      console.warn('Could not persist available systems:', error);
+    });
+  }, [availableSystems, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.sniPercentages, sniPercentages, user.id).catch((error) => {
+      console.warn('Could not persist SNI percentages:', error);
+    });
+  }, [sniPercentages, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.threePLProviders, threePLProviders, user.id).catch((error) => {
+      console.warn('Could not persist 3PL providers:', error);
+    });
+  }, [threePLProviders, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.marketSettings, marketSettings, user.id).catch((error) => {
+      console.warn('Could not persist market settings:', error);
+    });
+  }, [marketSettings, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !settingsHydratedRef.current) return;
+
+    void saveSharedSetting(SHARED_SETTING_KEYS.activeCarrier, activeCarrier, user.id).catch((error) => {
+      console.warn('Could not persist active carrier:', error);
+    });
+  }, [activeCarrier, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -544,13 +695,61 @@ export const App: React.FC = () => {
   }, [currentUserRole, roleTools.length]);
   const visibleTools = roleTools.includes('cronJobs') ? roleTools : [...roleTools, 'cronJobs'];
 
+  const sortLeadsByAnalysisDate = useCallback((leadList: LeadData[]) => {
+    return [...leadList].sort((a, b) => (b.analysisDate || '').localeCompare(a.analysisDate || ''));
+  }, []);
+
+  const syncLeadMirrorToDexie = useCallback(async (leadList: LeadData[]) => {
+    if (dbStatus !== 'ready') return;
+
+    try {
+      await db.leads.clear();
+      if (leadList.length > 0) {
+        await db.leads.bulkPut(leadList);
+      }
+    } catch (mirrorError) {
+      console.warn('Could not sync lead mirror to IndexedDB:', mirrorError);
+    }
+  }, [dbStatus]);
+
   const refreshData = useCallback(async (statusOverride?: string) => {
     const currentStatus = statusOverride || dbStatus;
-    if (currentStatus === 'ready') {
+    if (user?.id) {
+      try {
+        const [persistedLeads, persistedReservoir, sharedExclusions] = await Promise.all([
+          loadPersistedLeads(user.id, 'active'),
+          loadPersistedLeads(user.id, 'reservoir'),
+          loadSharedExclusions()
+        ]);
+        setLeads(sortLeadsByAnalysisDate(persistedLeads));
+        setCacheData(sortLeadsByAnalysisDate(persistedReservoir));
+        setExistingCustomers(sharedExclusions.customer);
+        setDownloadedLeads(sharedExclusions.history);
+        if (currentStatus === 'ready') {
+          await syncLeadMirrorToDexie(persistedLeads);
+        }
+      } catch (remoteError) {
+        console.warn('Could not load leads from Supabase, falling back to IndexedDB:', remoteError);
+        if (currentStatus === 'ready') {
+          try {
+            const allLeads = await db.leads.toArray();
+            setLeads(sortLeadsByAnalysisDate(allLeads));
+          } catch (localLeadError) {
+            console.warn(localLeadError);
+          }
+        }
+      }
+    } else if (currentStatus === 'ready') {
       try {
         const allLeads = await db.leads.toArray();
-        setLeads(allLeads.sort((a, b) => (b.analysisDate || "").localeCompare(a.analysisDate || "")));
+        setLeads(sortLeadsByAnalysisDate(allLeads));
+      } catch (leadError) {
+        console.warn(leadError);
+      }
+    }
 
+    if (currentStatus === 'ready') {
+      try {
         const allExclusions = await db.exclusions.toArray();
         const existingFromDb = allExclusions
           .filter(e => e.type === 'customer')
@@ -577,24 +776,25 @@ export const App: React.FC = () => {
         }
         const savedKeywords = localStorage.getItem('dhl_included_keywords');
         if (savedKeywords) setIncludedKeywords(JSON.parse(savedKeywords));
-        const savedCache = localStorage.getItem('dhl_candidate_cache');
-        if (savedCache) setCacheData(JSON.parse(savedCache));
     } catch (e) {}
-  }, [dbStatus]);
+  }, [dbStatus, sortLeadsByAnalysisDate, syncLeadMirrorToDexie, user?.id]);
 
   useEffect(() => {
     const initDb = async () => {
       try {
         if (!(db as any).isOpen()) await (db as any).open();
         setDbStatus('ready');
-        await refreshData('ready');
       } catch (err) {
         setDbStatus('session_only');
-        await refreshData('session_only');
       }
     };
     initDb();
-  }, [refreshData]);
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || dbStatus === 'loading') return;
+    void refreshData();
+  }, [authLoading, dbStatus, refreshData, user?.id]);
 
   const normalizeCompanyName = (name: string) => {
     if (!name) return '';
@@ -675,10 +875,12 @@ export const App: React.FC = () => {
 
   const handleUpdateLead = async (updatedLead: LeadData) => {
     if (!updatedLead) return; 
-    
+
+    let nextLead: LeadData | null = null;
+    let matchedDeepDiveLead = false;
+
     setLeads(prev => {
       const normalizedNewName = normalizeCompanyName(updatedLead.companyName);
-      
       const idx = prev.findIndex(l => 
         (updatedLead.id && l.id === updatedLead.id) || 
         (updatedLead.orgNumber && l.orgNumber === updatedLead.orgNumber && updatedLead.orgNumber !== '') ||
@@ -688,19 +890,18 @@ export const App: React.FC = () => {
       let newList;
       if (idx > -1) {
         newList = [...prev];
-        // Behåll det gamla ID:t om det nya är ett temp-ID
-        const existingId = newList[idx].id;
-        const finalLead = { ...newList[idx], ...updatedLead };
-        if (updatedLead.id?.startsWith('temp_') && !existingId.startsWith('temp_')) {
-          finalLead.id = existingId;
+        const existingLead = newList[idx];
+        const finalLead = { ...existingLead, ...updatedLead };
+        if (updatedLead.id?.startsWith('temp_') && !existingLead.id.startsWith('temp_')) {
+          finalLead.id = existingLead.id;
         }
 
         const shouldMonitorChanges =
           finalLead.source === 'ai' ||
-          (!!updatedLead.analysisDate && updatedLead.analysisDate !== newList[idx].analysisDate);
+          (!!updatedLead.analysisDate && updatedLead.analysisDate !== existingLead.analysisDate);
 
         if (shouldMonitorChanges) {
-          const detectedChanges = buildLeadChanges(newList[idx], finalLead);
+          const detectedChanges = buildLeadChanges(existingLead, finalLead);
           if (detectedChanges.length > 0) {
             finalLead.changeHighlights = detectedChanges;
             finalLead.hasMonitoredChanges = true;
@@ -709,25 +910,53 @@ export const App: React.FC = () => {
         }
 
         newList[idx] = finalLead;
-        if (dbStatus === 'ready') db.leads.put(finalLead);
+        nextLead = finalLead;
       } else {
-        // Om vi inte har ett ID (t.ex. vid manuell tillägg utan ID), generera ett
-        if (!updatedLead.id) updatedLead.id = crypto.randomUUID();
-        updatedLead.hasMonitoredChanges = false;
-        updatedLead.lastMonitoredCheckAt = new Date().toISOString();
-        newList = [updatedLead, ...prev];
-        if (dbStatus === 'ready') db.leads.put(updatedLead);
+        const createdLead: LeadData = {
+          ...updatedLead,
+          id: !updatedLead.id || updatedLead.id.startsWith('temp_') ? crypto.randomUUID() : updatedLead.id,
+          hasMonitoredChanges: false,
+          lastMonitoredCheckAt: new Date().toISOString()
+        };
+        nextLead = createdLead;
+        newList = [createdLead, ...prev];
       }
-      
-      return newList;
+
+      matchedDeepDiveLead = !!deepDiveLead && (
+        (nextLead?.id && deepDiveLead.id === nextLead.id) ||
+        nextLead?.companyName === deepDiveLead.companyName
+      );
+
+      return sortLeadsByAnalysisDate(newList);
     });
 
-    if (deepDiveLead) {
-      const isSame = (updatedLead.id && deepDiveLead.id === updatedLead.id) || 
-                     (updatedLead.companyName === deepDiveLead.companyName);
-      if (isSame) {
-        setDeepDiveLead(prev => prev ? { ...prev, ...updatedLead } : updatedLead);
+    if (!nextLead) return;
+
+    try {
+      let persistedLead = nextLead;
+      if (user?.id) {
+        persistedLead = await upsertPersistedLead(user.id, nextLead, nextLead.id, 'active');
       }
+
+      if (dbStatus === 'ready') {
+        await db.leads.put(persistedLead);
+      }
+
+      setLeads(prev => sortLeadsByAnalysisDate(prev.map((lead) => {
+        const isSameLead =
+          lead.id === nextLead?.id ||
+          (!!persistedLead.orgNumber && lead.orgNumber === persistedLead.orgNumber) ||
+          normalizeCompanyName(lead.companyName) === normalizeCompanyName(persistedLead.companyName);
+        return isSameLead ? persistedLead : lead;
+      })));
+
+      if (matchedDeepDiveLead) {
+        setDeepDiveLead(prev => prev ? { ...prev, ...persistedLead } : persistedLead);
+      }
+    } catch (persistError: any) {
+      console.error('Could not persist lead:', persistError);
+      setError(persistError?.message || 'Kunde inte spara lead till Supabase. Laddar om senaste serverdata.');
+      await refreshData();
     }
   };
 
@@ -738,7 +967,16 @@ export const App: React.FC = () => {
     }
     setLeads(prev => prev.filter(l => l.id !== id));
     if (deepDiveLead?.id === id) setDeepDiveLead(null);
-    if (dbStatus === 'ready') await db.leads.delete(id);
+    try {
+      if (user?.id) {
+        await deletePersistedLead(user.id, id);
+      }
+      if (dbStatus === 'ready') await db.leads.delete(id);
+    } catch (deleteError: any) {
+      console.error('Could not delete lead:', deleteError);
+      setError(deleteError?.message || 'Kunde inte radera lead i Supabase. Laddar om senaste serverdata.');
+      await refreshData();
+    }
   };
 
   const handleDownloadLeads = (leadsToDownload: LeadData[]) => {
@@ -844,8 +1082,18 @@ export const App: React.FC = () => {
     
     if (reason === 'DUPLICATE') {
       setLeads(prev => prev.filter(l => !ids.includes(l.id)));
-      if (dbStatus === 'ready') {
-        for (const id of ids) await db.leads.delete(id);
+      try {
+        if (user?.id) {
+          await Promise.all(ids.map((leadId) => deletePersistedLead(user.id, leadId)));
+        }
+        if (dbStatus === 'ready') {
+          for (const id of ids) await db.leads.delete(id);
+        }
+      } catch (deleteError: any) {
+        console.error('Could not remove duplicate leads:', deleteError);
+        setError(deleteError?.message || 'Kunde inte radera dubbletter i Supabase. Laddar om senaste serverdata.');
+        await refreshData();
+        return;
       }
       if (deepDiveLead && ids.includes(deepDiveLead.id)) setDeepDiveLead(null);
       return;
@@ -862,10 +1110,50 @@ export const App: React.FC = () => {
     if (deepDiveLead && ids.includes(deepDiveLead.id)) setDeepDiveLead(null);
   };
 
+  const getLeadCooldownKey = (lead: LeadData) => {
+    return String(lead.orgNumber || lead.companyName || '').trim().toLowerCase();
+  };
+
+  const hasThinLeadData = (lead: LeadData) => {
+    const hasDecisionMaker = Array.isArray(lead.decisionMakers) && lead.decisionMakers.length > 0;
+    const hasRevenue = !!lead.revenue && lead.revenue !== 'Analyserar...' && lead.revenue !== 'Ej tillganglig';
+    const hasWebsite = !!lead.websiteUrl;
+    const hasAnalysisStamp = !!lead.analysisDate;
+    return !(hasDecisionMaker && hasRevenue && hasWebsite && hasAnalysisStamp);
+  };
+
+  const handleCancelProcessing = () => {
+    abortControllerRef.current = true;
+    activeAnalysisRunIdRef.current += 1;
+    setLoading(false);
+    setDeepDiveLoading(false);
+    setAnalyzingCompany(null);
+    setAnalysisSubStatus('Avbruten av användare');
+  };
+
   const handleSelectLead = (lead: LeadData) => {
     setDeepDiveLead(lead);
     setAnalysisResult(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Open immediately, then enrich in the background if the lead looks under-analyzed.
+    const cooldownKey = getLeadCooldownKey(lead);
+    const now = Date.now();
+    const inCooldown = cooldownKey && now - (deepDiveCooldownRef.current[cooldownKey] || 0) < AUTO_DEEP_DIVE_COOLDOWN_MS;
+
+    const shouldAutoDeepDive =
+      hasThinLeadData(lead) &&
+      !inCooldown &&
+      !deepDiveLoading &&
+      analyzingCompany !== lead.companyName;
+
+    if (shouldAutoDeepDive) {
+      const query = lead.orgNumber?.trim() || lead.companyName;
+      if (cooldownKey) {
+        deepDiveCooldownRef.current[cooldownKey] = now;
+      }
+      void handleDeepDive(query, true);
+    }
   };
 
   const handleWait = (s: number, type: 'rate' | 'quota') => {
@@ -963,12 +1251,15 @@ export const App: React.FC = () => {
       }
 
       if (candidate.cached) {
-        setCacheData((prev) => prev.map((lead) => getLeadIdentityKey(lead) === getLeadIdentityKey(candidate.lead) ? mergedLead : lead));
+        const nextReservoir = cacheData.map((lead) => getLeadIdentityKey(lead) === getLeadIdentityKey(candidate.lead) ? mergedLead : lead);
+        await persistReservoirData(nextReservoir);
       }
     }
   };
 
   const handleSearch = async (formData: SearchFormData) => {
+    const runId = Date.now();
+    activeAnalysisRunIdRef.current = runId;
     setLoading(true); setError(null);
     abortControllerRef.current = false;
     try {
@@ -992,13 +1283,20 @@ export const App: React.FC = () => {
         if (newLeads.length === 0) {
           setError("Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.");
         } else {
-          for (const lead of newLeads) { await handleUpdateLead(lead); }
+          for (const lead of newLeads) {
+            if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) break;
+            await handleUpdateLead(lead);
+          }
         }
       }
     } catch (err: any) { 
+      if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) {
+        return;
+      }
       const errorMsg = typeof err === 'string' ? err : (err?.message || String(err));
       setError(errorMsg); 
     } finally { 
+      if (activeAnalysisRunIdRef.current !== runId) return;
       setLoading(false); 
       setAnalysisSubStatus(null); 
     }
@@ -1006,6 +1304,9 @@ export const App: React.FC = () => {
 
   const handleDeepDive = async (companyName: string, forceRefresh = false) => {
     if (!companyName || deepDiveLoading) return;
+
+    const runId = Date.now();
+    activeAnalysisRunIdRef.current = runId;
     
     setError(null); 
     abortControllerRef.current = false;
@@ -1013,27 +1314,31 @@ export const App: React.FC = () => {
     setDeepDiveLoading(true);
     setAnalysisResult(null);
 
-    const tempLead: LeadData = {
-      id: `temp_${Date.now()}`,
-      companyName: companyName,
-      orgNumber: '',
-      address: '',
-      segment: Segment.UNKNOWN,
-      revenue: 'Analyserar...',
-      freightBudget: 'Väntar...',
-      legalStatus: 'Väntar på data...',
-      creditRatingLabel: '',
-      decisionMakers: [],
-      websiteUrl: '',
-      carriers: '',
-      analysisDate: ''
-    };
-    setDeepDiveLead(tempLead);
+    const shouldReplaceWithTempLead = !forceRefresh || !deepDiveLead;
+    if (shouldReplaceWithTempLead) {
+      const tempLead: LeadData = {
+        id: `temp_${Date.now()}`,
+        companyName: companyName,
+        orgNumber: '',
+        address: '',
+        segment: Segment.UNKNOWN,
+        revenue: 'Analyserar...',
+        freightBudget: 'Väntar...',
+        legalStatus: 'Väntar på data...',
+        creditRatingLabel: '',
+        decisionMakers: [],
+        websiteUrl: '',
+        carriers: '',
+        analysisDate: ''
+      };
+      setDeepDiveLead(tempLead);
+    }
 
     try {
       const final = await generateDeepDiveSequential(
         { companyNameOrOrg: companyName } as any, 
         (partial, status) => {
+          if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) return;
           if (status) setAnalysisSubStatus(status);
           setDeepDiveLead(prev => ({ ...prev, ...partial } as LeadData));
           if (partial.id) handleUpdateLead(partial as LeadData);
@@ -1048,9 +1353,13 @@ export const App: React.FC = () => {
         sourcePolicies,
         activeSourceCountry
       );
+      if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) return;
       setDeepDiveLead(final);
       setAnalysisResult(final);
     } catch (err: any) { 
+      if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) {
+        return;
+      }
       const errorMsg = typeof err === 'string' ? err : (err?.message || String(err));
       const msg = (errorMsg || "").toLowerCase();
       if (msg.includes('429') || msg.includes('quota')) {
@@ -1059,6 +1368,7 @@ export const App: React.FC = () => {
         setError(errorMsg); 
       }
     } finally { 
+      if (activeAnalysisRunIdRef.current !== runId) return;
       setDeepDiveLoading(false); 
       setAnalyzingCompany(null); 
       setAnalysisSubStatus(null); 
@@ -1067,7 +1377,6 @@ export const App: React.FC = () => {
 
   const handleCarrierChange = (carrier: string) => {
     setActiveCarrier(carrier);
-    localStorage.setItem('dhl_active_carrier', carrier);
   };
 
   const handleAddCarrier = (newCarrier: string) => {
@@ -1079,7 +1388,11 @@ export const App: React.FC = () => {
 
   const handleSaveThreePL = (providers: ThreePLProvider[]) => {
     setThreePLProviders(providers);
-    localStorage.setItem('dhl_3pl_providers', JSON.stringify(providers));
+  };
+
+  const handleSaveIntegrationSettings = (nextIntegrations: string[], nextAvailableSystems: IntegrationSystem[]) => {
+    setIntegrations(nextIntegrations);
+    setAvailableSystems(nextAvailableSystems);
   };
 
   const handleImportBackup = async (file: File) => {
@@ -1089,17 +1402,41 @@ export const App: React.FC = () => {
       const payload = (raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object') ? raw.data : raw;
       const leadsFromBackupsArray = Array.isArray(raw?.backups) ? raw.backups.flatMap((b: any) => (Array.isArray(b?.data?.leads) ? b.data.leads : [])) : [];
       const importedLeads = Array.isArray(payload?.leads) ? payload.leads : leadsFromBackupsArray;
+      const importedReservoir = Array.isArray(payload?.cacheData) ? payload.cacheData : [];
 
-      if (Array.isArray(importedLeads)) {
-        setLeads(importedLeads);
+      let persistedImportedLeads = Array.isArray(importedLeads)
+        ? importedLeads.filter(Boolean).map((lead) => ({
+            ...lead,
+            id: lead.id || crypto.randomUUID()
+          }))
+        : [];
+
+      if (user?.id && Array.isArray(importedLeads)) {
+        persistedImportedLeads = await replacePersistedLeads(user.id, persistedImportedLeads, 'active');
       }
 
-      if (payload?.existingCustomers) await persistExclusionList('customer', payload.existingCustomers);
-      if (payload?.downloadedLeads) await persistExclusionList('history', payload.downloadedLeads);
+      if (Array.isArray(importedLeads)) {
+        const sortedImportedLeads = sortLeadsByAnalysisDate(persistedImportedLeads);
+        setLeads(sortedImportedLeads);
+        await syncLeadMirrorToDexie(sortedImportedLeads);
+      }
+
+      if (Array.isArray(importedReservoir)) {
+        const normalizedReservoir = importedReservoir.filter(Boolean).map((lead) => ({
+          ...lead,
+          id: lead.id || crypto.randomUUID()
+        }));
+        await persistReservoirData(sortLeadsByAnalysisDate(normalizedReservoir));
+      }
+
+      if (Array.isArray(payload?.existingCustomers)) await persistExclusionList('customer', payload.existingCustomers);
+      if (Array.isArray(payload?.downloadedLeads)) await persistExclusionList('history', payload.downloadedLeads);
       if (payload?.includedKeywords) setIncludedKeywords(payload.includedKeywords);
       if (payload?.integrations) setIntegrations(payload.integrations);
+      if (payload?.availableSystems) setAvailableSystems(payload.availableSystems);
       if (payload?.sniPercentages) setSNIPercentages(payload.sniPercentages);
       if (payload?.threePLProviders) setThreePLProviders(payload.threePLProviders);
+      if (payload?.marketSettings) setMarketSettings(payload.marketSettings);
       if (payload?.newsSourceMappings) setNewsSourceMappings(payload.newsSourceMappings);
       if (payload?.sourcePolicies) setSourcePolicies(payload.sourcePolicies);
       if (payload?.activeSourceCountry) setActiveSourceCountry(payload.activeSourceCountry);
@@ -1111,21 +1448,10 @@ export const App: React.FC = () => {
       if (payload?.activeCarrier) setActiveCarrier(payload.activeCarrier);
       if (payload?.carriers) setCarriers(payload.carriers);
 
-      if (dbStatus === 'ready' && Array.isArray(importedLeads)) {
-        await db.leads.clear();
-        if (importedLeads.length) {
-          await db.leads.bulkPut(importedLeads);
-        }
-
-        // Force UI refresh from IndexedDB to avoid stale in-memory state.
-        const persisted = await db.leads.toArray();
-        setLeads(persisted.sort((a, b) => (b.analysisDate || '').localeCompare(a.analysisDate || '')));
-      }
-
       if (!Array.isArray(importedLeads) || importedLeads.length === 0) {
         alert("Backup laddades, men inga leads hittades i filen.");
       } else {
-        alert(`Backup återställd! ${importedLeads.length} leads inlästa.`);
+        alert(`Backup återställd! ${persistedImportedLeads.length} leads inlästa.`);
       }
     } catch (e) {
       alert("Kunde inte läsa backup-filen.");
@@ -1135,12 +1461,15 @@ export const App: React.FC = () => {
   const handleCreateBackup = (name: string) => {
     const dataToSave = {
       leads,
+      cacheData,
       existingCustomers,
       downloadedLeads,
       includedKeywords,
       integrations,
+      availableSystems,
       sniPercentages,
       threePLProviders,
+      marketSettings,
       newsSourceMappings,
       sourcePolicies,
       activeSourceCountry,
@@ -1152,27 +1481,64 @@ export const App: React.FC = () => {
       activeCarrier,
       carriers
     };
-    const newBackup = {
-      id: crypto.randomUUID(),
-      name,
-      timestamp: new Date().toISOString(),
-      leadCount: leads.length,
-      data: dataToSave
+    const persistBackup = async () => {
+      if (user?.id) {
+        try {
+          const newBackup = await createBackupRecord(user.id, name, dataToSave, leads.length);
+          setBackups((prev) => [newBackup, ...prev]);
+          return;
+        } catch (error) {
+          console.warn('Could not persist backup to Supabase:', error);
+        }
+      }
+
+      const fallbackBackup = {
+        id: crypto.randomUUID(),
+        name,
+        timestamp: new Date().toISOString(),
+        leadCount: leads.length,
+        data: dataToSave
+      };
+      const updated = [fallbackBackup, ...backups];
+      setBackups(updated);
     };
-    const updated = [newBackup, ...backups];
-    setBackups(updated);
-    localStorage.setItem('dhl_backups', JSON.stringify(updated));
+
+    void persistBackup();
   };
 
   const handleRestoreBackup = async (backup: any) => {
     const d = backup.data;
-    if (d.leads) setLeads(d.leads);
-    if (d.existingCustomers) await persistExclusionList('customer', d.existingCustomers);
-    if (d.downloadedLeads) await persistExclusionList('history', d.downloadedLeads);
+    if (d.leads) {
+      let restoredLeads = d.leads.map((lead: LeadData) => ({
+        ...lead,
+        id: lead.id || crypto.randomUUID()
+      }));
+
+      if (user?.id) {
+        restoredLeads = await replacePersistedLeads(user.id, restoredLeads, 'active');
+      }
+
+      const sortedRestoredLeads = sortLeadsByAnalysisDate(restoredLeads);
+      setLeads(sortedRestoredLeads);
+      await syncLeadMirrorToDexie(sortedRestoredLeads);
+    }
+
+    if (Array.isArray(d.cacheData)) {
+      const restoredReservoir = d.cacheData.map((lead: LeadData) => ({
+        ...lead,
+        id: lead.id || crypto.randomUUID()
+      }));
+      await persistReservoirData(sortLeadsByAnalysisDate(restoredReservoir));
+    }
+
+    if (Array.isArray(d.existingCustomers)) await persistExclusionList('customer', d.existingCustomers);
+    if (Array.isArray(d.downloadedLeads)) await persistExclusionList('history', d.downloadedLeads);
     if (d.includedKeywords) setIncludedKeywords(d.includedKeywords);
     if (d.integrations) setIntegrations(d.integrations);
+    if (d.availableSystems) setAvailableSystems(d.availableSystems);
     if (d.sniPercentages) setSNIPercentages(d.sniPercentages);
     if (d.threePLProviders) setThreePLProviders(d.threePLProviders);
+    if (d.marketSettings) setMarketSettings(d.marketSettings);
     if (d.newsSourceMappings) setNewsSourceMappings(d.newsSourceMappings);
     if (d.sourcePolicies) setSourcePolicies(d.sourcePolicies);
     if (d.activeSourceCountry) setActiveSourceCountry(d.activeSourceCountry);
@@ -1183,28 +1549,38 @@ export const App: React.FC = () => {
     if (d.calendarUrl) setCalendarUrl(d.calendarUrl);
     if (d.activeCarrier) setActiveCarrier(d.activeCarrier);
     if (d.carriers) setCarriers(d.carriers);
-
-    if (dbStatus === 'ready' && d.leads) {
-      await db.leads.clear();
-      await db.leads.bulkPut(d.leads);
-    }
   };
 
   const handleDeleteBackup = (id: string) => {
-    const updated = backups.filter(b => b.id !== id);
-    setBackups(updated);
-    localStorage.setItem('dhl_backups', JSON.stringify(updated));
+    const removeBackup = async () => {
+      const backupToDelete = backups.find((backup) => backup.id === id);
+      if (user?.id && backupToDelete?.storagePath) {
+        try {
+          await deleteBackupRecord(id, backupToDelete.storagePath);
+        } catch (error) {
+          console.warn('Could not delete backup from Supabase:', error);
+        }
+      }
+
+      const updated = backups.filter(b => b.id !== id);
+      setBackups(updated);
+    };
+
+    void removeBackup();
   };
 
   const handleDownloadCurrentStatus = () => {
     const data = {
       leads,
+      cacheData,
       existingCustomers,
       downloadedLeads,
       includedKeywords,
       integrations,
+      availableSystems,
       sniPercentages,
       threePLProviders,
+      marketSettings,
       newsSourceMappings,
       sourcePolicies,
       activeSourceCountry,
@@ -1235,7 +1611,7 @@ export const App: React.FC = () => {
   };
 
   const handleSaveMarketSettings = (settings: CarrierSettings[]) => {
-    localStorage.setItem('dhl_market_settings', JSON.stringify(settings));
+    setMarketSettings(settings);
   };
 
   const handleAddCronJob = () => {
@@ -1490,6 +1866,7 @@ export const App: React.FC = () => {
                  subStatus={analysisSubStatus} 
                  analysisResult={analysisResult} 
                  onDismiss={() => setAnalysisResult(null)} 
+                   onCancel={handleCancelProcessing}
                   onOpenResult={() => {
                     if (analysisResult) {
                       setDeepDiveLead(analysisResult);
@@ -1514,10 +1891,10 @@ export const App: React.FC = () => {
 
       <ExclusionManager isOpen={isExclusionOpen} onClose={() => setIsExclusionOpen(false)} existingCustomers={existingCustomers} setExistingCustomers={(list) => { void persistExclusionList('customer', list); }} downloadedLeads={downloadedLeads} setDownloadedLeads={(list) => { void persistExclusionList('history', list); }} />
       <InclusionManager isOpen={isInclusionOpen} onClose={() => setIsInclusionOpen(false)} includedKeywords={includedKeywords} setIncludedKeywords={setIncludedKeywords} />
-      <IntegrationManager isOpen={isIntegrationOpen} onClose={() => setIsIntegrationOpen(false)} selectedIntegrations={integrations} setIntegrations={setIntegrations} />
+      <IntegrationManager isOpen={isIntegrationOpen} onClose={() => setIsIntegrationOpen(false)} availableSystems={availableSystems} selectedIntegrations={integrations} onSave={handleSaveIntegrationSettings} />
       <SNISettingsManager isOpen={isSNISettingsOpen} onClose={() => setIsSNISettingsOpen(false)} settings={sniPercentages} onSave={setSNIPercentages} />
       <ThreePLManager isOpen={isThreePLOpen} onClose={() => setIsThreePLOpen(false)} providers={threePLProviders} onSave={handleSaveThreePL} />
-      <CarrierSettingsManager isOpen={isCarrierSettingsOpen} onClose={() => setIsCarrierSettingsOpen(false)} onSave={handleSaveMarketSettings} currentSettings={[]} />
+      <CarrierSettingsManager isOpen={isCarrierSettingsOpen} onClose={() => setIsCarrierSettingsOpen(false)} onSave={handleSaveMarketSettings} currentSettings={marketSettings} />
       <MailTemplateManager 
         isOpen={isMailTemplateOpen} 
         onClose={() => setIsMailTemplateOpen(false)} 
@@ -1536,7 +1913,7 @@ export const App: React.FC = () => {
         activeCarrier={activeCarrier}
         deepDiveLead={deepDiveLead}
       />
-      <CacheManager isOpen={isCacheOpen} onClose={() => setIsCacheOpen(false)} cacheData={cacheData} setCacheData={setCacheData} onMoveToActive={(ls) => ls?.filter(Boolean).forEach(handleUpdateLead)} activeLeads={leads} existingCustomers={existingCustomers} downloadedLeads={downloadedLeads} />
+      <CacheManager isOpen={isCacheOpen} onClose={() => setIsCacheOpen(false)} cacheData={cacheData} setCacheData={(next) => { void persistReservoirData(next); }} onMoveToActive={(ls) => ls?.filter(Boolean).forEach(handleUpdateLead)} activeLeads={leads} existingCustomers={existingCustomers} downloadedLeads={downloadedLeads} />
       <NewsSourceManager
         isOpen={isNewsSourceOpen}
         onClose={() => setIsNewsSourceOpen(false)}
@@ -1701,7 +2078,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-modal flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Custom API Connector Builder</h2>
-            <CustomAPIConnectorBuilder userId="current-user" />
+            <CustomAPIConnectorBuilder userId={user?.id || 'current-user'} />
             <button 
               onClick={() => setIsCustomAPIOpen(false)}
               className="mt-4 w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"

@@ -79,7 +79,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
             <div>
               <h2 className="text-lg font-black italic uppercase text-white">System Backups</h2>
               <p className="text-xs text-slate-400">
-                Lokal mapp för sparade systemtillstånd.
+                Sparas i databas och storage med lokal fallback vid behov.
               </p>
             </div>
           </div>
@@ -174,7 +174,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({
                 Sparade Backups ({backups.length})
               </span>
               <span className="text-[10px] text-slate-400 font-normal normal-case italic">
-                Sparas lokalt i webbläsaren
+                Metadata i databas, filer i storage
               </span>
             </h3>
 

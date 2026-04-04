@@ -57,7 +57,16 @@ async function persistAnalysisHistory(adminClient: any, userId: string, analysis
   });
 }
 
-async function upsertLead(adminClient: any, userId: string, lead: LeadData, existingLeadId?: string) {
+async function loadSharedExclusionValues(adminClient: any) {
+  const { data, error } = await adminClient
+    .from('shared_exclusions')
+    .select('value');
+
+  if (error) throw error;
+  return (data || []).map((row: any) => row.value).filter(Boolean);
+}
+
+async function upsertLead(adminClient: any, userId: string, lead: LeadData, existingLeadId?: string, bucket: 'active' | 'reservoir' = 'active') {
   let leadId = existingLeadId;
 
   if (!leadId) {
@@ -88,11 +97,14 @@ async function upsertLead(adminClient: any, userId: string, lead: LeadData, exis
     ecommerce_platform: lead.ecommercePlatform || null,
     payment_provider: lead.paymentProvider || null,
     carriers: lead.carriers || null,
+    potential_sek: lead.potentialSek || null,
     freight_budget: lead.freightBudget || null,
     annual_packages: lead.annualPackages || null,
-    ai_model: lead.aiModel || null,
+    analysis_model: lead.aiModel || null,
     hallucination_score: lead.halluccinationScore || 0,
-    hallucination_analysis: lead.halluccinationAnalysis || null,
+    hallucination_details: lead.halluccinationAnalysis || null,
+    lead_bucket: bucket,
+    lead_payload: lead,
     status: 'pending',
     source: lead.source || 'scheduled-job',
     analysis_date: new Date().toISOString(),
@@ -130,12 +142,18 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
 }
 
 async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
-  const { data: existingLeads } = await adminClient
-    .from('leads')
-    .select('company_name, org_number')
-    .eq('user_id', userId);
+  const [{ data: existingLeads }, sharedExclusions] = await Promise.all([
+    adminClient
+      .from('leads')
+      .select('company_name, org_number')
+      .eq('user_id', userId),
+    loadSharedExclusionValues(adminClient)
+  ]);
 
-  const exclusionList = (existingLeads || []).flatMap((row: any) => [row.company_name, row.org_number]).filter(Boolean);
+  const exclusionList = [
+    ...(existingLeads || []).flatMap((row: any) => [row.company_name, row.org_number]).filter(Boolean),
+    ...sharedExclusions
+  ];
   const leads = await generateLeads(
     {
       ...getDefaultSearchForm(''),
@@ -165,17 +183,15 @@ async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
 
 async function executeReanalysisJob(adminClient: any, userId: string, job: CronJob) {
   const scope = job.payload.reanalysisScope || 'active';
-  if (scope === 'cache') {
-    throw new Error('Backend återanalys når inte lokal reservoar. Synka leads till Supabase eller använd aktiva leads.');
-  }
-
   const segments = job.payload.targetSegments || [];
   const limit = Math.max(1, Number(job.payload.reanalysisLimit || 10));
+  const buckets = scope === 'both' ? ['active', 'reservoir'] : [scope === 'cache' ? 'reservoir' : 'active'];
 
   let query = adminClient
     .from('leads')
-    .select('id, company_name, org_number, segment, analysis_date')
+    .select('id, company_name, org_number, segment, analysis_date, lead_bucket')
     .eq('user_id', userId)
+    .in('lead_bucket', buckets)
     .order('analysis_date', { ascending: true, nullsFirst: true })
     .limit(limit);
 
@@ -205,12 +221,18 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
       'global'
     );
 
-    await upsertLead(adminClient, userId, { ...lead, id: candidate.id });
+    await upsertLead(
+      adminClient,
+      userId,
+      { ...lead, id: candidate.id, source: candidate.lead_bucket === 'reservoir' ? 'cache' : lead.source },
+      candidate.id,
+      candidate.lead_bucket === 'reservoir' ? 'reservoir' : 'active'
+    );
     await persistAnalysisHistory(adminClient, userId, 'deep_scan', lead.companyName, lead);
     processed += 1;
   }
 
-  return `Återanalys klar: ${processed} leads${scope === 'both' ? ' (lokal reservoar ingår inte i backendläge)' : ''}`;
+  return `Återanalys klar: ${processed} leads`;
 }
 
 async function executeJob(adminClient: any, job: CronJob) {

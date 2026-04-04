@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, CheckCircle, AlertCircle, Zap, Save, Plus } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
+import { createEventTrigger, deleteEventTrigger, loadEventTriggers as loadEventTriggerRecords, loadWebhooks } from '../services/automationConfigService';
 
 interface EventTrigger {
   id: string;
@@ -84,6 +84,7 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
   webhooks = [],
 }) => {
   const [eventTriggers, setEventTriggers] = useState<EventTrigger[]>([]);
+  const [availableWebhooks, setAvailableWebhooks] = useState<Array<{ id: string; url: string }>>(webhooks);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedWebhooks, setSelectedWebhooks] = useState<string[]>([]);
   const [customLogic, setCustomLogic] = useState('');
@@ -94,12 +95,28 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
     loadEventTriggers();
   }, [userId]);
 
+  useEffect(() => {
+    if (webhooks.length > 0) {
+      setAvailableWebhooks(webhooks);
+      return;
+    }
+
+    const hydrateWebhooks = async () => {
+      try {
+        const items = await loadWebhooks(userId);
+        setAvailableWebhooks(items.map((item) => ({ id: item.id, url: item.url })));
+      } catch (err) {
+        console.error('Error loading webhooks for triggers:', err);
+      }
+    };
+
+    hydrateWebhooks();
+  }, [userId, webhooks]);
+
   const loadEventTriggers = async () => {
     try {
-      const stored = localStorage.getItem(`eventTriggers_${userId}`);
-      if (stored) {
-        setEventTriggers(JSON.parse(stored));
-      }
+      const items = await loadEventTriggerRecords(userId);
+      setEventTriggers(items);
     } catch (err) {
       console.error('Error loading event triggers:', err);
     }
@@ -119,18 +136,14 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
     setSaving(true);
 
     try {
-      const newTrigger: EventTrigger = {
-        id: Date.now().toString(),
+      const newTrigger = await createEventTrigger(userId, {
         event: selectedEvent,
         webhook_ids: selectedWebhooks,
         custom_logic: customLogic || null,
-        active: true,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updated = [...eventTriggers, newTrigger];
+        active: true
+      });
+      const updated = [newTrigger, ...eventTriggers];
       setEventTriggers(updated);
-      localStorage.setItem(`eventTriggers_${userId}`, JSON.stringify(updated));
 
       setSelectedEvent(null);
       setSelectedWebhooks([]);
@@ -144,10 +157,9 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
     }
   };
 
-  const handleDeleteTrigger = (id: string) => {
-    const updated = eventTriggers.filter((t) => t.id !== id);
-    setEventTriggers(updated);
-    localStorage.setItem(`eventTriggers_${userId}`, JSON.stringify(updated));
+  const handleDeleteTrigger = async (id: string) => {
+    await deleteEventTrigger(userId, id);
+    setEventTriggers((prev) => prev.filter((t) => t.id !== id));
   };
 
   const eventLabel = (eventId: string) => {
@@ -199,10 +211,10 @@ export const EventTriggersComponent: React.FC<EventTriggersComponentProps> = ({
           <div>
             <p className="text-sm font-medium text-dhl-black mb-2">Trigger Webhooks</p>
             <div className="space-y-2 max-h-40 overflow-y-auto border border-dhl-gray-medium p-3 rounded bg-dhl-gray-light">
-              {webhooks.length === 0 ? (
+              {availableWebhooks.length === 0 ? (
                 <p className="text-xs text-dhl-gray-dark italic">No webhooks configured. Create webhooks first.</p>
               ) : (
-                webhooks.map((webhook) => (
+                availableWebhooks.map((webhook) => (
                   <label key={webhook.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer">
                     <input
                       type="checkbox"

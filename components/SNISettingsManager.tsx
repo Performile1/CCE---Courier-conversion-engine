@@ -16,6 +16,12 @@ export const SNISettingsManager: React.FC<SNISettingsManagerProps> = ({ isOpen, 
   const [newPct, setNewPct] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setLocalSettings(settings);
+    }
+  }, [isOpen, settings]);
+
   if (!isOpen) return null;
 
   const addSetting = () => {

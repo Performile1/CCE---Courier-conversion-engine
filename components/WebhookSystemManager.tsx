@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Plus, Edit2, Trash2, CheckCircle, AlertCircle, Loader, Copy, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
+import { createWebhook, deleteWebhook, loadWebhooks as loadWebhookRecords } from '../services/automationConfigService';
 
 interface Webhook {
   id: string;
@@ -46,12 +46,8 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
 
   const loadWebhooks = async () => {
     try {
-      // In production, fetch from webhooks table
-      // For now, load from localStorage
-      const stored = localStorage.getItem(`webhooks_${userId}`);
-      if (stored) {
-        setWebhooks(JSON.parse(stored));
-      }
+      const items = await loadWebhookRecords(userId);
+      setWebhooks(items);
     } catch (err) {
       console.error('Error loading webhooks:', err);
     } finally {
@@ -78,18 +74,9 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
     setSaving(true);
 
     try {
-      const newWebhook: Webhook = {
-        id: Date.now().toString(),
-        url: webhookUrl,
-        events: selectedEvents,
-        active: true,
-        lastTriggered: null,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updated = [...webhooks, newWebhook];
+      const newWebhook = await createWebhook(userId, webhookUrl, selectedEvents);
+      const updated = [newWebhook, ...webhooks];
       setWebhooks(updated);
-      localStorage.setItem(`webhooks_${userId}`, JSON.stringify(updated));
 
       setWebhookUrl('');
       setSelectedEvents([]);
@@ -103,10 +90,9 @@ export const WebhookSystemManager: React.FC<WebhookSystemManagerProps> = ({
     }
   };
 
-  const handleDeleteWebhook = (id: string) => {
-    const updated = webhooks.filter((w) => w.id !== id);
-    setWebhooks(updated);
-    localStorage.setItem(`webhooks_${userId}`, JSON.stringify(updated));
+  const handleDeleteWebhook = async (id: string) => {
+    await deleteWebhook(userId, id);
+    setWebhooks((prev) => prev.filter((w) => w.id !== id));
   };
 
   const testWebhook = async (webhook: Webhook) => {

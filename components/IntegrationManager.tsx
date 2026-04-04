@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Check, Save, Layers, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { IntegrationSystem } from '../types';
 
 interface IntegrationManagerProps {
   isOpen: boolean;
   onClose: () => void;
+  availableSystems: IntegrationSystem[];
   selectedIntegrations: string[];
-  setIntegrations: (list: string[]) => void;
+  onSave: (selectedIntegrations: string[], availableSystems: IntegrationSystem[]) => void;
 }
 
-const DEFAULT_SYSTEMS = [
+export const DEFAULT_AVAILABLE_SYSTEMS: IntegrationSystem[] = [
   { id: 'nshift', name: 'nShift (Unifaun/Pacsoft)', type: 'TA' },
   { id: 'webshipper', name: 'Webshipper', type: 'TA' },
   { id: 'logtrade', name: 'LogTrade', type: 'TA' },
@@ -22,20 +24,19 @@ const DEFAULT_SYSTEMS = [
 ];
 
 export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
-  isOpen, onClose, selectedIntegrations, setIntegrations
+  isOpen, onClose, availableSystems, selectedIntegrations, onSave
 }) => {
-  const [availableSystems, setAvailableSystems] = useState<{id: string, name: string, type: string}[]>([]);
+  const [localAvailableSystems, setLocalAvailableSystems] = useState<IntegrationSystem[]>(availableSystems);
   const [tempSelected, setTempSelected] = useState<string[]>(selectedIntegrations);
   const [newSystemName, setNewSystemName] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('dhl_available_systems');
-    if (saved) {
-      setAvailableSystems(JSON.parse(saved));
-    } else {
-      setAvailableSystems(DEFAULT_SYSTEMS);
+    if (isOpen) {
+      setLocalAvailableSystems(availableSystems.length ? availableSystems : DEFAULT_AVAILABLE_SYSTEMS);
+      setTempSelected(selectedIntegrations);
+      setNewSystemName('');
     }
-  }, [isOpen]);
+  }, [availableSystems, isOpen, selectedIntegrations]);
 
   if (!isOpen) return null;
 
@@ -47,22 +48,19 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
     if (!newSystemName.trim()) return;
     const id = newSystemName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const newSys = { id, name: newSystemName, type: 'Anpassad' };
-    const updated = [...availableSystems, newSys];
-    setAvailableSystems(updated);
-    localStorage.setItem('dhl_available_systems', JSON.stringify(updated));
+    const updated = [...localAvailableSystems, newSys];
+    setLocalAvailableSystems(updated);
     setNewSystemName('');
   };
 
   const removeSystem = (id: string) => {
-    const updated = availableSystems.filter(s => s.id !== id);
-    setAvailableSystems(updated);
+    const updated = localAvailableSystems.filter(s => s.id !== id);
+    setLocalAvailableSystems(updated);
     setTempSelected(prev => prev.filter(i => i !== id));
-    localStorage.setItem('dhl_available_systems', JSON.stringify(updated));
   };
 
   const handleSave = () => {
-    setIntegrations(tempSelected);
-    localStorage.setItem('dhl_integrations', JSON.stringify(tempSelected));
+    onSave(tempSelected, localAvailableSystems);
     onClose();
   };
 
@@ -97,7 +95,7 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <label className="text-[10px] font-black uppercase text-slate-500">Tillgängliga system (Ja / Nej)</label>
             <div className="grid grid-cols-1 gap-2">
-              {availableSystems.map(sys => {
+              {localAvailableSystems.map(sys => {
                 const isActive = tempSelected.includes(sys.id);
                 return (
                   <div
@@ -119,7 +117,7 @@ export const IntegrationManager: React.FC<IntegrationManagerProps> = ({
                           <ToggleLeft className="w-6 h-6 text-slate-300" />
                         )}
                       </button>
-                      {!DEFAULT_SYSTEMS.some(ds => ds.id === sys.id) && (
+                      {!DEFAULT_AVAILABLE_SYSTEMS.some(ds => ds.id === sys.id) && (
                         <button onClick={() => removeSystem(sys.id)} className="p-1 text-slate-300 hover:text-red-600">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
