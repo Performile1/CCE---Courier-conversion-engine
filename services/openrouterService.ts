@@ -1986,10 +1986,10 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
 ${sourceGroundingEvidence || 'Ingen extern källa kunde hämtas i detta steg. Använd då source-priority-listan ovan.'}
 
 ### FINANSIELL REGISTERDATA (ALLABOLAG.SE / RATSIT.SE — DIREKT CRAWL)
-${financialEvidence.evidenceText || 'Ingen direkt registerdata hämtad. Ange 0 för alla finansiella fält som saknas i SOURCE EVIDENCE.'}
+${financialEvidence.evidenceText || 'Ingen direkt registerdata hämtad. Om finansiella fält saknar evidens ska de lämnas tomma eller null enligt schema.'}
 KRITISK REGEL: Extrahera siffror verbatim från registerdata ovan. Inga avrundningar. Inga estimeringar. Inga påhittade siffror.
 
-Använd source evidence och registerdata ovan när du fyller fälten. Om ett fält saknar evidens, skriv tom sträng eller 0 enligt schema.`;
+Använd source evidence och registerdata ovan när du fyller fälten. Om ett fält saknar evidens, skriv tom sträng, tom array eller null enligt schema.`;
 
     const responseText = await callOpenRouterWithRetry(
       activeModel, 
