@@ -149,7 +149,13 @@ const CATEGORY_PAGE_HINTS: Record<string, string[]> = {
 };
 
 function resolveApiBaseUrl(): string {
-  const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
+  const configuredBaseUrl = String(
+    (import.meta as any)?.env?.VITE_BASE_URL
+    || process.env.VITE_BASE_URL
+    || process.env.FRONTEND_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+    || ''
+  ).trim();
   return configuredBaseUrl.replace(/\/$/, '');
 }
 

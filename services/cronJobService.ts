@@ -20,6 +20,9 @@ export interface CronJob {
   payload: CronJobPayload;
   lastRunAt?: string;
   nextRunAt?: string;
+  lastStatus?: 'success' | 'error' | 'running';
+  lastError?: string;
+  lastResultSummary?: string;
   createdAt: string;
   updatedAt: string;
 }

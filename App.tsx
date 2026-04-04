@@ -45,6 +45,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
+import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobsApi';
 import { signOut, supabase } from './services/supabaseClient';
 import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
@@ -218,6 +219,8 @@ export const App: React.FC = () => {
   const [isCronJobsOpen, setIsCronJobsOpen] = useState(false);
   const [selectedLeadForSharing, setSelectedLeadForSharing] = useState<LeadData | null>(null);
   const [cronJobs, setCronJobs] = useState<CronJob[]>(() => loadCronJobs());
+  const [useRemoteCronExecution, setUseRemoteCronExecution] = useState(false);
+  const [cronSyncError, setCronSyncError] = useState<string | null>(null);
   const [cronName, setCronName] = useState('Ny schemalagd korning');
   const [cronType, setCronType] = useState<'deep_dive' | 'batch_search' | 'lead_reanalysis'>('deep_dive');
   const [cronScheduleMode, setCronScheduleMode] = useState<CronScheduleMode>('daily');
@@ -308,6 +311,7 @@ export const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
   const abortControllerRef = useRef<boolean>(false);
   const cronExecutionRef = useRef<boolean>(false);
+  const cronJobsHydratedRef = useRef(false);
 
   const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
   const [resetFormTrigger, setResetFormTrigger] = useState(0);
@@ -413,6 +417,70 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_app_language', appLanguage); }, [appLanguage]);
   useEffect(() => { localStorage.setItem('dhl_candidate_cache', JSON.stringify(cacheData)); }, [cacheData]);
   useEffect(() => { saveCronJobs(cronJobs); }, [cronJobs]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      cronJobsHydratedRef.current = false;
+      setUseRemoteCronExecution(false);
+      setCronSyncError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateRemoteCronJobs = async () => {
+      try {
+        const remoteJobs = await loadRemoteCronJobs();
+        if (cancelled) return;
+        const localJobs = loadCronJobs();
+        setCronJobs(remoteJobs.length === 0 && localJobs.length > 0 ? localJobs : remoteJobs);
+        cronJobsHydratedRef.current = true;
+        setUseRemoteCronExecution(true);
+        setCronSyncError(null);
+      } catch (error: any) {
+        if (cancelled) return;
+        cronJobsHydratedRef.current = true;
+        setUseRemoteCronExecution(false);
+        setCronSyncError(error?.message || 'Kunde inte synka cron-jobb mot backend');
+      }
+    };
+
+    hydrateRemoteCronJobs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !cronJobsHydratedRef.current) return;
+
+    let cancelled = false;
+
+    const persistRemoteCronJobs = async () => {
+      try {
+        const syncedJobs = await saveRemoteCronJobs(cronJobs);
+        if (cancelled) return;
+        setCronJobs((prev) => {
+          const prevJson = JSON.stringify(prev);
+          const nextJson = JSON.stringify(syncedJobs);
+          return prevJson === nextJson ? prev : syncedJobs;
+        });
+        setUseRemoteCronExecution(true);
+        setCronSyncError(null);
+      } catch (error: any) {
+        if (cancelled) return;
+        setUseRemoteCronExecution(false);
+        setCronSyncError(error?.message || 'Kunde inte spara cron-jobb till backend');
+      }
+    };
+
+    persistRemoteCronJobs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cronJobs, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1239,6 +1307,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const timer = setInterval(async () => {
+      if (useRemoteCronExecution) return;
       if (cronExecutionRef.current || loading || deepDiveLoading) return;
 
       const due = getDueCronJobs(cronJobs, new Date());
@@ -1285,7 +1354,7 @@ export const App: React.FC = () => {
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry]);
+  }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry, useRemoteCronExecution]);
 
   const resolvedCronExpression = getResolvedCronExpression();
   const isCronFormValid = isValidCronExpression(resolvedCronExpression);
@@ -1486,6 +1555,13 @@ export const App: React.FC = () => {
               <button onClick={() => setIsCronJobsOpen(false)} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">Stang</button>
             </div>
 
+            <div className={`mb-4 rounded-sm border p-3 text-xs ${useRemoteCronExecution ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+              {useRemoteCronExecution
+                ? 'Backend-scheduler aktiv: dessa jobb kan köras obevakat utan att appen är öppen. Obs: lokal reservoar i browsern ingår inte i backendläge.'
+                : 'Lokal fallback aktiv: om backend-sync saknas körs jobben bara när appen är öppen.'}
+              {cronSyncError && <div className="mt-1 text-[11px] text-red-700">{cronSyncError}</div>}
+            </div>
+
             <div className="border border-dhl-gray-medium rounded-sm p-4 bg-dhl-gray-light space-y-3 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input value={cronName} onChange={(e) => setCronName(e.target.value)} placeholder="Jobbnamn" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
@@ -1528,7 +1604,7 @@ export const App: React.FC = () => {
                     <option value="both">Aktiva + reservoar</option>
                   </select>
                   <input type="number" min={1} max={100} value={cronReanalysisLimit} onChange={(e) => setCronReanalysisLimit(Math.max(1, Number(e.target.value || 1)))} placeholder="Max bolag per körning" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
-                  <div className="text-[10px] text-slate-500 flex items-center">Kör om äldst övervakade bolag först och jämför bokslut/risk mot senaste analys.</div>
+                  <div className="text-[10px] text-slate-500 flex items-center">Kör om äldst övervakade bolag först och jämför bokslut/risk mot senaste analys. Obevakad backendkörning når bara persisterade leads, inte lokal reservoar i browsern.</div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
