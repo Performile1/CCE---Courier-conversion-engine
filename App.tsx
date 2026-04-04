@@ -46,7 +46,7 @@ import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { signOut, supabase } from './services/supabaseClient';
-import { CronJob, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs } from './services/cronJobService';
+import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
 import { Language, translate } from './services/i18n';
 import { 
@@ -70,6 +70,7 @@ const DEFAULT_MAIL_TEMPLATE_SV = `Hej {fornamn},<br/><br/>Jag har gjort en analy
 const DEFAULT_MAIL_TEMPLATE_EN = `Hi {fornamn},<br/><br/>I have conducted an analysis of <strong>{foretag}</strong> and your current delivery potential via our Strategic Analysis engine. Based on industry standards, we estimate your annual shipping budget to be approximately <strong>{potential}</strong>. With that volume, I see a significant upside in optimizing your checkout strategy together with us at {active_carrier}.<br/><br/>Our statistics show that a strategic move to <strong>Position 1</strong> in the checkout yields an average <strong>conversion lift of 27%</strong>. This is because up to 60% of customers prefer the store to guide them to the right choice; they feel secure knowing you have selected the best partner for them.<br/><br/><strong>Smart value management via plugins:</strong><br/>We have built advanced logic directly into our plugins for major platforms (Shopify, WooCommerce, Magento) that adapts delivery choices based on cart value. For premium orders, extended cargo insurance and strict ID verification are automatically activated to protect your margins.<br/><br/><strong>Flexibility and reach:</strong><br/>{pitch}<br/><br/><strong>{active_carrier} value-adds for {foretag}:</strong><br/>- <strong>Parcel Lockers:</strong> Access to Sweden's most eco-smart locker network (iBoxen).<br/>- <strong>Seamless Customer Journey:</strong> Full transparency and easy returns via QR code.<br/>- <strong>Total Control:</strong> A partner that handles everything from individual parcels to global Freight shipments.<br/><br/>I would love to present my full analysis and discuss how we can increase your Customer Lifetime Value.<br/><br/><div style="text-align: center; margin: 30px 0;"><a href="{kalender_lank}" style="background-color: #cc0000; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block;">Book a meeting in my calendar here</a></div>`;
 
 const DEFAULT_CARRIERS = ['DHL', 'PostNord', 'Bring', 'Budbee', 'Instabox'];
+const SEGMENT_OPTIONS = [Segment.DM, Segment.TS, Segment.FS, Segment.KAM];
 const DEFAULT_NEWS_SOURCE_MAPPINGS: NewsSourceMapping[] = [
   {
     id: 'default-registry-sources',
@@ -218,13 +219,21 @@ export const App: React.FC = () => {
   const [selectedLeadForSharing, setSelectedLeadForSharing] = useState<LeadData | null>(null);
   const [cronJobs, setCronJobs] = useState<CronJob[]>(() => loadCronJobs());
   const [cronName, setCronName] = useState('Ny schemalagd korning');
-  const [cronType, setCronType] = useState<'deep_dive' | 'batch_search'>('deep_dive');
+  const [cronType, setCronType] = useState<'deep_dive' | 'batch_search' | 'lead_reanalysis'>('deep_dive');
+  const [cronScheduleMode, setCronScheduleMode] = useState<CronScheduleMode>('daily');
   const [cronExpression, setCronExpression] = useState('0 8 * * 1-5');
+  const [cronRunHour, setCronRunHour] = useState(8);
+  const [cronRunMinute, setCronRunMinute] = useState(0);
+  const [cronWeekdaysOnly, setCronWeekdaysOnly] = useState(true);
+  const [cronIntervalMinutes, setCronIntervalMinutes] = useState(1440);
   const [cronCompany, setCronCompany] = useState('');
   const [cronGeo, setCronGeo] = useState('Sverige');
   const [cronFinancialScope, setCronFinancialScope] = useState('10-100 MSEK');
   const [cronTriggers, setCronTriggers] = useState('E-handel, logistik, expansion');
   const [cronLeadCount, setCronLeadCount] = useState(20);
+  const [cronTargetSegments, setCronTargetSegments] = useState<Segment[]>([]);
+  const [cronReanalysisScope, setCronReanalysisScope] = useState<'active' | 'cache' | 'both'>('active');
+  const [cronReanalysisLimit, setCronReanalysisLimit] = useState(10);
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
@@ -402,6 +411,7 @@ export const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('dhl_active_source_country', activeSourceCountry); }, [activeSourceCountry]);
   useEffect(() => { localStorage.setItem('dhl_tool_access_config', JSON.stringify(toolAccessConfig)); }, [toolAccessConfig]);
   useEffect(() => { localStorage.setItem('dhl_app_language', appLanguage); }, [appLanguage]);
+  useEffect(() => { localStorage.setItem('dhl_candidate_cache', JSON.stringify(cacheData)); }, [cacheData]);
   useEffect(() => { saveCronJobs(cronJobs); }, [cronJobs]);
 
   useEffect(() => {
@@ -571,6 +581,28 @@ export const App: React.FC = () => {
         };
       })
       .filter(Boolean);
+  };
+
+  const getLeadIdentityKey = (lead: Partial<LeadData>) => {
+    if (lead.id) return `id:${lead.id}`;
+    if (lead.orgNumber) return `org:${lead.orgNumber}`;
+    return `name:${normalizeCompanyName(lead.companyName || '')}`;
+  };
+
+  const mergeMonitoredLead = (previous: LeadData, next: LeadData): LeadData => {
+    const merged = {
+      ...previous,
+      ...next,
+      id: previous.id || next.id,
+      source: previous.source || next.source
+    } as LeadData;
+
+    const detectedChanges = buildLeadChanges(previous, merged);
+    merged.changeHighlights = detectedChanges;
+    merged.hasMonitoredChanges = detectedChanges.length > 0;
+    merged.lastMonitoredCheckAt = new Date().toISOString();
+
+    return merged;
   };
 
   const handleUpdateLead = async (updatedLead: LeadData) => {
@@ -775,6 +807,97 @@ export const App: React.FC = () => {
       setShowRateLimit(true);
     }
     setAnalysisSubStatus(type === 'quota' ? `Kvotslut (${s}s)` : `Rate limit (${s}s)`);
+  };
+
+  const getResolvedCronExpression = () => {
+    if (cronScheduleMode === 'daily') {
+      return buildDailyCronExpression(cronRunHour, cronRunMinute, cronWeekdaysOnly);
+    }
+    if (cronScheduleMode === 'interval') {
+      return buildIntervalCronExpression(cronIntervalMinutes);
+    }
+    return cronExpression.trim();
+  };
+
+  const toggleCronSegment = (segment: Segment) => {
+    setCronTargetSegments((prev) =>
+      prev.includes(segment) ? prev.filter((value) => value !== segment) : [...prev, segment]
+    );
+  };
+
+  const runScheduledLeadReanalysis = async (job: CronJob) => {
+    const targetSegments = job.payload.targetSegments || [];
+    const reanalysisScope = job.payload.reanalysisScope || 'active';
+    const reanalysisLimit = Math.max(1, Number(job.payload.reanalysisLimit || 10));
+    const candidatesByKey = new Map<string, { lead: LeadData; active: boolean; cached: boolean }>();
+
+    const registerCandidate = (lead: LeadData, active: boolean, cached: boolean) => {
+      const key = getLeadIdentityKey(lead);
+      const existing = candidatesByKey.get(key);
+      if (existing) {
+        candidatesByKey.set(key, {
+          lead: existing.lead,
+          active: existing.active || active,
+          cached: existing.cached || cached
+        });
+        return;
+      }
+      candidatesByKey.set(key, { lead, active, cached });
+    };
+
+    if (reanalysisScope === 'active' || reanalysisScope === 'both') {
+      leads.forEach((lead) => registerCandidate(lead, true, false));
+    }
+
+    if (reanalysisScope === 'cache' || reanalysisScope === 'both') {
+      cacheData.forEach((lead) => registerCandidate(lead, false, true));
+    }
+
+    const candidates = Array.from(candidatesByKey.values())
+      .filter(({ lead }) => !targetSegments.length || targetSegments.includes(lead.segment))
+      .sort((a, b) => {
+        const aDate = new Date(a.lead.lastMonitoredCheckAt || a.lead.analysisDate || 0).getTime();
+        const bDate = new Date(b.lead.lastMonitoredCheckAt || b.lead.analysisDate || 0).getTime();
+        return aDate - bDate;
+      })
+      .slice(0, reanalysisLimit);
+
+    for (const candidate of candidates) {
+      setAnalysisSubStatus(`Schemalagd återanalys: ${candidate.lead.companyName}`);
+      const refreshed = await generateDeepDiveSequential(
+        {
+          companyNameOrOrg: candidate.lead.orgNumber || candidate.lead.companyName,
+          geoArea: '',
+          financialScope: '',
+          triggers: '',
+          leadCount: 1,
+          focusRole1: 'VD',
+          focusRole2: 'Logistikchef',
+          focusRole3: 'E-handelschef',
+          icebreakerTopic: 'Leveransoptimering'
+        },
+        () => {},
+        handleWait,
+        newsSourceMappings,
+        sniPercentages,
+        integrations,
+        activeCarrier,
+        threePLProviders,
+        undefined,
+        sourcePolicies,
+        activeSourceCountry
+      );
+
+      const mergedLead = mergeMonitoredLead(candidate.lead, { ...refreshed, id: candidate.lead.id });
+
+      if (candidate.active) {
+        await handleUpdateLead(mergedLead);
+      }
+
+      if (candidate.cached) {
+        setCacheData((prev) => prev.map((lead) => getLeadIdentityKey(lead) === getLeadIdentityKey(candidate.lead) ? mergedLead : lead));
+      }
+    }
   };
 
   const handleSearch = async (formData: SearchFormData) => {
@@ -1048,28 +1171,56 @@ export const App: React.FC = () => {
   };
 
   const handleAddCronJob = () => {
-    if (!cronName.trim() || !isValidCronExpression(cronExpression)) return;
+    const resolvedCronExpression = getResolvedCronExpression();
+    if (!cronName.trim() || !isValidCronExpression(resolvedCronExpression)) return;
     if (cronType === 'deep_dive' && !cronCompany.trim()) return;
 
-    const payload: Partial<SearchFormData> = cronType === 'deep_dive'
-      ? { companyNameOrOrg: cronCompany.trim() }
-      : {
-          companyNameOrOrg: '',
-          geoArea: cronGeo,
-          financialScope: cronFinancialScope,
-          triggers: cronTriggers,
-          leadCount: cronLeadCount,
+    const payload: SearchFormData = cronType === 'deep_dive'
+      ? {
+          companyNameOrOrg: cronCompany.trim(),
+          geoArea: '',
+          financialScope: '',
+          triggers: '',
+          leadCount: 1,
           focusRole1: 'VD',
           focusRole2: 'Logistikchef',
           focusRole3: 'E-handelschef',
           icebreakerTopic: 'Leveransoptimering'
-        };
+        }
+      : cronType === 'lead_reanalysis'
+        ? {
+            companyNameOrOrg: '',
+            geoArea: '',
+            financialScope: '',
+            triggers: '',
+            leadCount: 1,
+            focusRole1: 'VD',
+            focusRole2: 'Logistikchef',
+            focusRole3: 'E-handelschef',
+            icebreakerTopic: 'Leveransoptimering',
+            targetSegments: cronTargetSegments,
+            reanalysisScope: cronReanalysisScope,
+            reanalysisLimit: cronReanalysisLimit
+          }
+        : {
+            companyNameOrOrg: '',
+            geoArea: cronGeo,
+            financialScope: cronFinancialScope,
+            triggers: cronTriggers,
+            leadCount: cronLeadCount,
+            focusRole1: 'VD',
+            focusRole2: 'Logistikchef',
+            focusRole3: 'E-handelschef',
+            icebreakerTopic: 'Leveransoptimering',
+            targetSegments: cronTargetSegments
+          };
 
     const job = createCronJob({
       name: cronName.trim(),
       type: cronType,
-      cronExpression: cronExpression.trim(),
+      cronExpression: resolvedCronExpression,
       enabled: true,
+      scheduleMode: cronScheduleMode,
       payload
     });
 
@@ -1103,6 +1254,8 @@ export const App: React.FC = () => {
             if (query) {
               await handleDeepDive(query, true);
             }
+          } else if (job.type === 'lead_reanalysis') {
+            await runScheduledLeadReanalysis(job);
           } else {
             await handleSearch({
               companyNameOrOrg: '',
@@ -1113,7 +1266,8 @@ export const App: React.FC = () => {
               focusRole1: String(job.payload.focusRole1 || 'VD'),
               focusRole2: String(job.payload.focusRole2 || 'Logistikchef'),
               focusRole3: String(job.payload.focusRole3 || 'E-handelschef'),
-              icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering')
+              icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering'),
+              targetSegments: job.payload.targetSegments
             });
           }
 
@@ -1131,7 +1285,16 @@ export const App: React.FC = () => {
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [cronJobs, loading, deepDiveLoading]);
+  }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry]);
+
+  const resolvedCronExpression = getResolvedCronExpression();
+  const isCronFormValid = isValidCronExpression(resolvedCronExpression);
+
+  const describeCronJobType = (type: CronJob['type']) => {
+    if (type === 'deep_dive') return 'Analys';
+    if (type === 'lead_reanalysis') return 'Återanalys';
+    return 'Batchsökning';
+  };
 
   return (
     <>
@@ -1324,17 +1487,49 @@ export const App: React.FC = () => {
             </div>
 
             <div className="border border-dhl-gray-medium rounded-sm p-4 bg-dhl-gray-light space-y-3 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input value={cronName} onChange={(e) => setCronName(e.target.value)} placeholder="Jobbnamn" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
-                <select value={cronType} onChange={(e) => setCronType(e.target.value as 'deep_dive' | 'batch_search')} className="text-xs border border-dhl-gray-medium rounded-sm p-2">
+                <select value={cronType} onChange={(e) => setCronType(e.target.value as 'deep_dive' | 'batch_search' | 'lead_reanalysis')} className="text-xs border border-dhl-gray-medium rounded-sm p-2">
                   <option value="deep_dive">Analys (Deep Dive)</option>
                   <option value="batch_search">Batchsokning</option>
+                  <option value="lead_reanalysis">Tidigare analyser</option>
                 </select>
-                <input value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} placeholder="Cron: 0 8 * * 1-5" className={`text-xs border rounded-sm p-2 ${isValidCronExpression(cronExpression) ? 'border-dhl-gray-medium' : 'border-red-500'}`} />
+                <select value={cronScheduleMode} onChange={(e) => setCronScheduleMode(e.target.value as CronScheduleMode)} className="text-xs border border-dhl-gray-medium rounded-sm p-2">
+                  <option value="daily">Daglig tid</option>
+                  <option value="interval">Intervall</option>
+                  <option value="custom">Egen cron</option>
+                </select>
+                {cronScheduleMode === 'custom' ? (
+                  <input value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} placeholder="Cron: 0 8 * * 1-5" className={`text-xs border rounded-sm p-2 ${isCronFormValid ? 'border-dhl-gray-medium' : 'border-red-500'}`} />
+                ) : cronScheduleMode === 'daily' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="number" min={0} max={23} value={cronRunHour} onChange={(e) => setCronRunHour(Math.max(0, Math.min(23, Number(e.target.value || 0))))} placeholder="Timme" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                    <input type="number" min={0} max={59} value={cronRunMinute} onChange={(e) => setCronRunMinute(Math.max(0, Math.min(59, Number(e.target.value || 0))))} placeholder="Minut" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                  </div>
+                ) : (
+                  <input type="number" min={15} step={15} value={cronIntervalMinutes} onChange={(e) => setCronIntervalMinutes(Math.max(15, Number(e.target.value || 15)))} placeholder="Intervall i minuter" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                )}
               </div>
+
+              {cronScheduleMode === 'daily' && (
+                <label className="flex items-center gap-2 text-xs text-slate-700">
+                  <input type="checkbox" checked={cronWeekdaysOnly} onChange={(e) => setCronWeekdaysOnly(e.target.checked)} />
+                  Endast vardagar
+                </label>
+              )}
 
               {cronType === 'deep_dive' ? (
                 <input value={cronCompany} onChange={(e) => setCronCompany(e.target.value)} placeholder="Foretagsnamn eller org.nr" className="w-full text-xs border border-dhl-gray-medium rounded-sm p-2" />
+              ) : cronType === 'lead_reanalysis' ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <select value={cronReanalysisScope} onChange={(e) => setCronReanalysisScope(e.target.value as 'active' | 'cache' | 'both')} className="text-xs border border-dhl-gray-medium rounded-sm p-2">
+                    <option value="active">Aktiva leads</option>
+                    <option value="cache">Reservoar</option>
+                    <option value="both">Aktiva + reservoar</option>
+                  </select>
+                  <input type="number" min={1} max={100} value={cronReanalysisLimit} onChange={(e) => setCronReanalysisLimit(Math.max(1, Number(e.target.value || 1)))} placeholder="Max bolag per körning" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
+                  <div className="text-[10px] text-slate-500 flex items-center">Kör om äldst övervakade bolag först och jämför bokslut/risk mot senaste analys.</div>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input value={cronGeo} onChange={(e) => setCronGeo(e.target.value)} placeholder="Geografi" className="text-xs border border-dhl-gray-medium rounded-sm p-2" />
@@ -1344,8 +1539,26 @@ export const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="text-[10px] text-slate-500">Exempel cron: 0 8 * * 1-5 (vardagar kl 08:00), */30 * * * * (var 30:e minut)</div>
-              <button onClick={handleAddCronJob} disabled={!isValidCronExpression(cronExpression)} className="bg-dhl-black text-white px-4 py-2 text-xs font-black uppercase rounded-sm hover:bg-red-600 disabled:opacity-50">
+              {cronType !== 'deep_dive' && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Segmentfilter</div>
+                  <div className="flex flex-wrap gap-2">
+                    {SEGMENT_OPTIONS.map((segment) => (
+                      <label key={segment} className={`px-3 py-1 text-[10px] font-black rounded-sm border cursor-pointer ${cronTargetSegments.includes(segment) ? 'bg-dhl-black text-white border-dhl-black' : 'bg-white text-slate-700 border-dhl-gray-medium'}`}>
+                        <input type="checkbox" checked={cronTargetSegments.includes(segment)} onChange={() => toggleCronSegment(segment)} className="hidden" />
+                        {segment}
+                      </label>
+                    ))}
+                    <button type="button" onClick={() => setCronTargetSegments([])} className="px-3 py-1 text-[10px] font-black rounded-sm border border-dhl-gray-medium bg-white text-slate-700">
+                      Alla segment
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-slate-500">Tomt urval betyder att jobbet kör alla segment. Batchjobb filtrerar resultat efter DM, TS, FS och KAM. Återanalys kan begränsas till samma segment.</div>
+                </div>
+              )}
+
+              <div className="text-[10px] text-slate-500">Schema: <span className="font-mono">{resolvedCronExpression}</span> • Exempel cron: 0 8 * * 1-5, */30 * * * *</div>
+              <button onClick={handleAddCronJob} disabled={!isCronFormValid} className="bg-dhl-black text-white px-4 py-2 text-xs font-black uppercase rounded-sm hover:bg-red-600 disabled:opacity-50">
                 Lagg till cron-jobb
               </button>
             </div>
@@ -1357,7 +1570,7 @@ export const App: React.FC = () => {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="text-xs font-black uppercase text-dhl-black">{job.name}</div>
-                      <div className="text-[10px] text-slate-500">{job.type} • {job.cronExpression}</div>
+                      <div className="text-[10px] text-slate-500">{describeCronJobType(job.type)} • {job.cronExpression}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => toggleCronJob(job.id)} className={`px-2 py-1 text-[10px] font-black rounded-sm ${job.enabled ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
@@ -1366,6 +1579,12 @@ export const App: React.FC = () => {
                       <button onClick={() => removeCronJob(job.id)} className="px-2 py-1 text-[10px] font-black bg-red-50 text-red-700 rounded-sm">Ta bort</button>
                     </div>
                   </div>
+                  {job.payload.targetSegments && job.payload.targetSegments.length > 0 && (
+                    <div className="text-[10px] text-slate-500">Segment: {job.payload.targetSegments.join(', ')}</div>
+                  )}
+                  {job.type === 'lead_reanalysis' && (
+                    <div className="text-[10px] text-slate-500">Omfång: {job.payload.reanalysisScope || 'active'} • Max per körning: {job.payload.reanalysisLimit || 10}</div>
+                  )}
                   <div className="text-[10px] text-slate-500">Senast: {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString('sv-SE') : 'Aldrig'} • Nasta: {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString('sv-SE') : '-'}</div>
                 </div>
               ))}

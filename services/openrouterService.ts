@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, NewsItem, TechDetections, Segment } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment } from "../types";
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -1080,6 +1080,13 @@ type VerifiedPaymentEvidence = {
   sourceUrl?: string;
 };
 
+type CheckoutEvidence = {
+  positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
+  evidenceSnippet: string;
+  confidence: 'crawled' | 'estimated' | 'missing';
+  sourceUrl?: string;
+};
+
 type VerifiedNewsEvidence = {
   summary: string;
   confidence: 'verified' | 'estimated' | 'missing';
@@ -1094,11 +1101,13 @@ type RetailFootprintEvidence = {
   warehouseAddress?: string;
   evidenceSnippet: string;
   confidence: 'verified' | 'estimated' | 'missing';
+  sourceUrl?: string;
 };
 
 type StructuredTechProfile = TechDetections & {
   evidenceSnippet: string;
   confidence: 'verified' | 'estimated' | 'missing';
+  sourceUrl?: string;
 };
 
 const RISK_FIELD_KEYWORDS: Record<'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio', string[]> = {
@@ -1179,6 +1188,53 @@ function buildRiskFieldEvidence(
     sourceUrl,
     sourceLabel: normalizeDomain(sourceUrl),
     snippet: extractEvidenceSnippet(evidenceText, keywords),
+    capturedAt,
+    confidence: 'verified'
+  };
+}
+
+function buildFieldEvidence(
+  value: unknown,
+  sourceUrl: string | undefined,
+  snippet: string | undefined,
+  capturedAt: string,
+  confidence: 'verified' | 'estimated' | 'missing' = 'verified'
+): VerifiedFieldEvidence | undefined {
+  if (!sourceUrl) return undefined;
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  if (Array.isArray(value) && value.length === 0) return undefined;
+
+  return {
+    sourceUrl,
+    sourceLabel: normalizeDomain(sourceUrl),
+    snippet: pickString(snippet),
+    capturedAt,
+    confidence
+  };
+}
+
+function buildCoverageFieldEvidence(
+  fields: VerifiedLeadField[],
+  coverage: SourceCoverageEntry[],
+  value: unknown,
+  capturedAt: string,
+  snippet?: string
+): VerifiedFieldEvidence | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  if (Array.isArray(value) && value.length === 0) return undefined;
+
+  const match = coverage
+    .filter((entry) => fields.includes(entry.field as VerifiedLeadField) && entry.url)
+    .sort((a, b) => Number(b.isPreferred) - Number(a.isPreferred))[0];
+
+  if (!match?.url) return undefined;
+
+  return {
+    sourceUrl: match.url,
+    sourceLabel: match.source,
+    snippet: pickString(snippet),
     capturedAt,
     confidence: 'verified'
   };
@@ -1339,24 +1395,26 @@ async function fetchVerifiedFinancials(
 async function fetchCheckoutPositions(
   domain: string,
   focusCarrier: string
-): Promise<{
-  positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
-  evidenceSnippet: string;
-  confidence: 'crawled' | 'estimated' | 'missing';
-}> {
+) : Promise<CheckoutEvidence> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
   const pathsToTry = ['/checkout', '/kassan', '/varukorg', '/cart', '/leverans', '/frakt'];
   let checkoutContent = '';
+  let sourceUrl = '';
   for (const path of pathsToTry) {
     try {
+      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
-        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
         { timeout: 15000 }
       );
       const content = pickString(resp.data?.content);
-      if (content && content.length > 200) { checkoutContent = content.slice(0, 2500); break; }
+      if (content && content.length > 200) {
+        checkoutContent = content.slice(0, 2500);
+        sourceUrl = url;
+        break;
+      }
     } catch { /* try next path */ }
   }
   if (!checkoutContent) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
@@ -1372,7 +1430,7 @@ async function fetchCheckoutPositions(
   if (!focusFound && focusCarrier) {
     positions.push({ carrier: focusCarrier, pos: 0, service: 'EJ I CHECKOUT', price: '—', inCheckout: false });
   }
-  return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled' };
+  return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled', sourceUrl: sourceUrl || undefined };
 }
 
 async function fetchVerifiedPaymentSetup(domain: string): Promise<VerifiedPaymentEvidence> {
@@ -1438,15 +1496,20 @@ async function fetchStructuredTechProfile(domain: string): Promise<StructuredTec
 
   const pathsToTry = ['/', '/checkout', '/kassan', '/cart', '/varukorg'];
   let combinedContent = '';
+  let sourceUrl = '';
   for (const path of pathsToTry) {
     try {
+      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
-        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
         { timeout: 15000 }
       );
       const content = pickString(resp.data?.content);
-      if (content) combinedContent += `\n${content.slice(0, 2500)}`;
+      if (content) {
+        if (!sourceUrl) sourceUrl = url;
+        combinedContent += `\n${content.slice(0, 2500)}`;
+      }
     } catch {
       continue;
     }
@@ -1464,7 +1527,8 @@ async function fetchStructuredTechProfile(domain: string): Promise<StructuredTec
     paymentProviders,
     checkoutSolutions,
     evidenceSnippet: keywords.length ? extractEvidenceSnippet(combinedContent, keywords) : '',
-    confidence: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? 'verified' : 'missing'
+    confidence: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? 'verified' : 'missing',
+    sourceUrl: sourceUrl || undefined
   };
 }
 
@@ -1476,15 +1540,20 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
 
   const pathsToTry = ['/', '/butiker', '/stores', '/vara-butiker', '/store-locator', '/om-oss', '/about', '/kontakt', '/contact', '/kontakta-oss', '/kundservice', '/customer-service', '/leverans', '/shipping', '/villkor', '/terms'];
   let combinedContent = '';
+  let sourceUrl = '';
   for (const path of pathsToTry) {
     try {
+      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
-        { url: `https://${normalizedDomain}${path}`, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
+        { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
         { timeout: 15000 }
       );
       const content = pickString(resp.data?.content);
-      if (content) combinedContent += `\n${content.slice(0, 2500)}`;
+      if (content) {
+        if (!sourceUrl) sourceUrl = url;
+        combinedContent += `\n${content.slice(0, 2500)}`;
+      }
     } catch {
       continue;
     }
@@ -1507,7 +1576,8 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
     visitingAddress,
     warehouseAddress,
     evidenceSnippet: evidenceKeywords.length ? extractEvidenceSnippet(combinedContent, evidenceKeywords) : '',
-    confidence: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? 'verified' : 'missing'
+    confidence: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? 'verified' : 'missing',
+    sourceUrl: sourceUrl || undefined
   };
 }
 
@@ -2018,11 +2088,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     const parsedDomain = normalizeDomain(
       pickString(companyData?.domain, companyData?.website, companyData?.url)
     );
-    let checkoutCrawlResult: {
-      positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
-      evidenceSnippet: string;
-      confidence: 'crawled' | 'estimated' | 'missing';
-    } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+    let checkoutCrawlResult: CheckoutEvidence = { positions: [], evidenceSnippet: '', confidence: 'missing' };
     let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
     let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
     let retailEvidence: RetailFootprintEvidence = { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
@@ -2193,6 +2259,84 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         }
       : undefined;
 
+    const coverage = sourceBundle.coverage || [];
+    const contactEvidence = dmSupplement.find((contact) => contact.linkedin || contact.verificationNote);
+    const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
+      revenue: buildFieldEvidence(revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '', financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      profit: buildFieldEvidence(profitTKR !== undefined ? `${profitTKR.toLocaleString('sv-SE')} tkr` : '', financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      financialHistory: buildFieldEvidence(verifiedFinancialHistory, financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      solidity: buildFieldEvidence(verifiedSolidity, financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      liquidityRatio: buildFieldEvidence(verifiedLiquidityRatio, financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      profitMargin: buildFieldEvidence(verifiedProfitMargin, financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
+      legalStatus: riskFieldEvidence?.legalStatus,
+      paymentRemarks: riskFieldEvidence?.paymentRemarks,
+      debtBalance: riskFieldEvidence?.debtBalance,
+      debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
+      address: buildFieldEvidence(
+        pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
+        financialEvidence.sourceUrl || retailEvidence.sourceUrl,
+        financialEvidence.evidenceText || retailEvidence.evidenceSnippet,
+        capturedAt
+      ),
+      visitingAddress: buildFieldEvidence(
+        pickString(retailEvidence.visitingAddress, companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
+        retailEvidence.sourceUrl || financialEvidence.sourceUrl,
+        retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
+        capturedAt
+      ),
+      warehouseAddress: buildFieldEvidence(
+        pickString(retailEvidence.warehouseAddress, companyData?.warehouse_address, companyData?.warehouseAddress),
+        retailEvidence.sourceUrl,
+        retailEvidence.evidenceSnippet,
+        capturedAt
+      ),
+      checkoutOptions: buildFieldEvidence(
+        checkoutCrawlResult.positions,
+        checkoutCrawlResult.sourceUrl || buildCoverageFieldEvidence(['checkoutOptions'], coverage, checkoutCrawlResult.positions, capturedAt)?.sourceUrl,
+        checkoutCrawlResult.evidenceSnippet,
+        capturedAt
+      ),
+      ecommercePlatform: buildFieldEvidence(
+        pickString(techProfile.platforms[0], logistics?.ecommerce_platform, logistics?.ecommercePlatform),
+        techProfile.sourceUrl || buildCoverageFieldEvidence(['ecommercePlatform'], coverage, techProfile.platforms[0], capturedAt)?.sourceUrl,
+        techProfile.evidenceSnippet,
+        capturedAt
+      ),
+      taSystem: buildFieldEvidence(
+        pickString(techProfile.taSystems[0], logistics?.ta_system, logistics?.taSystem),
+        techProfile.sourceUrl || buildCoverageFieldEvidence(['taSystem'], coverage, techProfile.taSystems[0], capturedAt)?.sourceUrl,
+        techProfile.evidenceSnippet,
+        capturedAt
+      ),
+      paymentProvider: buildFieldEvidence(
+        paymentEvidence.paymentProvider || pickString(techProfile.paymentProviders[0], logistics?.payment_provider, logistics?.paymentProvider),
+        paymentEvidence.sourceUrl || techProfile.sourceUrl || buildCoverageFieldEvidence(['paymentProvider'], coverage, paymentEvidence.paymentProvider || techProfile.paymentProviders[0], capturedAt)?.sourceUrl,
+        paymentEvidence.evidenceSnippet || techProfile.evidenceSnippet,
+        capturedAt
+      ),
+      checkoutSolution: buildFieldEvidence(
+        paymentEvidence.checkoutSolution || pickString(techProfile.checkoutSolutions[0], logistics?.checkout_solution, logistics?.checkoutSolution),
+        paymentEvidence.sourceUrl || techProfile.sourceUrl || buildCoverageFieldEvidence(['checkoutSolution'], coverage, paymentEvidence.checkoutSolution || techProfile.checkoutSolutions[0], capturedAt)?.sourceUrl,
+        paymentEvidence.evidenceSnippet || techProfile.evidenceSnippet,
+        capturedAt
+      ),
+      activeMarkets: buildFieldEvidence(verifiedActiveMarkets, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
+      storeCount: buildFieldEvidence(retailEvidence.storeCount, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
+      decisionMakers: buildFieldEvidence(
+        contactEvidence?.name,
+        contactEvidence?.linkedin || buildCoverageFieldEvidence(['decisionMakers'], coverage, contactEvidence?.name, capturedAt)?.sourceUrl,
+        contactEvidence?.verificationNote,
+        capturedAt
+      ),
+      latestNews: buildFieldEvidence(
+        verifiedNews.items[0]?.title || finalLatestNews,
+        verifiedNews.items[0]?.url || buildCoverageFieldEvidence(['latestNews'], coverage, verifiedNews.items[0]?.title || finalLatestNews, capturedAt)?.sourceUrl,
+        finalLatestNews,
+        capturedAt
+      ),
+      emailPattern: buildCoverageFieldEvidence(['emailPattern'], coverage, detectedEmailPattern, capturedAt)
+    };
+
     const lead: LeadData = {
       id: crypto.randomUUID(),
       companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
@@ -2286,6 +2430,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       sourceCoverage: sourceBundle.coverage,
       emailPattern: detectedEmailPattern,
       verifiedRegistrySnapshot,
+      verifiedFieldEvidence,
       dataConfidence: {
         financial: financialEvidence.confidence,
         checkout: checkoutCrawlResult.confidence,
@@ -2389,11 +2534,7 @@ export async function generateLeads(
       // Apply heavier evidence checks on the first leads to avoid quota spikes in large batches.
       const shouldEnrich = index < 6;
       let financialEvidence: VerifiedFinancialEvidence = { evidenceText: '', confidence: 'missing', parsed: {} };
-      let checkoutEvidence: {
-        positions: Array<{ carrier: string; pos: number; service: string; price: string; inCheckout: boolean }>;
-        evidenceSnippet: string;
-        confidence: 'crawled' | 'estimated' | 'missing';
-      } = { positions: [], evidenceSnippet: '', confidence: 'missing' };
+      let checkoutEvidence: CheckoutEvidence = { positions: [], evidenceSnippet: '', confidence: 'missing' };
       let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
       let newsEvidence: VerifiedNewsEvidence = { summary: '', confidence: 'missing', sources: [], items: [] };
       let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
@@ -2539,6 +2680,145 @@ export async function generateLeads(
           }
         : undefined;
 
+      const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> | undefined = (() => {
+        const evidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
+          revenue: buildFieldEvidence(
+            effectiveRevenueTkr !== undefined ? `${effectiveRevenueTkr.toLocaleString('sv-SE')} tkr` : '',
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          profit: buildFieldEvidence(
+            (registryFields.profitTkr ?? historyProfitTKR) !== undefined ? `${(registryFields.profitTkr ?? historyProfitTKR)!.toLocaleString('sv-SE')} tkr` : '',
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          financialHistory: buildFieldEvidence(
+            verifiedFinancialHistory,
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          solidity: buildFieldEvidence(
+            verifiedSolidity,
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          liquidityRatio: buildFieldEvidence(
+            verifiedLiquidityRatio,
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          profitMargin: buildFieldEvidence(
+            pickString(registryFields.profitMargin)
+              || deriveProfitMargin(verifiedFinancialHistory, pickString(l.profitMargin, l.profit_margin))
+              || pickString(l.profitMargin, l.profit_margin),
+            financialEvidence.sourceUrl,
+            financialEvidence.evidenceText,
+            capturedAt,
+            financialEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          legalStatus: riskFieldEvidence?.legalStatus,
+          paymentRemarks: riskFieldEvidence?.paymentRemarks,
+          debtBalance: riskFieldEvidence?.debtBalance,
+          debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
+          address: buildFieldEvidence(
+            pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, l.address, l.visitingAddress, l.visiting_address),
+            financialEvidence.sourceUrl || retailEvidence.sourceUrl,
+            retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
+            capturedAt,
+            (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' : 'estimated'
+          ),
+          visitingAddress: buildFieldEvidence(
+            pickString(retailEvidence.visitingAddress, l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
+            retailEvidence.sourceUrl || financialEvidence.sourceUrl,
+            retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
+            capturedAt,
+            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          warehouseAddress: buildFieldEvidence(
+            pickString(retailEvidence.warehouseAddress, l.warehouseAddress, l.warehouse_address),
+            retailEvidence.sourceUrl,
+            retailEvidence.evidenceSnippet,
+            capturedAt,
+            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          checkoutOptions: buildFieldEvidence(
+            checkoutEvidence.positions,
+            checkoutEvidence.sourceUrl,
+            checkoutEvidence.evidenceSnippet,
+            capturedAt,
+            checkoutEvidence.confidence === 'crawled' ? 'verified' : 'estimated'
+          ),
+          ecommercePlatform: buildFieldEvidence(
+            pickString(techProfile.platforms[0], l.ecommercePlatform, l.ecommerce_platform),
+            techProfile.sourceUrl,
+            techProfile.evidenceSnippet,
+            capturedAt,
+            techProfile.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          taSystem: buildFieldEvidence(
+            pickString(techProfile.taSystems[0], l.taSystem, l.ta_system),
+            techProfile.sourceUrl,
+            techProfile.evidenceSnippet,
+            capturedAt,
+            techProfile.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          paymentProvider: buildFieldEvidence(
+            paymentEvidence.paymentProvider || pickString(techProfile.paymentProviders[0], l.paymentProvider, l.payment_provider),
+            paymentEvidence.sourceUrl || techProfile.sourceUrl,
+            paymentEvidence.evidenceSnippet || techProfile.evidenceSnippet,
+            capturedAt,
+            paymentEvidence.confidence === 'verified' ? 'verified' : techProfile.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          checkoutSolution: buildFieldEvidence(
+            paymentEvidence.checkoutSolution || pickString(techProfile.checkoutSolutions[0], l.checkoutSolution, l.checkout_solution),
+            paymentEvidence.sourceUrl || techProfile.sourceUrl,
+            paymentEvidence.evidenceSnippet || techProfile.evidenceSnippet,
+            capturedAt,
+            paymentEvidence.confidence === 'verified' ? 'verified' : techProfile.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          activeMarkets: buildFieldEvidence(
+            verifiedActiveMarkets,
+            retailEvidence.sourceUrl,
+            retailEvidence.evidenceSnippet,
+            capturedAt,
+            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          decisionMakers: buildFieldEvidence(
+            decisionMakers,
+            decisionMakers.find((contact) => contact.verificationNote.includes('Källa: '))?.verificationNote.split('Källa: ')[1]?.split(' | ')[0],
+            decisionMakers.map((contact) => contact.verificationNote).filter(Boolean).join(' | '),
+            capturedAt,
+            dmConfidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          latestNews: buildFieldEvidence(
+            newsEvidence.items,
+            newsEvidence.items[0]?.url,
+            newsEvidence.summary,
+            capturedAt,
+            newsEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+          ),
+          emailPattern: buildFieldEvidence(
+            emailPattern,
+            domain ? `https://${domain}` : undefined,
+            emailPattern,
+            capturedAt,
+            emailPattern ? 'verified' : 'missing'
+          )
+        };
+
+        return Object.values(evidence).some(Boolean) ? evidence : undefined;
+      })();
+
       return {
         ...l,
         id: crypto.randomUUID(),
@@ -2609,6 +2889,7 @@ export async function generateLeads(
           ? `Verifierad registerkälla: ${normalizeDomain(financialEvidence.sourceUrl || 'allabolag.se')}`
           : pickString(l.financialSource),
         verifiedRegistrySnapshot,
+        verifiedFieldEvidence,
         emailPattern,
         dataConfidence: {
           financial: financialEvidence.confidence,
@@ -2622,7 +2903,10 @@ export async function generateLeads(
       } as LeadData;
     }));
 
-    return enrichedLeads;
+    const targetSegments = formData.targetSegments || [];
+    return targetSegments.length
+      ? enrichedLeads.filter((lead) => targetSegments.includes(lead.segment))
+      : enrichedLeads;
   } catch (error: any) {
     throw error;
   }

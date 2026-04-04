@@ -40,6 +40,9 @@ export interface SearchFormData {
   focusRole3: string;
   icebreakerTopic: string;
   specificPerson?: string;
+  targetSegments?: Segment[];
+  reanalysisScope?: 'active' | 'cache' | 'both';
+  reanalysisLimit?: number;
 }
 
 export interface DecisionMaker {
@@ -212,6 +215,31 @@ export interface VerifiedFieldEvidence {
   confidence: 'verified' | 'estimated' | 'missing';
 }
 
+export type VerifiedLeadField =
+  | 'revenue'
+  | 'profit'
+  | 'financialHistory'
+  | 'solidity'
+  | 'liquidityRatio'
+  | 'profitMargin'
+  | 'legalStatus'
+  | 'paymentRemarks'
+  | 'debtBalance'
+  | 'debtEquityRatio'
+  | 'address'
+  | 'visitingAddress'
+  | 'warehouseAddress'
+  | 'checkoutOptions'
+  | 'ecommercePlatform'
+  | 'taSystem'
+  | 'paymentProvider'
+  | 'checkoutSolution'
+  | 'activeMarkets'
+  | 'storeCount'
+  | 'decisionMakers'
+  | 'latestNews'
+  | 'emailPattern';
+
 export interface LeadData {
   // Identitet
   id: string;
@@ -326,6 +354,7 @@ export interface LeadData {
   emailPattern?: string;
   dataConfidence?: DataConfidence;
   verifiedRegistrySnapshot?: VerifiedRegistrySnapshot;
+  verifiedFieldEvidence?: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>>;
 
   // ── Change monitoring (bokslut/risk deltas between scans) ─────────────────
   changeHighlights?: LeadFieldChange[];

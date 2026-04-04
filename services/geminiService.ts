@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, Segment } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, Segment, SourcePolicyConfig, VerifiedFieldEvidence, VerifiedLeadField, VerifiedRegistrySnapshot } from "../types";
 
 /**
  * PERFORMILE - TURBO ENGINE (v25.1)
@@ -11,6 +11,26 @@ import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMap
  */
 const MIN_INTERVAL = 1500; 
 let lastCallTime = 0;
+
+const GEMINI_DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
+  financial: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se', 'boolag.se', 'bolagsverket.se'],
+  addresses: ['hitta.se', 'eniro.se', 'allabolag.se', 'bolagsverket.se'],
+  decisionMakers: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+  payment: ['klarna.com', 'stripe.com', 'adyen.com'],
+  webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
+  news: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se'],
+  strictCompanyMatch: true,
+  earliestNewsYear: new Date().getFullYear() - 1,
+  customCategories: {},
+  categoryFieldMappings: {},
+  countrySourcePolicies: {}
+};
+
+type GeminiGroundingSource = {
+  url: string;
+  domain: string;
+  title?: string;
+};
 
 async function throttle() {
   const now = Date.now();
@@ -84,6 +104,113 @@ function parseRevenueToTKR(val: any): number {
 function parseRevenueToTKROptional(val: any): number | undefined {
   if (val === null || val === undefined || val === '' || val === 'Ej tillgänglig') return undefined;
   return parseRevenueToTKR(val);
+}
+
+function pickString(...values: any[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function normalizeDomain(value: string): string {
+  return String(value || '')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .replace(/[/?#].*$/, '')
+    .toLowerCase();
+}
+
+function mergeSourcePolicies(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): SourcePolicyConfig {
+  const countryOverride = activeCountry && activeCountry !== 'global'
+    ? (sourcePolicies?.countrySourcePolicies?.[activeCountry] || {})
+    : {};
+  const pickList = (...lists: Array<string[] | undefined>) => {
+    for (const list of lists) {
+      if (Array.isArray(list) && list.length > 0) return list;
+    }
+    return [];
+  };
+
+  return {
+    financial: pickList(countryOverride.financial, sourcePolicies?.financial, GEMINI_DEFAULT_SOURCE_POLICIES.financial),
+    addresses: pickList(countryOverride.addresses, sourcePolicies?.addresses, GEMINI_DEFAULT_SOURCE_POLICIES.addresses),
+    decisionMakers: pickList(countryOverride.decisionMakers, sourcePolicies?.decisionMakers, GEMINI_DEFAULT_SOURCE_POLICIES.decisionMakers),
+    payment: pickList(countryOverride.payment, sourcePolicies?.payment, GEMINI_DEFAULT_SOURCE_POLICIES.payment),
+    webSoftware: pickList(countryOverride.webSoftware, sourcePolicies?.webSoftware, GEMINI_DEFAULT_SOURCE_POLICIES.webSoftware),
+    news: pickList(countryOverride.news, sourcePolicies?.news, GEMINI_DEFAULT_SOURCE_POLICIES.news),
+    strictCompanyMatch: countryOverride.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? GEMINI_DEFAULT_SOURCE_POLICIES.strictCompanyMatch,
+    earliestNewsYear: countryOverride.earliestNewsYear ?? sourcePolicies?.earliestNewsYear ?? GEMINI_DEFAULT_SOURCE_POLICIES.earliestNewsYear,
+    customCategories: {
+      ...(sourcePolicies?.customCategories || {}),
+      ...(countryOverride.customCategories || {})
+    },
+    categoryFieldMappings: {
+      ...(sourcePolicies?.categoryFieldMappings || {}),
+      ...(countryOverride.categoryFieldMappings || {})
+    },
+    countrySourcePolicies: sourcePolicies?.countrySourcePolicies || {}
+  };
+}
+
+function buildSourceManagerPrompt(sourcePolicies?: SourcePolicyConfig, activeCountry?: string): { effectivePolicies: SourcePolicyConfig; promptSuffix: string } {
+  const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
+  const promptSuffix = `
+
+SOURCE MANAGER PRIORITY:
+- Financial: ${effectivePolicies.financial.join(', ')}
+- Addresses: ${effectivePolicies.addresses.join(', ')}
+- Decision makers: ${effectivePolicies.decisionMakers.join(', ')}
+- Payment: ${effectivePolicies.payment.join(', ')}
+- Web software: ${effectivePolicies.webSoftware.join(', ')}
+- News: ${effectivePolicies.news.join(', ')}
+- Strict company match: ${effectivePolicies.strictCompanyMatch !== false ? 'required' : 'recommended'}
+- If evidence is missing, return empty strings, empty arrays or null. Never invent defaults.`;
+  return { effectivePolicies, promptSuffix };
+}
+
+function extractGroundingSources(response: GenerateContentResponse): GeminiGroundingSource[] {
+  const chunks = ((response as any)?.candidates || [])
+    .flatMap((candidate: any) => candidate?.groundingMetadata?.groundingChunks || []);
+
+  return chunks
+    .map((chunk: any) => ({
+      url: pickString(chunk?.web?.uri, chunk?.retrievedContext?.uri),
+      title: pickString(chunk?.web?.title, chunk?.retrievedContext?.title)
+    }))
+    .filter((chunk: GeminiGroundingSource) => Boolean(chunk.url))
+    .map((chunk: GeminiGroundingSource) => ({
+      ...chunk,
+      domain: normalizeDomain(chunk.url)
+    }));
+}
+
+function pickSourceUrl(sources: GeminiGroundingSource[], preferredDomains: string[], fallback?: string): string | undefined {
+  const normalizedDomains = preferredDomains.map(normalizeDomain).filter(Boolean);
+  const match = sources.find((source) => normalizedDomains.some((domain) => source.domain.includes(domain)));
+  return match?.url || fallback;
+}
+
+function buildFieldEvidence(
+  value: unknown,
+  sourceUrl: string | undefined,
+  snippet: string | undefined,
+  capturedAt: string,
+  confidence: 'verified' | 'estimated' | 'missing' = 'verified'
+): VerifiedFieldEvidence | undefined {
+  if (!sourceUrl) return undefined;
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  if (Array.isArray(value) && value.length === 0) return undefined;
+
+  return {
+    sourceUrl,
+    sourceLabel: normalizeDomain(sourceUrl),
+    snippet: pickString(snippet),
+    capturedAt,
+    confidence
+  };
 }
 
 async function callGeminiWithRetry(
@@ -185,12 +312,15 @@ export async function generateDeepDiveSequential(
   sniPercentages: SNIPercentage[],
   integrations: string[],
   activeCarrier: string,
-  threePLProviders: ThreePLProvider[]
+  threePLProviders: ThreePLProvider[],
+  sourcePolicies?: SourcePolicyConfig,
+  activeCountry?: string
 ): Promise<LeadData> {
   onUpdate({}, "Aktiverar Performile Surgical Engine v25.1...");
 
   const searchQuery = `${formData.companyNameOrOrg} (Allabolag, Ratsit, Kreditkollen, LinkedIn)`;
-  const prompt = MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery);
+  const { effectivePolicies, promptSuffix } = buildSourceManagerPrompt(sourcePolicies, activeCountry);
+  const prompt = `${MASTER_DEEP_SCAN_PROMPT.replace('{{COMPANY_CONTEXT}}', searchQuery)}${promptSuffix}`;
 
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
@@ -214,12 +344,64 @@ export async function generateDeepDiveSequential(
     
     let rawData;
     try { rawData = JSON.parse(text); } catch (e) { rawData = JSON.parse(repairJson(text)); }
+        const groundingSources = extractGroundingSources(response);
+        const capturedAt = new Date().toISOString();
 
     const revenueTKR = parseRevenueToTKROptional(rawData.company_data?.revenue_tkr);
     const marketCount = rawData.company_data?.market_count;
     const metrics = revenueTKR !== undefined
       ? calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount || 1)
       : undefined;
+        const companyWebsiteUrl = rawData.company_data?.domain ? `https://${rawData.company_data.domain}` : '';
+        const financialSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.financial);
+        const addressSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.addresses, companyWebsiteUrl || undefined);
+        const decisionSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.decisionMakers, rawData.contacts?.[0]?.linkedin);
+        const paymentSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.payment, companyWebsiteUrl || undefined);
+        const webSoftwareSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.webSoftware, companyWebsiteUrl || undefined);
+        const newsSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.news);
+        const financialHistory = (rawData.financials?.history || []).map((h: any) => ({
+          year: h.year,
+          revenue: `${parseRevenueToTKR(h.revenue).toLocaleString('sv-SE')} tkr`,
+          profit: `${parseRevenueToTKR(h.profit).toLocaleString('sv-SE')} tkr`
+        }));
+        const verifiedRegistrySnapshot: VerifiedRegistrySnapshot | undefined = financialSourceUrl
+          ? {
+              sourceUrl: financialSourceUrl,
+              sourceLabel: normalizeDomain(financialSourceUrl),
+              orgNumber: pickString(rawData.company_data?.org_nr),
+              registeredAddress: pickString(rawData.company_data?.visiting_address),
+              revenue: revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '',
+              profit: parseRevenueToTKROptional(rawData.financials?.history?.[0]?.profit) !== undefined
+                ? `${parseRevenueToTKROptional(rawData.financials?.history?.[0]?.profit)!.toLocaleString('sv-SE')} tkr`
+                : '',
+              capturedAt
+            }
+          : undefined;
+        const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
+          revenue: buildFieldEvidence(revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '', financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          profit: buildFieldEvidence(rawData.financials?.history?.[0]?.profit, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          financialHistory: buildFieldEvidence(financialHistory, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          solidity: buildFieldEvidence(rawData.financials?.solidity, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          liquidityRatio: buildFieldEvidence(rawData.financials?.liquidity_ratio, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          profitMargin: buildFieldEvidence(rawData.financials?.profit_margin, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          legalStatus: buildFieldEvidence(rawData.company_data?.legal_status, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          paymentRemarks: buildFieldEvidence(rawData.financials?.payment_remarks, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          debtBalance: buildFieldEvidence(rawData.financials?.debt_balance_tkr, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          debtEquityRatio: buildFieldEvidence(rawData.financials?.debt_equity_ratio, financialSourceUrl, rawData.financials?.financial_source, capturedAt),
+          address: buildFieldEvidence(rawData.company_data?.visiting_address, addressSourceUrl, rawData.company_data?.industry_description, capturedAt),
+          visitingAddress: buildFieldEvidence(rawData.company_data?.visiting_address, addressSourceUrl, rawData.company_data?.industry_description, capturedAt),
+          warehouseAddress: buildFieldEvidence(rawData.company_data?.warehouse_address, addressSourceUrl, rawData.company_data?.industry_description, capturedAt),
+          checkoutOptions: buildFieldEvidence(rawData.logistics?.checkout_positions, companyWebsiteUrl || paymentSourceUrl, rawData.logistics?.tech_evidence, capturedAt),
+          ecommercePlatform: buildFieldEvidence(rawData.logistics?.ecommerce_platform, webSoftwareSourceUrl, rawData.logistics?.tech_evidence, capturedAt),
+          taSystem: buildFieldEvidence(rawData.logistics?.ta_system, webSoftwareSourceUrl, rawData.logistics?.tech_evidence, capturedAt),
+          paymentProvider: buildFieldEvidence(rawData.logistics?.payment_provider, paymentSourceUrl, rawData.logistics?.tech_evidence, capturedAt),
+          checkoutSolution: buildFieldEvidence(rawData.logistics?.checkout_solution, paymentSourceUrl, rawData.logistics?.tech_evidence, capturedAt),
+          activeMarkets: buildFieldEvidence(rawData.company_data?.active_markets || [], addressSourceUrl, rawData.company_data?.industry_description, capturedAt),
+          storeCount: buildFieldEvidence(rawData.logistics?.store_count, addressSourceUrl, rawData.company_data?.industry_description, capturedAt),
+          decisionMakers: buildFieldEvidence(rawData.contacts, decisionSourceUrl, rawData.contacts?.map((contact: any) => `${contact.name || ''} ${contact.title || ''}`).join(' | '), capturedAt),
+          latestNews: buildFieldEvidence(rawData.latest_news || '', newsSourceUrl, rawData.latest_news, capturedAt),
+          emailPattern: buildFieldEvidence(rawData.email_pattern || '', companyWebsiteUrl || decisionSourceUrl, rawData.email_pattern, capturedAt)
+        };
 
     const lead: LeadData = {
       id: crypto.randomUUID(),
@@ -241,11 +423,7 @@ export async function generateDeepDiveSequential(
       b2bPercentage: undefined,
       b2cPercentage: undefined,
       
-      financialHistory: (rawData.financials?.history || []).map((h: any) => ({
-        year: h.year,
-        revenue: `${parseRevenueToTKR(h.revenue).toLocaleString('sv-SE')} tkr`,
-        profit: `${parseRevenueToTKR(h.profit).toLocaleString('sv-SE')} tkr`
-      })),
+      financialHistory,
       solidity: rawData.financials?.solidity || '',
       liquidityRatio: rawData.financials?.liquidity_ratio || '',
       profitMargin: rawData.financials?.profit_margin || '',
@@ -262,7 +440,7 @@ export async function generateDeepDiveSequential(
       techEvidence: rawData.logistics?.tech_evidence || '',
       carriers: (rawData.logistics?.carriers || []).join(', '),
       strategicPitch: rawData.logistics?.strategic_pitch || '',
-      latestNews: '', 
+      latestNews: rawData.latest_news || '', 
       
       decisionMakers: (rawData.contacts || []).map((c: any) => ({
         name: c.name || '', title: c.title || '', email: c.email || '', linkedin: c.linkedin || ''
@@ -284,7 +462,7 @@ export async function generateDeepDiveSequential(
       financialTrend: rawData.company_data?.financial_trend || '',
       industry: rawData.company_data?.industry || '',
       industryDescription: rawData.company_data?.industry_description || '',
-      websiteUrl: rawData.company_data?.domain ? `https://${rawData.company_data.domain}` : '',
+      websiteUrl: companyWebsiteUrl,
       
       businessModel: rawData.company_data?.business_model || '',
       storeCount: rawData.logistics?.store_count,
@@ -297,7 +475,18 @@ export async function generateDeepDiveSequential(
 
       // Mappa även in initial QuickScan data om AI skickar det direkt
       conversionScore: rawData.logistics?.conversion_score,
-      deepScanPerformed: false 
+      deepScanPerformed: false,
+      verifiedRegistrySnapshot,
+      verifiedFieldEvidence: Object.values(verifiedFieldEvidence).some(Boolean) ? verifiedFieldEvidence : undefined,
+      dataConfidence: {
+        financial: financialSourceUrl ? 'verified' : 'estimated',
+        checkout: rawData.logistics?.checkout_positions?.length ? 'crawled' : 'missing',
+        contacts: rawData.contacts?.length ? (decisionSourceUrl ? 'verified' : 'estimated') : 'missing',
+        addresses: rawData.company_data?.visiting_address ? (addressSourceUrl ? 'verified' : 'estimated') : 'missing',
+        payment: rawData.logistics?.payment_provider || rawData.logistics?.checkout_solution ? (paymentSourceUrl ? 'verified' : 'estimated') : 'missing',
+        news: rawData.latest_news ? (newsSourceUrl ? 'verified' : 'estimated') : 'missing',
+        emailPattern: rawData.email_pattern ? 'found' : 'missing'
+      }
     };
 
     onUpdate(lead, "Analys slutförd.");
@@ -314,11 +503,14 @@ export async function generateLeads(
   sniPercentages: SNIPercentage[],
   exclusionList: string[],
   activeCarrier: string,
-  threePLProviders: ThreePLProvider[]
+  threePLProviders: ThreePLProvider[],
+  sourcePolicies?: SourcePolicyConfig,
+  activeCountry?: string
 ): Promise<LeadData[]> {
   try {
+    const { effectivePolicies, promptSuffix } = buildSourceManagerPrompt(sourcePolicies, activeCountry);
     const prompt = `Batch Scan: Ort: ${formData.geoArea}, Omsättningssegment: ${formData.financialScope}, Triggers: ${formData.triggers}, Antal: ${formData.leadCount}. 
-    EXKLUDERA DESSA BOLAG (Returnera dem INTE): ${exclusionList.slice(0, 50).join(', ')}`;
+    EXKLUDERA DESSA BOLAG (Returnera dem INTE): ${exclusionList.slice(0, 50).join(', ')}${promptSuffix}`;
 
     const response = await callGeminiWithRetry(
       'gemini-3-flash-preview', 
@@ -349,8 +541,16 @@ export async function generateLeads(
       }
     }
 
+    const groundingSources = extractGroundingSources(response);
+    const capturedAt = new Date().toISOString();
+    const financialSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.financial);
+    const addressSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.addresses);
+    const decisionSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.decisionMakers);
+    const paymentSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.payment);
+    const webSoftwareSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.webSoftware);
+    const newsSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.news);
     const leadsArray = Array.isArray(data) ? data : (data.leads || []);
-    return leadsArray.filter((l: any) => l && typeof l === 'object').map((l: any) => {
+    const leads = leadsArray.filter((l: any) => l && typeof l === 'object').map((l: any) => {
       const rev = parseRevenueToTKROptional(l.revenue);
       const marketCount = l.marketCount;
       const metrics = rev !== undefined
@@ -362,6 +562,20 @@ export async function generateLeads(
       const pos1Volume = l.logisticsMetrics?.pos1_volume || metrics?.pos1Volume;
       const pos2Volume = l.logisticsMetrics?.pos2_volume || metrics?.pos2Volume;
       const strategicPitch = l.logisticsMetrics?.strategic_pitch || '';
+      const companyWebsiteUrl = l.domain ? `https://${String(l.domain).replace(/^https?:\/\//, '')}` : pickString(l.websiteUrl, l.website);
+      const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
+        revenue: buildFieldEvidence(rev !== undefined ? `${rev.toLocaleString('sv-SE')} tkr` : '', financialSourceUrl, l.financialSource, capturedAt),
+        profit: buildFieldEvidence(l.profit, financialSourceUrl, l.financialSource, capturedAt),
+        address: buildFieldEvidence(l.address, addressSourceUrl || companyWebsiteUrl || undefined, l.address, capturedAt),
+        visitingAddress: buildFieldEvidence(l.visitingAddress || l.address, addressSourceUrl || companyWebsiteUrl || undefined, l.visitingAddress || l.address, capturedAt),
+        warehouseAddress: buildFieldEvidence(l.warehouseAddress, addressSourceUrl || companyWebsiteUrl || undefined, l.warehouseAddress, capturedAt),
+        ecommercePlatform: buildFieldEvidence(l.ecommercePlatform, webSoftwareSourceUrl || companyWebsiteUrl || undefined, l.techEvidence, capturedAt),
+        taSystem: buildFieldEvidence(l.taSystem, webSoftwareSourceUrl || companyWebsiteUrl || undefined, l.techEvidence, capturedAt),
+        paymentProvider: buildFieldEvidence(l.paymentProvider, paymentSourceUrl || companyWebsiteUrl || undefined, l.techEvidence, capturedAt),
+        checkoutSolution: buildFieldEvidence(l.checkoutSolution, paymentSourceUrl || companyWebsiteUrl || undefined, l.techEvidence, capturedAt),
+        decisionMakers: buildFieldEvidence(l.decisionMakers, decisionSourceUrl, l.decisionMakers?.map((contact: any) => contact?.name).join(' | '), capturedAt),
+        latestNews: buildFieldEvidence(l.latestNews, newsSourceUrl, l.latestNews, capturedAt)
+      };
 
       return {
         ...l,
@@ -376,9 +590,22 @@ export async function generateLeads(
         strategicPitch,
         segment: metrics ? determineSegmentByPotential(metrics.shippingBudgetSEK) : (l.segment || Segment.UNKNOWN),
         source: 'ai',
-        analysisDate: '' 
+        analysisDate: '',
+        verifiedRegistrySnapshot: financialSourceUrl ? {
+          sourceUrl: financialSourceUrl,
+          sourceLabel: normalizeDomain(financialSourceUrl),
+          orgNumber: pickString(l.orgNumber),
+          registeredAddress: pickString(l.address, l.visitingAddress),
+          revenue: rev !== undefined ? `${rev.toLocaleString('sv-SE')} tkr` : '',
+          profit: pickString(l.profit),
+          capturedAt
+        } : undefined,
+        verifiedFieldEvidence: Object.values(verifiedFieldEvidence).some(Boolean) ? verifiedFieldEvidence : undefined
       } as LeadData;
     });
+
+    const targetSegments = formData.targetSegments || [];
+    return targetSegments.length ? leads.filter((lead) => targetSegments.includes(lead.segment)) : leads;
   } catch (error: any) {
     throw error;
   }

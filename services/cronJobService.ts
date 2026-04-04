@@ -1,6 +1,14 @@
-import { SearchFormData } from '../types';
+import { SearchFormData, Segment } from '../types';
 
-export type CronJobType = 'deep_dive' | 'batch_search';
+export type CronJobType = 'deep_dive' | 'batch_search' | 'lead_reanalysis';
+
+export type CronScheduleMode = 'custom' | 'daily' | 'interval';
+
+export interface CronJobPayload extends Partial<SearchFormData> {
+  targetSegments?: Segment[];
+  reanalysisScope?: 'active' | 'cache' | 'both';
+  reanalysisLimit?: number;
+}
 
 export interface CronJob {
   id: string;
@@ -8,7 +16,8 @@ export interface CronJob {
   type: CronJobType;
   cronExpression: string;
   enabled: boolean;
-  payload: Partial<SearchFormData>;
+  scheduleMode?: CronScheduleMode;
+  payload: CronJobPayload;
   lastRunAt?: string;
   nextRunAt?: string;
   createdAt: string;
@@ -141,4 +150,24 @@ export function getDueCronJobs(jobs: CronJob[], now: Date = new Date()): CronJob
     if (!job.nextRunAt) return false;
     return new Date(job.nextRunAt).getTime() <= nowTs;
   });
+}
+
+export function buildDailyCronExpression(hour: number, minute: number, weekdaysOnly = false): string {
+  const safeHour = Math.min(23, Math.max(0, Math.floor(hour || 0)));
+  const safeMinute = Math.min(59, Math.max(0, Math.floor(minute || 0)));
+  return `${safeMinute} ${safeHour} * * ${weekdaysOnly ? '1-5' : '*'}`;
+}
+
+export function buildIntervalCronExpression(intervalMinutes: number): string {
+  const safeInterval = Math.max(15, Math.floor(intervalMinutes || 60));
+  if (60 % safeInterval === 0 && safeInterval < 60) {
+    return `*/${safeInterval} * * * *`;
+  }
+
+  if (safeInterval % 60 === 0) {
+    const hours = Math.max(1, Math.floor(safeInterval / 60));
+    return `0 */${hours} * * *`;
+  }
+
+  return `*/${safeInterval} * * * *`;
 }

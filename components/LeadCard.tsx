@@ -6,7 +6,7 @@ import {
   ArrowDownRight, RefreshCw, UserCheck, Calendar as CalendarIcon,
   MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2
 } from 'lucide-react';
-import { LeadData, Segment, ThreePLProvider } from '../types';
+import { LeadData, Segment, ThreePLProvider, VerifiedLeadField } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateEmailSuggestion } from '../services/openrouterService';
 import html2canvas from 'html2canvas';
@@ -42,6 +42,32 @@ const ConfidenceBadge = ({ level }: {
   if (level === 'missing')
     return <span className="ml-1.5 px-1 py-0.5 bg-red-50 text-red-600 text-[7px] font-black uppercase border border-red-100 tracking-wider">EJ HITTAD</span>;
   return null;
+};
+
+const VERIFIED_FIELD_LABELS: Record<VerifiedLeadField, string> = {
+  revenue: 'Omsättning',
+  profit: 'Resultat',
+  financialHistory: 'Finansiell historik',
+  solidity: 'Soliditet',
+  liquidityRatio: 'Likviditet',
+  profitMargin: 'Vinstmarginal',
+  legalStatus: 'Status',
+  paymentRemarks: 'Betalningsanmärkningar',
+  debtBalance: 'Skuldsaldo',
+  debtEquityRatio: 'Skuldsättningsgrad',
+  address: 'Huvudadress',
+  visitingAddress: 'Besöksadress',
+  warehouseAddress: 'Lageradress',
+  checkoutOptions: 'Checkout-positioner',
+  ecommercePlatform: 'Plattform',
+  taSystem: 'TA-system',
+  paymentProvider: 'Betalning',
+  checkoutSolution: 'Checkout-lösning',
+  activeMarkets: 'Marknader',
+  storeCount: 'Antal butiker',
+  decisionMakers: 'Beslutsfattare',
+  latestNews: 'Nyheter',
+  emailPattern: 'E-postmönster'
 };
 
 const LeadCard: React.FC<LeadCardProps> = ({ 
@@ -268,6 +294,74 @@ const LeadCard: React.FC<LeadCardProps> = ({
   const displayNumber = (value?: number | null) => {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('sv-SE');
+  };
+
+  const formatVerifiedFieldValue = (field: VerifiedLeadField) => {
+    switch (field) {
+      case 'activeMarkets':
+        return editData.activeMarkets?.length ? editData.activeMarkets.join(', ') : '—';
+      case 'storeCount':
+        return displayValue(editData.storeCount);
+      case 'decisionMakers':
+        return editData.decisionMakers?.length
+          ? editData.decisionMakers.slice(0, 3).map((contact) => `${contact.name}${contact.title ? ` (${contact.title})` : ''}`).join(', ')
+          : '—';
+      case 'latestNews':
+        return editData.newsItems?.[0]?.title || editData.latestNews || '—';
+      case 'checkoutOptions':
+        return editData.checkoutOptions?.length
+          ? editData.checkoutOptions.map((option) => `${option.inCheckout === false ? '0' : option.position}: ${option.carrier}`).join(', ')
+          : '—';
+      case 'financialHistory':
+        return editData.financialHistory?.length
+          ? editData.financialHistory.slice(0, 3).map((year) => `${year.year}: ${year.revenue}`).join(' | ')
+          : '—';
+      case 'emailPattern':
+        return editData.emailPattern || '—';
+      default:
+        return displayValue((editData as unknown as Record<string, unknown>)[field] as string | number | null | undefined);
+    }
+  };
+
+  const renderVerifiedFieldsAccordion = (title: string, fields: VerifiedLeadField[]) => {
+    const entries = fields
+      .map((field) => ({ field, evidence: editData.verifiedFieldEvidence?.[field] }))
+      .filter((entry) => entry.evidence?.sourceUrl);
+
+    return (
+      <details className="border border-slate-100 bg-white rounded-none">
+        <summary className="cursor-pointer list-none flex items-center justify-between gap-3 p-3 select-none">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{title}</span>
+          <span className="text-[10px] font-black text-dhl-black">{entries.length}</span>
+        </summary>
+        <div className="border-t border-slate-100 p-3 space-y-2">
+          {entries.length > 0 ? entries.map(({ field, evidence }) => (
+            <div key={field} className="border border-slate-100 bg-dhl-gray-light p-2 rounded-sm">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <span className="text-[10px] font-bold text-dhl-black">{VERIFIED_FIELD_LABELS[field]}</span>
+                {evidence?.sourceUrl && (
+                  <a
+                    href={evidence.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[9px] font-bold text-[#D40511] hover:underline"
+                    title={evidence.snippet || evidence.sourceLabel || 'Verifierad källa'}
+                  >
+                    {evidence.sourceLabel || 'Källa'}
+                  </a>
+                )}
+              </div>
+              <div className="text-[10px] font-bold text-dhl-black break-words">{formatVerifiedFieldValue(field)}</div>
+              {evidence?.snippet && (
+                <div className="text-[9px] text-slate-500 leading-relaxed mt-1 break-words">{evidence.snippet}</div>
+              )}
+            </div>
+          )) : (
+            <p className="text-[10px] text-slate-400 italic">Inga verifierade fält i denna kolumn ännu.</p>
+          )}
+        </div>
+      </details>
+    );
   };
 
   const renderRiskFieldSource = (field: 'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio') => {
@@ -568,6 +662,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {renderVerifiedFieldsAccordion('Verifierade fält', [
+                    'revenue',
+                    'profit',
+                    'financialHistory',
+                    'solidity',
+                    'liquidityRatio',
+                    'profitMargin',
+                    'legalStatus',
+                    'paymentRemarks',
+                    'debtBalance',
+                    'debtEquityRatio'
+                  ])}
                 </div>
               )}
 
@@ -961,6 +1068,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {renderVerifiedFieldsAccordion('Verifierade fält', [
+                    'address',
+                    'visitingAddress',
+                    'warehouseAddress',
+                    'checkoutOptions',
+                    'ecommercePlatform',
+                    'taSystem',
+                    'paymentProvider',
+                    'checkoutSolution',
+                    'activeMarkets',
+                    'storeCount'
+                  ])}
                 </div>
 
                 {/* Kolumn 3: Beslutsfattare / Pitch / Potential */}
@@ -1181,6 +1301,12 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {renderVerifiedFieldsAccordion('Verifierade fält', [
+                    'decisionMakers',
+                    'emailPattern',
+                    'latestNews'
+                  ])}
                 </div>
               </div>
               )}
