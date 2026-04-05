@@ -1288,6 +1288,10 @@ function buildCoverageFieldEvidence(
   };
 }
 
+function pickVerifiedAddressValue(...values: Array<string | undefined | null>): string {
+  return pickString(...values);
+}
+
 function extractEmailsFromText(text: string, companyDomain?: string): string[] {
   const matches: string[] = String(text || '').match(/\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b/gi) || [];
   const normalizedDomain = normalizeDomain(companyDomain || '');
@@ -2319,9 +2323,10 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     const verifiedPaymentRemarks = pickString(registryFields.paymentRemarks, financials?.payment_remarks, financials?.paymentRemarks);
     const verifiedLegalStatus = pickString(registryFields.legalStatus, companyData?.legal_status, companyData?.legalStatus);
     const verifiedActiveMarkets = retailEvidence.activeMarkets;
-    const marketCount = verifiedActiveMarkets.length || pickNumber(companyData?.market_count, companyData?.marketCount);
+    const verifiedMarketCount = verifiedActiveMarkets.length || undefined;
+    const verifiedStoreCount = retailEvidence.storeCount;
     const metrics = revenueTKR !== undefined
-      ? calculateRickardMetrics(revenueTKR, sniCode || '', sniPercentages, marketCount || 1, {
+      ? calculateRickardMetrics(revenueTKR, sniCode || '', sniPercentages, verifiedMarketCount || 1, {
           marketSettings,
           activeCarrier
         })
@@ -2442,6 +2447,9 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
 
     const coverage = sourceBundle.coverage || [];
     const contactEvidence = dmSupplement.find((contact) => contact.linkedin || contact.verificationNote);
+    const verifiedPrimaryAddress = pickVerifiedAddressValue(registryFields.registeredAddress, retailEvidence.visitingAddress);
+    const verifiedVisitingAddress = pickVerifiedAddressValue(retailEvidence.visitingAddress, registryFields.registeredAddress);
+    const verifiedWarehouseAddress = pickVerifiedAddressValue(retailEvidence.warehouseAddress);
     const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
       revenue: buildFieldEvidence(revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '', financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
       profit: buildFieldEvidence(profitTKR !== undefined ? `${profitTKR.toLocaleString('sv-SE')} tkr` : '', financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
@@ -2454,19 +2462,19 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       debtBalance: riskFieldEvidence?.debtBalance,
       debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
       address: buildFieldEvidence(
-        pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
+        verifiedPrimaryAddress,
         financialEvidence.sourceUrl || retailEvidence.sourceUrl,
         financialEvidence.evidenceText || retailEvidence.evidenceSnippet,
         capturedAt
       ),
       visitingAddress: buildFieldEvidence(
-        pickString(retailEvidence.visitingAddress, companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
+        verifiedVisitingAddress,
         retailEvidence.sourceUrl || financialEvidence.sourceUrl,
         retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
         capturedAt
       ),
       warehouseAddress: buildFieldEvidence(
-        pickString(retailEvidence.warehouseAddress, companyData?.warehouse_address, companyData?.warehouseAddress),
+        verifiedWarehouseAddress,
         retailEvidence.sourceUrl,
         retailEvidence.evidenceSnippet,
         capturedAt
@@ -2502,7 +2510,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         capturedAt
       ),
       activeMarkets: buildFieldEvidence(verifiedActiveMarkets, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
-      storeCount: buildFieldEvidence(retailEvidence.storeCount, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
+      storeCount: buildFieldEvidence(verifiedStoreCount, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
       decisionMakers: buildFieldEvidence(
         contactEvidence?.name,
         contactEvidence?.linkedin || buildCoverageFieldEvidence(['decisionMakers'], coverage, contactEvidence?.name, capturedAt)?.sourceUrl,
@@ -2524,14 +2532,14 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       orgNumber: pickString(registryFields.orgNumber, companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
       domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
       sniCode,
-      address: pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, companyData?.visiting_address, companyData?.address, companyData?.street_address),
-      visitingAddress: pickString(retailEvidence.visitingAddress, companyData?.visiting_address, registryFields.registeredAddress, companyData?.address, companyData?.street_address),
-      warehouseAddress: pickString(retailEvidence.warehouseAddress, companyData?.warehouse_address, companyData?.warehouseAddress),
+      address: verifiedPrimaryAddress,
+      visitingAddress: verifiedVisitingAddress,
+      warehouseAddress: verifiedWarehouseAddress,
       revenue: revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '',
       revenueYear: pickString(companyData?.revenue_year, companyData?.revenueYear),
       profit: profitTKR !== undefined ? `${profitTKR.toLocaleString('sv-SE')} tkr` : '',
       activeMarkets: verifiedActiveMarkets,
-      marketCount: marketCount,
+      marketCount: verifiedMarketCount,
       estimatedAOV: metrics?.estimatedAOV,
       b2bPercentage: undefined,
       b2cPercentage: undefined,
@@ -2596,7 +2604,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         : '',
       
       businessModel: pickString(companyData?.business_model, companyData?.businessModel),
-      storeCount: retailEvidence.storeCount ?? pickNumber(logistics?.store_count, logistics?.storeCount),
+      storeCount: verifiedStoreCount,
       checkoutOptions: checkoutCrawlResult.confidence === 'crawled' && checkoutCrawlResult.positions.length > 0
         ? checkoutCrawlResult.positions.map(cp => ({
             position: cp.pos, carrier: cp.carrier, service: cp.service, price: cp.price, inCheckout: cp.inCheckout
@@ -2618,6 +2626,10 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         financialEvidence.confidence !== 'verified' ? 'Finansiell registerdata saknas eller är inte verifierad.' : '',
         !sourceGroundingEvidence ? 'Source grounding gav begränsat eller inget externt underlag.' : '',
         !finalLatestNews ? 'Inga verifierade nyheter hittades inom nuvarande source-regler.' : '',
+        !verifiedPrimaryAddress && !verifiedVisitingAddress && !verifiedWarehouseAddress ? 'Ingen verifierad adress hittades.' : '',
+        !verifiedWarehouseAddress ? 'Ingen verifierad lageradress hittades.' : '',
+        !verifiedActiveMarkets.length ? 'Inga verifierade marknader hittades.' : '',
+        verifiedStoreCount === undefined ? 'Verifierat butikantal hittades inte.' : '',
         !detectedEmailPattern ? 'E-postmönster kunde inte identifieras.' : '',
         !checkoutCrawlResult.positions.length ? 'Checkout crawl hittade inga verifierade checkout-positioner.' : '',
         !(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution) ? 'Ingen verifierad betalsetup hittades.' : '',
@@ -2646,7 +2658,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         financial: financialEvidence.confidence,
         checkout: checkoutCrawlResult.confidence,
         contacts: llmContactCount >= 2 ? 'estimated' as const : dmConfidence,
-        addresses: (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' as const : 'estimated' as const,
+        addresses: (verifiedPrimaryAddress || verifiedVisitingAddress || verifiedWarehouseAddress) ? 'verified' as const : 'missing' as const,
         payment: paymentEvidence.confidence,
         news: verifiedNews.confidence,
         emailPattern: detectedEmailPattern ? 'found' as const : 'missing' as const
@@ -2852,9 +2864,9 @@ export async function generateLeads(
       const verifiedDebtEquityRatio = pickString(registryFields.debtEquityRatio, l.debtEquityRatio, l.debt_equity_ratio);
       const verifiedPaymentRemarks = pickString(registryFields.paymentRemarks, l.paymentRemarks, l.payment_remarks);
       const verifiedLegalStatus = pickString(registryFields.legalStatus, l.legalStatus, l.legal_status);
-      const verifiedActiveMarkets = retailEvidence.activeMarkets.length
-        ? retailEvidence.activeMarkets
-        : (Array.isArray(l.activeMarkets) ? l.activeMarkets : (Array.isArray(l.active_markets) ? l.active_markets : []));
+      const verifiedActiveMarkets = retailEvidence.activeMarkets;
+      const verifiedMarketCount = verifiedActiveMarkets.length || undefined;
+      const verifiedStoreCount = retailEvidence.storeCount;
       const decisionMakers: DecisionMaker[] = dedupeDecisionMakers([
         ...baseDecisionMakers,
         ...dmSupplement.map(dc => ({ name: dc.name, title: dc.title, email: dc.email, linkedin: dc.linkedin, directPhone: dc.directPhone, verificationNote: dc.verificationNote }))
@@ -2929,6 +2941,10 @@ export async function generateLeads(
         .filter(Boolean)
         .join(' | ');
 
+      const verifiedPrimaryAddress = pickVerifiedAddressValue(registryFields.registeredAddress, retailEvidence.visitingAddress);
+      const verifiedVisitingAddress = pickVerifiedAddressValue(retailEvidence.visitingAddress, registryFields.registeredAddress);
+      const verifiedWarehouseAddress = pickVerifiedAddressValue(retailEvidence.warehouseAddress);
+
       const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> | undefined = (() => {
         const evidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
           revenue: buildFieldEvidence(
@@ -2980,25 +2996,25 @@ export async function generateLeads(
           debtBalance: riskFieldEvidence?.debtBalance,
           debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
           address: buildFieldEvidence(
-            pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, l.address, l.visitingAddress, l.visiting_address),
+            verifiedPrimaryAddress,
             financialEvidence.sourceUrl || retailEvidence.sourceUrl,
             retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
             capturedAt,
-            (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' : 'estimated'
+            verifiedPrimaryAddress ? 'verified' : 'missing'
           ),
           visitingAddress: buildFieldEvidence(
-            pickString(retailEvidence.visitingAddress, l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
+            verifiedVisitingAddress,
             retailEvidence.sourceUrl || financialEvidence.sourceUrl,
             retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
             capturedAt,
-            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+            verifiedVisitingAddress ? 'verified' : 'missing'
           ),
           warehouseAddress: buildFieldEvidence(
-            pickString(retailEvidence.warehouseAddress, l.warehouseAddress, l.warehouse_address),
+            verifiedWarehouseAddress,
             retailEvidence.sourceUrl,
             retailEvidence.evidenceSnippet,
             capturedAt,
-            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+            verifiedWarehouseAddress ? 'verified' : 'missing'
           ),
           checkoutOptions: buildFieldEvidence(
             checkoutEvidence.positions,
@@ -3040,7 +3056,14 @@ export async function generateLeads(
             retailEvidence.sourceUrl,
             retailEvidence.evidenceSnippet,
             capturedAt,
-            retailEvidence.confidence === 'verified' ? 'verified' : 'estimated'
+            retailEvidence.confidence === 'verified' && verifiedActiveMarkets.length ? 'verified' : 'missing'
+          ),
+          storeCount: buildFieldEvidence(
+            verifiedStoreCount,
+            retailEvidence.sourceUrl,
+            retailEvidence.evidenceSnippet,
+            capturedAt,
+            verifiedStoreCount !== undefined ? 'verified' : 'missing'
           ),
           decisionMakers: buildFieldEvidence(
             decisionMakers,
@@ -3076,9 +3099,9 @@ export async function generateLeads(
         phoneNumber: pickString(l.phoneNumber, l.phone_number),
         sniCode,
         revenue: effectiveRevenueTkr !== undefined ? `${effectiveRevenueTkr.toLocaleString('sv-SE')} tkr` : '',
-        address: pickString(registryFields.registeredAddress, retailEvidence.visitingAddress, l.address, l.visitingAddress, l.visiting_address),
-        visitingAddress: pickString(retailEvidence.visitingAddress, l.visitingAddress, l.visiting_address, registryFields.registeredAddress, l.address),
-        warehouseAddress: pickString(retailEvidence.warehouseAddress, l.warehouseAddress, l.warehouse_address),
+        address: verifiedPrimaryAddress,
+        visitingAddress: verifiedVisitingAddress,
+        warehouseAddress: verifiedWarehouseAddress,
         domain,
         websiteUrl,
         decisionMakers,
@@ -3094,8 +3117,9 @@ export async function generateLeads(
           : (l.checkoutOptions || []),
         latestNews: newsEvidence.summary || '',
         newsItems: newsEvidence.items,
-        marketCount: verifiedActiveMarkets.length || marketCount,
+        marketCount: verifiedMarketCount,
         activeMarkets: verifiedActiveMarkets,
+        storeCount: verifiedStoreCount,
         annualPackages: metrics ? annualPackages : undefined,
         annualPackageEstimateSource: pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages)
           ? 'llm-logistics'
@@ -3146,6 +3170,10 @@ export async function generateLeads(
         analysisWarnings: dedupeMessages([
           ...analysisWarnings,
           financialEvidence.confidence !== 'verified' ? 'Finansiell registerdata saknas eller är inte verifierad.' : '',
+          !verifiedPrimaryAddress && !verifiedVisitingAddress && !verifiedWarehouseAddress ? 'Ingen verifierad adress hittades.' : '',
+          !verifiedWarehouseAddress ? 'Ingen verifierad lageradress hittades.' : '',
+          !verifiedActiveMarkets.length ? 'Inga verifierade marknader hittades.' : '',
+          verifiedStoreCount === undefined ? 'Verifierat butikantal hittades inte.' : '',
           !newsEvidence.summary ? 'Inga verifierade nyheter hittades för leadet.' : '',
           !emailPattern ? 'E-postmönster kunde inte identifieras.' : '',
           !checkoutEvidence.positions.length ? 'Checkout crawl hittade inga verifierade checkout-positioner.' : '',
@@ -3209,7 +3237,7 @@ export async function generateLeads(
           financial: financialEvidence.confidence,
           checkout: checkoutEvidence.confidence,
           contacts: dmConfidence,
-          addresses: (financialEvidence.confidence === 'verified' || retailEvidence.confidence === 'verified') ? 'verified' : 'estimated',
+          addresses: (verifiedPrimaryAddress || verifiedVisitingAddress || verifiedWarehouseAddress) ? 'verified' : 'missing',
           payment: paymentEvidence.confidence,
           news: newsEvidence.confidence,
           emailPattern: emailPattern ? 'found' : 'missing'

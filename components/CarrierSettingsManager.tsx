@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Plus, Ruler, Save, Scale, Target, Trash2, TrendingUp, Upload, X } from 'lucide-react';
+import { AlertCircle, Box, Download, Loader2, Plus, RefreshCw, Ruler, Save, Scale, Target, Trash2, TrendingUp, Upload, X } from 'lucide-react';
 import { CarrierPriceRule, CarrierProductMapping, CarrierSettings } from '../types';
 import {
   PricingScenario,
@@ -13,6 +13,9 @@ import {
   importCarrierSettingsFromCsv,
   normalizeCarrierSettings
 } from '../services/pricingService';
+import { fetchCarrierNetworkCoverage } from '../services/carrierNetworkService';
+
+const DEFAULT_SWEDEN_POPULATION = 10605500;
 
 interface CarrierSettingsManagerProps {
   isOpen: boolean;
@@ -99,6 +102,10 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
   const [settings, setSettings] = useState<CarrierSettings[]>(normalizeCarrierSettings(currentSettings.length ? currentSettings : DEFAULT_CARRIER_SETTINGS));
   const [newCarrierName, setNewCarrierName] = useState('');
   const [scenario, setScenario] = useState<PricingScenario>(DEFAULT_SCENARIO);
+  const [populationBase, setPopulationBase] = useState(DEFAULT_SWEDEN_POPULATION);
+  const [isSyncingCoverage, setIsSyncingCoverage] = useState(false);
+  const [coverageSyncError, setCoverageSyncError] = useState('');
+  const [coverageSyncMessage, setCoverageSyncMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +126,12 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
   const scenarioMatches = useMemo(() => findScenarioMatches(settings, scenario).sort((left, right) => left.effectivePrice - right.effectivePrice), [scenario, settings]);
   const focusMatch = scenarioMatches.find((entry) => entry.carrier.isFocusCarrier);
   const recommendation = useMemo(() => buildScenarioRecommendation(settings, scenario), [scenario, settings]);
+  const carrierCoverageRows = useMemo(() => normalizeCarrierSettings(settings)
+    .map((carrier) => ({
+      carrier,
+      homeReachPercent: populationBase > 0 ? ((carrier.homeDeliveryReachPeople || 0) / populationBase) * 100 : 0
+    }))
+    .sort((left, right) => right.homeReachPercent - left.homeReachPercent), [populationBase, settings]);
 
   const handleCarrierFieldChange = (carrierIndex: number, field: keyof CarrierSettings, value: string | number | boolean) => {
     setSettings((previous) => previous.map((carrier, index) => {
@@ -289,6 +302,44 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
     onClose();
   };
 
+  const handleSyncCarrierCoverage = async () => {
+    setIsSyncingCoverage(true);
+    setCoverageSyncError('');
+    setCoverageSyncMessage('');
+
+    try {
+      const snapshots = await fetchCarrierNetworkCoverage(settings, populationBase);
+      const snapshotMap = new Map(snapshots.map((snapshot) => [snapshot.carrierName.toLowerCase(), snapshot]));
+
+      setSettings((previous) => previous.map((carrier) => {
+        const snapshot = snapshotMap.get(carrier.name.toLowerCase());
+        if (!snapshot) return carrier;
+
+        return {
+          ...carrier,
+          agentLocationCount: snapshot.agentLocationCount ?? carrier.agentLocationCount,
+          lockerLocationCount: snapshot.lockerLocationCount ?? carrier.lockerLocationCount,
+          homeDeliveryReachPeople: snapshot.homeDeliveryReachPeople ?? carrier.homeDeliveryReachPeople,
+          networkCoverageSourceUrl: snapshot.sourceUrl || carrier.networkCoverageSourceUrl,
+          networkCoverageSourceLabel: snapshot.sourceLabel || carrier.networkCoverageSourceLabel,
+          networkCoverageCapturedAt: snapshot.capturedAt || carrier.networkCoverageCapturedAt,
+          networkCoverageConfidence: snapshot.confidence,
+          networkCoverageSnippet: snapshot.snippet || carrier.networkCoverageSnippet
+        };
+      }));
+
+      const verifiedCount = snapshots.filter((snapshot) => snapshot.confidence === 'verified').length;
+      setCoverageSyncMessage(verifiedCount
+        ? `Verifierade nätverkskällor hittades för ${verifiedCount} transportörer.`
+        : 'Inga verifierade nätverkskällor hittades den här gången.');
+    } catch (error) {
+      console.error('Could not sync carrier coverage:', error);
+      setCoverageSyncError('Kunde inte hämta transportörernas nätverksdata från officiella källor just nu.');
+    } finally {
+      setIsSyncingCoverage(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -356,6 +407,90 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
             </div>
           </section>
 
+          <section className="bg-white border border-slate-200 shadow-sm p-5 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-900">Natracksanalys</h3>
+                <p className="text-xs text-slate-500">Jamfor antal ombud, antal paketskap och hur stor andel av befolkningen som respektive transportor nar i hemleverans.</p>
+              </div>
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="border border-slate-200 bg-slate-50 px-3 py-2 min-w-[280px]">
+                  <p className="text-[10px] font-black uppercase text-slate-500">Sveriges befolkning</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="number" value={populationBase} onChange={(event) => setPopulationBase(toNumber(event.target.value))} className="w-full border border-slate-300 rounded-sm p-2 text-xs bg-white" />
+                    <span className="text-[10px] text-slate-500 whitespace-nowrap">personer</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Default satt fran soksvar: 10 605 500 personer i Sverige.</p>
+                </div>
+                <div className="space-y-2">
+                  <button onClick={handleSyncCarrierCoverage} disabled={isSyncingCoverage} className="bg-slate-900 text-white px-4 py-3 text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                    {isSyncingCoverage ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    Hamta riktiga kallor
+                  </button>
+                  <p className="text-[10px] text-slate-500 max-w-[280px]">Soker fram officiella carrier-sidor via Tavily och crawlar sedan siffror for ombud, paketskap och hemrackvidd.</p>
+                </div>
+              </div>
+            </div>
+
+            {coverageSyncError && (
+              <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {coverageSyncError}
+              </div>
+            )}
+
+            {coverageSyncMessage && !coverageSyncError && (
+              <div className="border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                {coverageSyncMessage}
+              </div>
+            )}
+
+            <div className="overflow-x-auto border border-slate-200">
+              <table className="w-full min-w-[860px] text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500">
+                  <tr>
+                    <th className="p-3">Transportor</th>
+                    <th className="p-3">Ombud</th>
+                    <th className="p-3">Paketskap</th>
+                    <th className="p-3">Hemleverans</th>
+                    <th className="p-3">% av befolkning</th>
+                    <th className="p-3">Kalla</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {carrierCoverageRows.map(({ carrier, homeReachPercent }) => (
+                    <tr key={`coverage-${carrier.name}`} className={carrier.isFocusCarrier ? 'bg-yellow-50' : 'bg-white'}>
+                      <td className="p-3 font-black text-slate-900">{carrier.name}{carrier.isFocusCarrier ? ' (fokus)' : ''}</td>
+                      <td className="p-3">{(carrier.agentLocationCount || 0).toLocaleString('sv-SE')}</td>
+                      <td className="p-3">{(carrier.lockerLocationCount || 0).toLocaleString('sv-SE')}</td>
+                      <td className="p-3">{(carrier.homeDeliveryReachPeople || 0).toLocaleString('sv-SE')}</td>
+                      <td className="p-3 font-black text-slate-900">{homeReachPercent.toFixed(1)}%</td>
+                      <td className="p-3">
+                        {carrier.networkCoverageSourceUrl ? (
+                          <a href={carrier.networkCoverageSourceUrl} target="_blank" rel="noreferrer" title={carrier.networkCoverageSnippet || carrier.networkCoverageSourceLabel || 'Verifierad källa'} className={`inline-flex items-center gap-1 border px-2 py-1 text-[10px] font-black uppercase ${carrier.networkCoverageConfidence === 'verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                            {carrier.networkCoverageSourceLabel || 'Källa'}
+                          </a>
+                        ) : (
+                          <span className="text-[10px] font-black uppercase text-red-600">Saknas</span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 text-[10px] font-black uppercase rounded-sm border ${
+                          homeReachPercent >= 90 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : homeReachPercent >= 70 ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            : 'bg-red-50 text-red-700 border-red-200'
+                        }`}>
+                          {homeReachPercent >= 90 ? 'Nationell' : homeReachPercent >= 70 ? 'Bred' : 'Begransad'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <section className="bg-white border border-slate-200 shadow-sm p-5 space-y-5">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div><h3 className="text-sm font-black uppercase tracking-wide text-slate-900">Transportorer och prisintervall</h3><p className="text-xs text-slate-500">Lagg in egna produkter, konkurrentpriser, viktspann, dimensionstak och volymtrappor per transportor.</p></div>
@@ -379,6 +514,13 @@ export const CarrierSettingsManager: React.FC<CarrierSettingsManagerProps> = ({ 
                       <label className="text-[10px] font-black uppercase text-slate-500 space-y-1 block"><span>Volym skap</span><input type="number" value={carrier.volumeSkap} onChange={(event) => handleCarrierFieldChange(carrierIndex, 'volumeSkap', event.target.value)} className="w-full border border-slate-300 rounded-sm p-2 text-xs" /></label>
                       <label className="text-[10px] font-black uppercase text-slate-500 space-y-1 block"><span>Volym hem</span><input type="number" value={carrier.volumeHem} onChange={(event) => handleCarrierFieldChange(carrierIndex, 'volumeHem', event.target.value)} className="w-full border border-slate-300 rounded-sm p-2 text-xs" /></label>
                       <div className="border border-slate-200 rounded-sm p-3 bg-slate-50"><p className="text-[10px] font-black uppercase text-slate-500">Aktiv prisniva</p><p className="text-sm font-black text-slate-900 mt-1">{carrier.avgPrice ? formatSek(carrier.avgPrice) : '0.00 SEK'}</p></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="border border-slate-200 rounded-sm p-3 bg-slate-50"><p className="text-[10px] font-black uppercase text-slate-500">Antal ombud</p><p className="text-sm font-black text-slate-900 mt-1">{(carrier.agentLocationCount || 0).toLocaleString('sv-SE')}</p></div>
+                      <div className="border border-slate-200 rounded-sm p-3 bg-slate-50"><p className="text-[10px] font-black uppercase text-slate-500">Antal paketskap</p><p className="text-sm font-black text-slate-900 mt-1">{(carrier.lockerLocationCount || 0).toLocaleString('sv-SE')}</p></div>
+                      <div className="border border-slate-200 rounded-sm p-3 bg-slate-50"><p className="text-[10px] font-black uppercase text-slate-500">Hemleverans personer</p><p className="text-sm font-black text-slate-900 mt-1">{(carrier.homeDeliveryReachPeople || 0).toLocaleString('sv-SE')}</p></div>
+                      <div className="border border-slate-200 rounded-sm p-3 bg-slate-50"><p className="text-[10px] font-black uppercase text-slate-500">Natkalla</p>{carrier.networkCoverageSourceUrl ? <a href={carrier.networkCoverageSourceUrl} target="_blank" rel="noreferrer" title={carrier.networkCoverageSnippet || carrier.networkCoverageSourceLabel || 'Verifierad källa'} className="mt-1 inline-flex items-center gap-1 text-xs font-black text-red-600 hover:underline">{carrier.networkCoverageSourceLabel || 'Källa'}</a> : <p className="text-xs font-black text-slate-900 mt-1">Inte synkad</p>}{carrier.networkCoverageCapturedAt && <p className="text-[10px] text-slate-500 mt-1">{new Date(carrier.networkCoverageCapturedAt).toLocaleDateString('sv-SE')}</p>}</div>
                     </div>
 
                     <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-black uppercase tracking-wide text-slate-700">Prisrader</h4><p className="text-[11px] text-slate-500">En rad representerar en produkt med volymintervall, viktklass och dimensionstak.</p></div><button onClick={() => handleAddRule(carrierIndex)} className="text-xs font-black uppercase tracking-wide text-red-600 flex items-center gap-2"><Plus className="w-4 h-4" /> Ny prisrad</button></div>

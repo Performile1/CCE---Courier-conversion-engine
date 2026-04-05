@@ -6,7 +6,7 @@ import {
   ArrowDownRight, RefreshCw, UserCheck, Calendar as CalendarIcon,
   MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2, AlertCircle
 } from 'lucide-react';
-import { CarrierSettings, LeadData, Segment, ThreePLProvider, VerifiedLeadField } from '../types';
+import { CarrierSettings, LeadData, Segment, ThreePLProvider, VerifiedFieldEvidence, VerifiedLeadField } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateEmailSuggestion } from '../services/openrouterService';
 import { buildOfferRecommendation, derivePricingScenarioFromLead, formatSek, normalizeCarrierSettings } from '../services/pricingService';
@@ -44,6 +44,34 @@ const ConfidenceBadge = ({ level }: {
   if (level === 'missing')
     return <span className="ml-1.5 px-1 py-0.5 bg-red-50 text-red-600 text-[7px] font-black uppercase border border-red-100 tracking-wider">EJ HITTAD</span>;
   return null;
+};
+
+const FieldSourceBadge = ({ evidence, missingLabel = 'Källa saknas' }: {
+  evidence?: VerifiedFieldEvidence;
+  missingLabel?: string;
+}) => {
+  if (!evidence?.sourceUrl) {
+    return <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-red-600">{missingLabel}</span>;
+  }
+
+  const badgeClassName = evidence.confidence === 'verified'
+    ? 'text-emerald-700 border-emerald-200 bg-emerald-50'
+    : evidence.confidence === 'estimated'
+      ? 'text-yellow-700 border-yellow-200 bg-yellow-50'
+      : 'text-red-600 border-red-100 bg-red-50';
+
+  return (
+    <a
+      href={evidence.sourceUrl}
+      target="_blank"
+      rel="noreferrer"
+      title={evidence.snippet || evidence.sourceLabel || 'Verifierad källa'}
+      className={`inline-flex items-center gap-1 border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${badgeClassName}`}
+    >
+      <ExternalLink className="w-2.5 h-2.5" />
+      {evidence.sourceLabel || 'Källa'}
+    </a>
+  );
 };
 
 const VERIFIED_FIELD_LABELS: Record<VerifiedLeadField, string> = {
@@ -195,6 +223,24 @@ const LeadCard: React.FC<LeadCardProps> = ({
   const normalizedMarketSettings = normalizeCarrierSettings(marketSettings || []);
   const pricingScenario = normalizedMarketSettings.length ? derivePricingScenarioFromLead(editData, normalizedMarketSettings) : null;
   const offerRecommendation = normalizedMarketSettings.length ? buildOfferRecommendation(normalizedMarketSettings, editData) : null;
+  const hasAnalysisDiagnostics = Boolean(
+    editData.analysisSteps?.length
+    || editData.analysisWarnings?.length
+    || editData.analysisTelemetry?.length
+    || editData.analysisCompleteness
+  );
+  const hasOfferRecommendation = Boolean(offerRecommendation && pricingScenario);
+  const diagnosticsCount = (editData.analysisSteps?.length || 0) + (editData.analysisWarnings?.length || 0);
+  const pricingMatchesCount = offerRecommendation?.allMatches.length || 0;
+  const mailRecipientsCount = editData.decisionMakers?.length || 0;
+  const showDiagnosticsWarningDot = Boolean((editData.analysisWarnings?.length || 0) > 0 || editData.analysisCompleteness === 'thin');
+  const showPricingWarningDot = Boolean(!hasOfferRecommendation || !offerRecommendation?.focusMatch || !offerRecommendation?.targetPrice);
+  const addressEvidence = editData.verifiedFieldEvidence?.address;
+  const visitingAddressEvidence = editData.verifiedFieldEvidence?.visitingAddress;
+  const warehouseAddressEvidence = editData.verifiedFieldEvidence?.warehouseAddress;
+  const checkoutEvidence = editData.verifiedFieldEvidence?.checkoutOptions;
+  const activeMarketsEvidence = editData.verifiedFieldEvidence?.activeMarkets;
+  const storeCountEvidence = editData.verifiedFieldEvidence?.storeCount;
 
   const buildQuoteRecommendationHtml = () => {
     if (!pricingScenario || !offerRecommendation || !offerRecommendation.targetPrice) {
@@ -222,6 +268,221 @@ const LeadCard: React.FC<LeadCardProps> = ({
     `;
   };
 
+  const getTabButtonClass = (tabId: string) => `group relative min-w-[128px] px-3 py-2 border text-left rounded-none transition-all ${
+    activeTab === tabId
+      ? 'bg-[#D40511] text-white border-[#D40511] shadow-sm'
+      : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light hover:border-slate-400'
+  }`;
+
+  const getTabBadgeClass = (tabId: string, tone: 'neutral' | 'warning' | 'accent' = 'neutral') => {
+    if (activeTab === tabId) {
+      return 'bg-white/20 text-white border border-white/20';
+    }
+
+    if (tone === 'warning') {
+      return 'bg-yellow-50 text-yellow-700 border border-yellow-200';
+    }
+
+    if (tone === 'accent') {
+      return 'bg-red-50 text-red-700 border border-red-200';
+    }
+
+    return 'bg-slate-100 text-slate-600 border border-slate-200';
+  };
+
+  const diagnosticsTabContent = (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4 border border-slate-200 bg-slate-50 p-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Analysdiagnostik</p>
+          <h3 className="text-sm font-black text-slate-900">Pipeline, varningar och underlagsstatus</h3>
+          <p className="text-xs text-slate-500 mt-1">Visar hur lead-analysen byggdes upp, vilka steg som lyckades och var underlaget blev tunnare.</p>
+        </div>
+        {editData.analysisCompleteness && (
+          <span className={`px-2 py-1 text-[9px] font-black uppercase rounded-sm border ${
+            editData.analysisCompleteness === 'full'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : editData.analysisCompleteness === 'partial'
+                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                : 'bg-red-50 text-red-700 border-red-200'
+          }`}>
+            {editData.analysisCompleteness === 'full' ? 'Full' : editData.analysisCompleteness === 'partial' ? 'Partial' : 'Thin'}
+          </span>
+        )}
+      </div>
+
+      {!hasAnalysisDiagnostics ? (
+        <div className="border border-dashed border-slate-300 bg-white p-8 text-center">
+          <AlertCircle className="w-7 h-7 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-900">Ingen analysdiagnostik ännu</p>
+          <p className="text-xs text-slate-500 mt-1">Kör eller uppdatera analysen för att se stegstatus, varningar och telemetri här.</p>
+        </div>
+      ) : (
+        <>
+          {(editData.analysisSteps?.length || 0) > 0 && (
+            <div className="border border-slate-200 bg-white p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Analyssteg</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {editData.analysisSteps?.map((step) => (
+                  <div key={step.step} className="border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{step.step.replace(/_/g, ' ')}</p>
+                        <p className="text-xs font-bold text-slate-900 mt-1">{step.summary}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${
+                        step.status === 'success'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : step.status === 'failed'
+                            ? 'bg-red-50 text-red-700 border-red-200'
+                            : step.status === 'partial' || step.status === 'fallback_used'
+                              ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                              : step.status === 'skipped'
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {step.status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] text-slate-600">
+                      <div className="border border-slate-200 bg-white p-2">
+                        <div className="uppercase font-black text-slate-400">Confidence</div>
+                        <div className="font-bold text-slate-900 mt-1">{Math.round((step.confidence || 0) * 100)}%</div>
+                      </div>
+                      <div className="border border-slate-200 bg-white p-2">
+                        <div className="uppercase font-black text-slate-400">Evidence</div>
+                        <div className="font-bold text-slate-900 mt-1">{step.evidenceCount || 0}</div>
+                      </div>
+                      <div className="border border-slate-200 bg-white p-2">
+                        <div className="uppercase font-black text-slate-400">Tid</div>
+                        <div className="font-bold text-slate-900 mt-1">{step.durationMs ? `${step.durationMs} ms` : '—'}</div>
+                      </div>
+                    </div>
+                    {!!step.sourceDomains?.length && (
+                      <p className="text-[10px] text-slate-500 mt-3">Källor: {step.sourceDomains.join(', ')}</p>
+                    )}
+                    {step.errorCode && (
+                      <p className="text-[10px] text-red-600 mt-1 uppercase font-black">Fel: {step.errorCode}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(editData.analysisWarnings?.length || 0) > 0 && (
+            <div className="border border-red-200 bg-red-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-red-600 mb-3">Varningar</p>
+              <div className="space-y-2">
+                {editData.analysisWarnings?.map((warning, index) => (
+                  <div key={`warning-${index}`} className="text-[11px] bg-white border border-red-100 p-3 text-slate-700">
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(editData.analysisTelemetry?.length || 0) > 0 && (
+            <div className="border border-slate-200 bg-white p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Telemetri</p>
+              <div className="space-y-2">
+                {editData.analysisTelemetry?.map((entry, index) => (
+                  <div key={`telemetry-${index}`} className="text-[11px] border border-slate-200 bg-slate-50 p-3 text-slate-700">
+                    {entry}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const offerRecommendationTabContent = (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4 border border-slate-900 bg-slate-950 p-4 text-white">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Offertrekommendation</p>
+          <h3 className="text-sm font-black">Pris mot globalt prisbibliotek</h3>
+          <p className="text-xs text-slate-300 mt-1">Bygger rekommendationen från Market Intelligence Center, volymband och matchande konkurrentpriser.</p>
+        </div>
+        <Target className="w-5 h-5 text-[#ffcc00]" />
+      </div>
+
+      {!hasOfferRecommendation ? (
+        <div className="border border-dashed border-slate-300 bg-white p-8 text-center">
+          <Target className="w-7 h-7 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-900">Ingen offertrekommendation ännu</p>
+          <p className="text-xs text-slate-500 mt-1">Lägg in prisregler i Market Intelligence Center för att få en separat prisflik här.</p>
+        </div>
+      ) : (
+        <div className="p-4 bg-slate-950 text-white rounded-none border border-slate-900">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div className="bg-white/5 border border-white/10 p-3">
+              <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Produktprofil</p>
+              <p className="text-xs font-bold text-white">{pricingScenario?.productName}</p>
+              <p className="text-[10px] text-slate-300 mt-1">{pricingScenario?.weightKg} kg, {pricingScenario?.lengthCm}x{pricingScenario?.widthCm}x{pricingScenario?.heightCm} cm</p>
+              <p className="text-[10px] text-slate-300 mt-1">Prisbas: Globalt prisbibliotek i Market Intelligence Center</p>
+              <p className="text-[10px] text-slate-300 mt-1">Produktkalla: {PRODUCT_SOURCE_LABELS[editData.pricingProductSource || ''] || 'Beraknad standard'}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-3">
+              <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Arsvolym</p>
+              <p className="text-xs font-bold text-white">{pricingScenario?.annualPackages.toLocaleString('sv-SE')} paket</p>
+              <p className="text-[10px] text-slate-300 mt-1">Volymkalla: {ANNUAL_PACKAGE_SOURCE_LABELS[editData.annualPackageEstimateSource || ''] || 'Leaddata'}</p>
+              <p className="text-[10px] text-slate-300 mt-1">Prissatt enbart pa volymband, inte kundprofil.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div className="bg-emerald-500/10 border border-emerald-400/30 p-3">
+              <p className="text-[10px] font-black uppercase text-emerald-300 mb-1">Fokuscarrier idag</p>
+              <p className="text-lg font-black text-white">{offerRecommendation?.focusMatch ? formatSek(offerRecommendation.focusMatch.effectivePrice) : 'Saknar prisrad'}</p>
+              <p className="text-[10px] text-slate-300 mt-1">{offerRecommendation?.focusMatch?.carrier.name || 'Valj eller konfigurera fokuscarrier i Market Intelligence Center.'}</p>
+            </div>
+            <div className="bg-[#ffcc00]/10 border border-[#ffcc00]/30 p-3">
+              <p className="text-[10px] font-black uppercase text-[#ffcc00] mb-1">Rekommenderad offertniva</p>
+              <p className="text-lg font-black text-white">{offerRecommendation?.targetPrice ? formatSek(offerRecommendation.targetPrice) : 'Ingen rekommendation'}</p>
+              <p className={`text-[10px] mt-1 ${(offerRecommendation?.priceDelta || 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                {offerRecommendation?.targetPrice && offerRecommendation?.focusMatch
+                  ? `${offerRecommendation.priceDelta >= 0 ? '+' : ''}${offerRecommendation.priceDelta.toFixed(2)} SEK mot nuvarande fokuspris`
+                  : offerRecommendation?.positioning}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 p-3 mb-3">
+            <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Prisintervall att spela inom</p>
+            <div className="flex items-center justify-between text-xs gap-3">
+              <span className="font-bold text-white">Golv: {offerRecommendation?.recommendedPriceFloor ? formatSek(offerRecommendation.recommendedPriceFloor) : '—'}</span>
+              <span className="font-bold text-white">Tak: {offerRecommendation?.recommendedPriceCeiling ? formatSek(offerRecommendation.recommendedPriceCeiling) : '—'}</span>
+            </div>
+            <p className="text-[10px] text-slate-300 mt-2">{offerRecommendation?.positioning}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase text-slate-400">Matchande konkurrenter</p>
+            {offerRecommendation?.allMatches.length ? offerRecommendation.allMatches.map((entry) => (
+              <div key={`${entry.carrier.name}-${entry.matchedRule.id}`} className={`flex items-center justify-between gap-3 p-2 border ${entry.carrier.isFocusCarrier ? 'border-[#ffcc00]/40 bg-[#ffcc00]/10' : 'border-white/10 bg-white/5'}`}>
+                <div>
+                  <p className="text-xs font-black text-white">{entry.carrier.name}{entry.carrier.isFocusCarrier ? ' (fokus)' : ''}</p>
+                  <p className="text-[10px] text-slate-300">{entry.matchedRule.productName} • {entry.matchedRule.customerAnnualPackagesMin.toLocaleString('sv-SE')}-{entry.matchedRule.customerAnnualPackagesMax.toLocaleString('sv-SE')} paket</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black text-white">{formatSek(entry.effectivePrice)}</p>
+                  <p className="text-[10px] text-slate-300">Baspris {formatSek(entry.matchedRule.priceSek)}</p>
+                </div>
+              </div>
+            )) : (
+              <div className="text-[10px] text-slate-300">Inga prisrader matchar detta lead. Lagg in fler produkt- och volymintervall i Market Intelligence Center.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // Sync state when data prop changes
   useEffect(() => {
     if (data) {
@@ -230,6 +491,8 @@ const LeadCard: React.FC<LeadCardProps> = ({
         ...data
       }));
       if (data.analysisDate) {
+        setIsAnalyzing(false);
+        setAnalysisText('Kör Surgical QuickScan AI...');
         setDeepScanActive(true);
         setScanComplete(true);
       } else {
@@ -571,37 +834,83 @@ const LeadCard: React.FC<LeadCardProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <button 
-                onClick={() => setActiveTab('overview')}
-                className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
-                  activeTab === 'overview' 
-                    ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
-                }`}
-              >
-                <Layout className="w-3 h-3" /> Översikt
-              </button>
-              <button 
-                onClick={() => setActiveTab('analysis')}
-                className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
-                  activeTab === 'analysis' 
-                    ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
-                }`}
-              >
-                <Microscope className="w-3 h-3" /> Surgical Analysis
-              </button>
-              <button 
-                onClick={() => setActiveTab('mail')}
-                className={`px-2 py-1 border rounded-none text-[10px] font-bold transition-all flex items-center gap-1 ${
-                  activeTab === 'mail' 
-                    ? 'bg-[#D40511] text-white border-[#D40511]' 
-                    : 'bg-white text-dhl-gray-dark border-dhl-gray-medium hover:bg-dhl-gray-light'
-                }`}
-              >
-                <Mail className="w-3 h-3" /> Mail Engine
-              </button>
+            <div className="border border-black/10 bg-white/40 px-2 py-2">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-black/60">Lead Workspace</span>
+                <span className="text-[9px] text-black/45">Välj vy för bolag, analys, diagnostik, offert och outreach</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button 
+                  onClick={() => setActiveTab('overview')}
+                  className={getTabButtonClass('overview')}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
+                      <Layout className="w-3 h-3" /> Översikt
+                    </span>
+                    <span className={getTabBadgeClass('overview')}>Bas</span>
+                  </div>
+                  <div className={`text-[9px] mt-1 ${activeTab === 'overview' ? 'text-white/80' : 'text-slate-500'}`}>Bolagsbild, ekonomi och logistik</div>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('analysis')}
+                  className={getTabButtonClass('analysis')}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
+                      <Microscope className="w-3 h-3" /> Analysis
+                    </span>
+                    <span className={getTabBadgeClass('analysis', scanComplete || editData.analysisDate ? 'accent' : 'neutral')}>
+                      {scanComplete || editData.analysisDate ? 'Klar' : 'Scan'}
+                    </span>
+                  </div>
+                  <div className={`text-[9px] mt-1 ${activeTab === 'analysis' ? 'text-white/80' : 'text-slate-500'}`}>Recovery, DMT och friktion</div>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('diagnostics')}
+                  className={getTabButtonClass('diagnostics')}
+                >
+                  {showDiagnosticsWarningDot && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white/70" />}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
+                      <AlertCircle className="w-3 h-3" /> Diagnostik
+                    </span>
+                    <span className={getTabBadgeClass('diagnostics', (editData.analysisWarnings?.length || 0) > 0 ? 'warning' : 'neutral')}>
+                      {diagnosticsCount || 0}
+                    </span>
+                  </div>
+                  <div className={`text-[9px] mt-1 ${activeTab === 'diagnostics' ? 'text-white/80' : 'text-slate-500'}`}>Steg, warnings och telemetri</div>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('pricing')}
+                  className={getTabButtonClass('pricing')}
+                >
+                  {showPricingWarningDot && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-yellow-400 ring-2 ring-white/70" />}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
+                      <Target className="w-3 h-3" /> Offert
+                    </span>
+                    <span className={getTabBadgeClass('pricing', hasOfferRecommendation ? 'accent' : 'neutral')}>
+                      {hasOfferRecommendation ? pricingMatchesCount : '—'}
+                    </span>
+                  </div>
+                  <div className={`text-[9px] mt-1 ${activeTab === 'pricing' ? 'text-white/80' : 'text-slate-500'}`}>Prisintervall och konkurrentmatch</div>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('mail')}
+                  className={getTabButtonClass('mail')}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
+                      <Mail className="w-3 h-3" /> Mail
+                    </span>
+                    <span className={getTabBadgeClass('mail')}>
+                      {mailRecipientsCount}
+                    </span>
+                  </div>
+                  <div className={`text-[9px] mt-1 ${activeTab === 'mail' ? 'text-white/80' : 'text-slate-500'}`}>Outreach och beslutsfattare</div>
+                </button>
+              </div>
             </div>
 
             <div className="w-px h-6 bg-black/10"></div>
@@ -674,50 +983,6 @@ const LeadCard: React.FC<LeadCardProps> = ({
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {((editData.analysisWarnings?.length || 0) > 0 || (editData.analysisTelemetry?.length || 0) > 0) && (
-                <div className="border border-slate-200 bg-slate-50 rounded-none p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-[#D40511]" />
-                    <h3 className="text-xs font-black uppercase tracking-wider text-dhl-black">Analysdiagnostik</h3>
-                    {editData.analysisCompleteness && (
-                      <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${
-                        editData.analysisCompleteness === 'full'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : editData.analysisCompleteness === 'partial'
-                            ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                            : 'bg-red-50 text-red-700 border-red-200'
-                      }`}>
-                        {editData.analysisCompleteness === 'full' ? 'Full' : editData.analysisCompleteness === 'partial' ? 'Partial' : 'Thin'}
-                      </span>
-                    )}
-                  </div>
-                  {(editData.analysisWarnings?.length || 0) > 0 && (
-                    <div className="mb-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Varningar</p>
-                      <div className="space-y-1.5">
-                        {editData.analysisWarnings?.map((warning, index) => (
-                          <div key={`warning-${index}`} className="text-[10px] bg-white border border-slate-200 p-2 rounded-sm text-slate-700">
-                            {warning}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(editData.analysisTelemetry?.length || 0) > 0 && (
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Stegstatus</p>
-                      <div className="space-y-1.5">
-                        {editData.analysisTelemetry?.map((entry, index) => (
-                          <div key={`telemetry-${index}`} className="text-[10px] bg-white border border-slate-200 p-2 rounded-sm text-slate-700">
-                            {entry}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Show basic info only if analysis not complete */}
               {!scanComplete && !editData.analysisDate && (
                 <div className="bg-dhl-gray-light border-l-4 border-dhl-red p-6 rounded-sm">
@@ -992,80 +1257,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <ConfidenceBadge level={editData.dataConfidence?.checkout} />
                   </h3>
 
-                  {offerRecommendation && pricingScenario && (
-                    <div className="p-4 bg-slate-950 text-white rounded-none border border-slate-900">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Offertrekommendation</p>
-                          <h4 className="text-sm font-black uppercase tracking-wide">Pris mot konkurrenter</h4>
-                        </div>
-                        <Target className="w-4 h-4 text-[#ffcc00]" />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="bg-white/5 border border-white/10 p-3">
-                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Produktprofil</p>
-                          <p className="text-xs font-bold text-white">{pricingScenario.productName}</p>
-                          <p className="text-[10px] text-slate-300 mt-1">{pricingScenario.weightKg} kg, {pricingScenario.lengthCm}x{pricingScenario.widthCm}x{pricingScenario.heightCm} cm</p>
-                          <p className="text-[10px] text-slate-300 mt-1">Prisbas: Globalt prisbibliotek i Market Intelligence Center</p>
-                          <p className="text-[10px] text-slate-300 mt-1">Produktkalla: {PRODUCT_SOURCE_LABELS[editData.pricingProductSource || ''] || 'Beraknad standard'}</p>
-                        </div>
-                        <div className="bg-white/5 border border-white/10 p-3">
-                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Arsvolym</p>
-                          <p className="text-xs font-bold text-white">{pricingScenario.annualPackages.toLocaleString('sv-SE')} paket</p>
-                          <p className="text-[10px] text-slate-300 mt-1">Volymkalla: {ANNUAL_PACKAGE_SOURCE_LABELS[editData.annualPackageEstimateSource || ''] || 'Leaddata'}</p>
-                          <p className="text-[10px] text-slate-300 mt-1">Prissatt enbart pa volymband, inte kundprofil.</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 mb-3">
-                        <div className="bg-emerald-500/10 border border-emerald-400/30 p-3">
-                          <p className="text-[10px] font-black uppercase text-emerald-300 mb-1">Fokuscarrier idag</p>
-                          <p className="text-lg font-black text-white">{offerRecommendation.focusMatch ? formatSek(offerRecommendation.focusMatch.effectivePrice) : 'Saknar prisrad'}</p>
-                          <p className="text-[10px] text-slate-300 mt-1">{offerRecommendation.focusMatch?.carrier.name || 'Valj eller konfigurera fokuscarrier i Market Intelligence Center.'}</p>
-                        </div>
-                        <div className="bg-[#ffcc00]/10 border border-[#ffcc00]/30 p-3">
-                          <p className="text-[10px] font-black uppercase text-[#ffcc00] mb-1">Rekommenderad offertniva</p>
-                          <p className="text-lg font-black text-white">{offerRecommendation.targetPrice ? formatSek(offerRecommendation.targetPrice) : 'Ingen rekommendation'}</p>
-                          <p className={`text-[10px] mt-1 ${offerRecommendation.priceDelta >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                            {offerRecommendation.targetPrice && offerRecommendation.focusMatch
-                              ? `${offerRecommendation.priceDelta >= 0 ? '+' : ''}${offerRecommendation.priceDelta.toFixed(2)} SEK mot nuvarande fokuspris`
-                              : offerRecommendation.positioning}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white/5 border border-white/10 p-3 mb-3">
-                        <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Prisintervall att spela inom</p>
-                        <div className="flex items-center justify-between text-xs gap-3">
-                          <span className="font-bold text-white">Gol v: {offerRecommendation.recommendedPriceFloor ? formatSek(offerRecommendation.recommendedPriceFloor) : '—'}</span>
-                          <span className="font-bold text-white">Tak: {offerRecommendation.recommendedPriceCeiling ? formatSek(offerRecommendation.recommendedPriceCeiling) : '—'}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-300 mt-2">{offerRecommendation.positioning}</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase text-slate-400">Matchande konkurrenter</p>
-                        {offerRecommendation.allMatches.length ? offerRecommendation.allMatches.map((entry) => (
-                          <div key={`${entry.carrier.name}-${entry.matchedRule.id}`} className={`flex items-center justify-between gap-3 p-2 border ${entry.carrier.isFocusCarrier ? 'border-[#ffcc00]/40 bg-[#ffcc00]/10' : 'border-white/10 bg-white/5'}`}>
-                            <div>
-                              <p className="text-xs font-black text-white">{entry.carrier.name}{entry.carrier.isFocusCarrier ? ' (fokus)' : ''}</p>
-                              <p className="text-[10px] text-slate-300">{entry.matchedRule.productName} • {entry.matchedRule.customerAnnualPackagesMin.toLocaleString('sv-SE')}-{entry.matchedRule.customerAnnualPackagesMax.toLocaleString('sv-SE')} paket</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs font-black text-white">{formatSek(entry.effectivePrice)}</p>
-                              <p className="text-[10px] text-slate-300">Baspris {formatSek(entry.matchedRule.priceSek)}</p>
-                            </div>
-                          </div>
-                        )) : (
-                          <div className="text-[10px] text-slate-300">Inga prisrader matchar detta lead. Lagg in fler produkt- och volymintervall i Market Intelligence Center.</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Huvudadress</p>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Huvudadress</p>
+                      {!isEditing && <FieldSourceBadge evidence={addressEvidence} />}
+                    </div>
                     {isEditing ? (
                       <input 
                         type="text" 
@@ -1080,7 +1276,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Besöksadress</p>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Besöksadress</p>
+                        {!isEditing && <FieldSourceBadge evidence={visitingAddressEvidence} />}
+                      </div>
                       {isEditing ? (
                         <input 
                           type="text" 
@@ -1094,7 +1293,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     </div>
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100 relative group">
                       <div className="flex justify-between items-start mb-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lageradress</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lageradress</p>
+                          {!isEditing && <FieldSourceBadge evidence={warehouseAddressEvidence} />}
+                        </div>
                         {!isEditing && editData.warehouseAddress && editData.warehouseAddress !== '-' && (
                           <button 
                             onClick={() => setIs3PLModalOpen(true)}
@@ -1130,6 +1332,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="flex items-center gap-1 mb-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Checkout-positioner</p>
                       <ConfidenceBadge level={editData.dataConfidence?.checkout} />
+                      {!isEditing && <FieldSourceBadge evidence={checkoutEvidence} />}
                     </div>
                     <div className="space-y-2">
                       {editData.checkoutOptions?.map((opt, i) => (
@@ -1205,7 +1408,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
 
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Marknader</p>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Marknader</p>
+                      {!isEditing && <FieldSourceBadge evidence={activeMarketsEvidence} />}
+                    </div>
                     {editData.activeMarkets?.length ? (
                       <div className="flex flex-wrap gap-1">
                         {editData.activeMarkets.map((m, i) => (
@@ -1464,7 +1670,10 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       <p className="text-xs font-bold text-dhl-black">{editData.businessModel}</p>
                     </div>
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Antal Butiker</p>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Antal Butiker</p>
+                        {!isEditing && <FieldSourceBadge evidence={storeCountEvidence} />}
+                      </div>
                       <p className="text-xs font-bold text-dhl-black">{displayValue(editData.storeCount)}</p>
                     </div>
                     <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100 col-span-2">
@@ -1623,6 +1832,24 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="h-full"
+            >
+              {diagnosticsTabContent}
+            </motion.div>
+          )}
+
+          {activeTab === 'pricing' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="h-full"
+            >
+              {offerRecommendationTabContent}
             </motion.div>
           )}
 
