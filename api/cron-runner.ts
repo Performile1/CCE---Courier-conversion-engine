@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateDeepDiveSequential, generateLeads } from '../services/openrouterService';
 import { computeNextRun, CronJob } from '../services/cronJobService';
-import { LeadData, SearchFormData } from '../types';
+import { AnalysisPolicy, LeadData, SearchFormData, SourcePolicyConfig } from '../types';
+import { buildAnalysisPolicyFromSourcePolicyConfig } from '../services/analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from '../services/techSolutionConfig';
 import { createAdminClient, rowToJob, setCors } from './_scheduledJobs';
 
@@ -12,18 +13,23 @@ function isAuthorized(req: VercelRequest): boolean {
   return authHeader === `Bearer ${configuredSecret}`;
 }
 
-function getDefaultSearchForm(companyNameOrOrg = ''): SearchFormData {
+function getDefaultSearchForm(companyNameOrOrg = '', overrides: Partial<SearchFormData> = {}): SearchFormData {
   return {
     companyNameOrOrg,
-    geoArea: 'Sverige',
-    financialScope: '10-100 MSEK',
-    triggers: 'E-handel, logistik, expansion',
-    leadCount: 20,
-    focusRole1: 'VD',
-    focusRole2: 'Logistikchef',
-    focusRole3: 'E-handelschef',
-    icebreakerTopic: 'Leveransoptimering'
+    geoArea: overrides.geoArea || 'Global',
+    financialScope: overrides.financialScope || '10-100 MSEK',
+    triggers: overrides.triggers || 'E-handel, logistik, expansion',
+    leadCount: Number(overrides.leadCount || 20),
+    focusRole1: overrides.focusRole1 || 'VD',
+    focusRole2: overrides.focusRole2 || 'Logistikchef',
+    focusRole3: overrides.focusRole3 || 'E-handelschef',
+    icebreakerTopic: overrides.icebreakerTopic || 'Leveransoptimering'
   };
+}
+
+function getScheduledSourceCountry(job: CronJob): string {
+  const payload = job.payload as Record<string, unknown>;
+  return String(payload.activeSourceCountry || payload.sourceCountry || 'global').trim().toLowerCase() || 'global';
 }
 
 async function persistDecisionMakers(adminClient: any, leadId: string, lead: LeadData) {
@@ -77,6 +83,18 @@ async function loadTechSolutionConfig(adminClient: any) {
   if (error) throw error;
 
   return normalizeTechSolutionConfig(data?.value || DEFAULT_TECH_SOLUTION_CONFIG);
+}
+
+async function loadSourcePolicies(adminClient: any): Promise<SourcePolicyConfig | undefined> {
+  const { data, error } = await adminClient
+    .from('app_shared_settings')
+    .select('value')
+    .eq('setting_key', 'source_configuration')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data?.value || undefined;
 }
 
 async function upsertLead(adminClient: any, userId: string, lead: LeadData, existingLeadId?: string, bucket: 'active' | 'reservoir' = 'active') {
@@ -135,10 +153,23 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
   const query = String(job.payload.companyNameOrOrg || '').trim();
   if (!query) throw new Error('Deep dive job missing companyNameOrOrg');
 
-  const techSolutionConfig = await loadTechSolutionConfig(adminClient);
+  const [techSolutionConfig, sourcePolicies] = await Promise.all([
+    loadTechSolutionConfig(adminClient),
+    loadSourcePolicies(adminClient)
+  ]);
+  const activeSourceCountry = getScheduledSourceCountry(job);
+  const analysisPolicy: AnalysisPolicy = buildAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
 
   const lead = await generateDeepDiveSequential(
-    getDefaultSearchForm(query),
+    getDefaultSearchForm(query, {
+      geoArea: String(job.payload.geoArea || activeSourceCountry || 'Global'),
+      financialScope: String(job.payload.financialScope || '10-100 MSEK'),
+      triggers: String(job.payload.triggers || 'E-handel, logistik, expansion'),
+      focusRole1: String(job.payload.focusRole1 || 'VD'),
+      focusRole2: String(job.payload.focusRole2 || 'Logistikchef'),
+      focusRole3: String(job.payload.focusRole3 || 'E-handelschef'),
+      icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering')
+    }),
     () => {},
     () => {},
     [],
@@ -147,9 +178,10 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
     'DHL',
     [],
     undefined,
-    undefined,
-    'global',
-    techSolutionConfig
+    sourcePolicies,
+    activeSourceCountry,
+    techSolutionConfig,
+    analysisPolicy
   );
 
   await upsertLead(adminClient, userId, lead);
@@ -158,37 +190,44 @@ async function executeDeepDiveJob(adminClient: any, userId: string, job: CronJob
 }
 
 async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
-  const [{ data: existingLeads }, sharedExclusions, techSolutionConfig] = await Promise.all([
+  const [{ data: existingLeads }, sharedExclusions, techSolutionConfig, sourcePolicies] = await Promise.all([
     adminClient
       .from('leads')
       .select('company_name, org_number')
       .eq('user_id', userId),
     loadSharedExclusionValues(adminClient),
-    loadTechSolutionConfig(adminClient)
+    loadTechSolutionConfig(adminClient),
+    loadSourcePolicies(adminClient)
   ]);
+  const activeSourceCountry = getScheduledSourceCountry(job);
+  const analysisPolicy: AnalysisPolicy = buildAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
 
   const exclusionList = [
     ...(existingLeads || []).flatMap((row: any) => [row.company_name, row.org_number]).filter(Boolean),
     ...sharedExclusions
   ];
   const leads = await generateLeads(
-    {
-      ...getDefaultSearchForm(''),
-      geoArea: String(job.payload.geoArea || 'Sverige'),
+    getDefaultSearchForm('', {
+      geoArea: String(job.payload.geoArea || activeSourceCountry || 'Global'),
       financialScope: String(job.payload.financialScope || '10-100 MSEK'),
       triggers: String(job.payload.triggers || 'E-handel, logistik, expansion'),
       leadCount: Number(job.payload.leadCount || 20),
+      focusRole1: String(job.payload.focusRole1 || 'VD'),
+      focusRole2: String(job.payload.focusRole2 || 'Logistikchef'),
+      focusRole3: String(job.payload.focusRole3 || 'E-handelschef'),
+      icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering'),
       targetSegments: job.payload.targetSegments
-    },
+    }),
     () => {},
     [],
     exclusionList,
     'DHL',
     [],
     undefined,
-    undefined,
-    'global',
-    techSolutionConfig
+    sourcePolicies,
+    activeSourceCountry,
+    techSolutionConfig,
+    analysisPolicy
   );
 
   for (const lead of leads) {
@@ -220,7 +259,12 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
   const { data: candidates, error } = await query;
   if (error) throw error;
 
-  const techSolutionConfig = await loadTechSolutionConfig(adminClient);
+  const [techSolutionConfig, sourcePolicies] = await Promise.all([
+    loadTechSolutionConfig(adminClient),
+    loadSourcePolicies(adminClient)
+  ]);
+  const activeSourceCountry = getScheduledSourceCountry(job);
+  const analysisPolicy: AnalysisPolicy = buildAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
 
   let processed = 0;
   for (const candidate of candidates || []) {
@@ -228,7 +272,15 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
     if (!queryValue) continue;
 
     const lead = await generateDeepDiveSequential(
-      getDefaultSearchForm(queryValue),
+      getDefaultSearchForm(queryValue, {
+        geoArea: String(job.payload.geoArea || activeSourceCountry || 'Global'),
+        financialScope: String(job.payload.financialScope || '10-100 MSEK'),
+        triggers: String(job.payload.triggers || 'E-handel, logistik, expansion'),
+        focusRole1: String(job.payload.focusRole1 || 'VD'),
+        focusRole2: String(job.payload.focusRole2 || 'Logistikchef'),
+        focusRole3: String(job.payload.focusRole3 || 'E-handelschef'),
+        icebreakerTopic: String(job.payload.icebreakerTopic || 'Leveransoptimering')
+      }),
       () => {},
       () => {},
       [],
@@ -237,9 +289,10 @@ async function executeReanalysisJob(adminClient: any, userId: string, job: CronJ
       'DHL',
       [],
       undefined,
-      undefined,
-      'global',
-      techSolutionConfig
+      sourcePolicies,
+      activeSourceCountry,
+      techSolutionConfig,
+      analysisPolicy
     );
 
     await upsertLead(

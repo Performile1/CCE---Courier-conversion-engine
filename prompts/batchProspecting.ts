@@ -24,7 +24,7 @@ Analysen styrs STRIKT av dessa variabler:
 
 ### 3. MATHEMATICAL ANCHOR (THE 60/22 RULE)
 1. **FRAKTBUDGET:** (Omsättning * 1000) * ([Procent] / 100).
-2. **TOTAL_VOLYM:** Fraktbudget / 25 SEK.
+2. **TOTAL_VOLYM:** Ange en rimlig logistisk uppskattning om du har underlag, men klienten kommer att räkna om paketvolymen från konfigurerad prismodell efter svaret. Undvik att hårdkoda en fast 25 SEK-regel.
 3. **POSITION 1 (60%):** TOTAL_VOLYM * 0.60.
 4. **POSITION 2 (22%):** TOTAL_VOLYM * 0.22.
 

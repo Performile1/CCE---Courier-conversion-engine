@@ -155,6 +155,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
   const [newCustomCategorySources, setNewCustomCategorySources] = useState('');
   const [suggestionTargetCategory, setSuggestionTargetCategory] = useState('news');
   const [sourceSuggestions, setSourceSuggestions] = useState<SourcePerformanceEntry[]>([]);
+  const [trustedDomainsText, setTrustedDomainsText] = useState('');
+  const [batchEnrichmentLimit, setBatchEnrichmentLimit] = useState('10');
+  const [matchingStrategy, setMatchingStrategy] = useState<'strict' | 'balanced' | 'relaxed'>('strict');
+  const [minConfidenceThreshold, setMinConfidenceThreshold] = useState('0.65');
+  const [categoryPageHintInputs, setCategoryPageHintInputs] = useState<Record<string, string>>({});
   const [strictCompanyMatch, setStrictCompanyMatch] = useState(true);
   const [earliestNewsYear, setEarliestNewsYear] = useState(String(new Date().getFullYear() - 1));
 
@@ -173,6 +178,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         payment: sourcePolicies?.payment || [],
         webSoftware: sourcePolicies?.webSoftware || [],
         news: sourcePolicies?.news || [],
+        trustedDomains: sourcePolicies?.trustedDomains || [],
+        categoryPageHints: sourcePolicies?.categoryPageHints || {},
+        batchEnrichmentLimit: sourcePolicies?.batchEnrichmentLimit || 10,
+        matchingStrategy: sourcePolicies?.matchingStrategy || (sourcePolicies?.strictCompanyMatch === false ? 'relaxed' : 'strict'),
+        minConfidenceThreshold: sourcePolicies?.minConfidenceThreshold ?? 0.65,
         strictCompanyMatch: sourcePolicies?.strictCompanyMatch !== false,
         earliestNewsYear: sourcePolicies?.earliestNewsYear || (new Date().getFullYear() - 1),
         customCategories: sourcePolicies?.customCategories || {},
@@ -188,6 +198,11 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
       payment: overrides.payment || sourcePolicies?.payment || [],
       webSoftware: overrides.webSoftware || sourcePolicies?.webSoftware || [],
       news: overrides.news || sourcePolicies?.news || [],
+      trustedDomains: overrides.trustedDomains || sourcePolicies?.trustedDomains || [],
+      categoryPageHints: overrides.categoryPageHints || sourcePolicies?.categoryPageHints || {},
+      batchEnrichmentLimit: overrides.batchEnrichmentLimit || sourcePolicies?.batchEnrichmentLimit || 10,
+      matchingStrategy: overrides.matchingStrategy || sourcePolicies?.matchingStrategy || ((overrides.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch) === false ? 'relaxed' : 'strict'),
+      minConfidenceThreshold: overrides.minConfidenceThreshold ?? sourcePolicies?.minConfidenceThreshold ?? 0.65,
       strictCompanyMatch: overrides.strictCompanyMatch ?? sourcePolicies?.strictCompanyMatch ?? true,
       earliestNewsYear: overrides.earliestNewsYear || sourcePolicies?.earliestNewsYear || (new Date().getFullYear() - 1),
       customCategories: overrides.customCategories || sourcePolicies?.customCategories || {},
@@ -209,6 +224,10 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
       });
       setStrictCompanyMatch(activePolicies.strictCompanyMatch !== false);
       setEarliestNewsYear(String(activePolicies.earliestNewsYear || (new Date().getFullYear() - 1)));
+      setTrustedDomainsText((activePolicies.trustedDomains || []).join(', '));
+      setBatchEnrichmentLimit(String(activePolicies.batchEnrichmentLimit || 10));
+      setMatchingStrategy(activePolicies.matchingStrategy || (activePolicies.strictCompanyMatch === false ? 'relaxed' : 'strict'));
+      setMinConfidenceThreshold(String(activePolicies.minConfidenceThreshold ?? 0.65));
       const custom = {
         ...DEFAULT_DATAPART_SOURCES,
         ...(activePolicies.customCategories || {})
@@ -229,6 +248,12 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         mappingInputs[category] = configuredFieldMappings[category] || [];
       });
       setCategoryFieldSelections(mappingInputs);
+
+      const pageHints: Record<string, string> = {};
+      Object.entries(activePolicies.categoryPageHints || {}).forEach(([category, hints]) => {
+        pageHints[category] = (hints || []).join(', ');
+      });
+      setCategoryPageHintInputs(pageHints);
 
       try {
         const performanceRaw = localStorage.getItem('dhl_source_performance') || '{}';
@@ -411,7 +436,16 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
         payment: parse(policyText.payment),
         webSoftware: parse(policyText.webSoftware),
         news: parse(policyText.news),
-        strictCompanyMatch,
+        trustedDomains: parse(trustedDomainsText),
+        categoryPageHints: Object.fromEntries(
+          Object.entries(categoryPageHintInputs)
+            .map(([name, value]) => [name.trim(), parse(value)])
+            .filter(([name, value]) => Boolean(name) && value.length > 0)
+        ),
+        batchEnrichmentLimit: Math.max(1, Number(batchEnrichmentLimit) || 10),
+        matchingStrategy,
+        minConfidenceThreshold: Math.max(0, Math.min(1, Number(minConfidenceThreshold) || 0.65)),
+        strictCompanyMatch: matchingStrategy === 'strict' ? true : strictCompanyMatch,
         earliestNewsYear: Math.max(2000, Number(earliestNewsYear) || (new Date().getFullYear() - 1)),
         customCategories,
         categoryFieldMappings
@@ -577,6 +611,45 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
             </div>
 
             <div className="pt-1">
+              <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Trusted domains</label>
+              <input
+                type="text"
+                value={trustedDomainsText}
+                onChange={e => setTrustedDomainsText(e.target.value)}
+                placeholder="allabolag.se, ratsit.se, market.se"
+                className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2"
+              />
+              <div className="text-[9px] text-slate-500 mt-1">Dessa domäner får högsta prioritet i source grounding och nyhetsval.</div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Matching-strategi</label>
+                <select
+                  value={matchingStrategy}
+                  onChange={e => setMatchingStrategy(e.target.value as 'strict' | 'balanced' | 'relaxed')}
+                  className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2 bg-white"
+                >
+                  <option value="strict">Strict</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="relaxed">Relaxed</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Min confidence threshold</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={minConfidenceThreshold}
+                  onChange={e => setMinConfidenceThreshold(e.target.value)}
+                  className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
               <label className="inline-flex items-center gap-2 text-[10px] font-black uppercase text-slate-600">
                 <input
                   type="checkbox"
@@ -600,6 +673,36 @@ export const NewsSourceManager: React.FC<NewsSourceManagerProps> = ({
                 placeholder="2025"
               />
               <div className="text-[9px] text-slate-500 mt-1">Nyheter äldre än detta år ignoreras. Google/Tavily-fallback används alltid.</div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Batch enrichment limit</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={batchEnrichmentLimit}
+                onChange={e => setBatchEnrichmentLimit(e.target.value)}
+                className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2"
+              />
+              <div className="text-[9px] text-slate-500 mt-1">Hur många batch-leads som får full enrichment i samma körning innan resten markeras som quick-scan.</div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500">Category page hints</label>
+              <p className="text-[10px] text-slate-500">Hint-ord som används för att hitta rätt sidor per kategori i Tavily/Crawl4ai.</p>
+              {Array.from(new Set([...baseCategories, ...Object.keys(customCategoryInputs), ...Object.keys(categoryPageHintInputs)])).map((category) => (
+                <div key={`hint-${category}`}>
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block">{category}</label>
+                  <input
+                    type="text"
+                    value={categoryPageHintInputs[category] || ''}
+                    onChange={e => setCategoryPageHintInputs({ ...categoryPageHintInputs, [category]: e.target.value })}
+                    placeholder="bokslut, annual report, checkout"
+                    className="w-full text-[10px] border-dhl-gray-medium rounded-sm p-2"
+                  />
+                </div>
+              ))}
             </div>
 
             <div className="pt-2 border-t border-slate-100 space-y-2">

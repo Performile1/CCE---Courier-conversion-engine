@@ -5,6 +5,15 @@ import { Search, MapPin, Truck, Hash, LayoutList, Microscope, RefreshCw, Buildin
 import { RemovalAnalysisModal } from './RemovalAnalysisModal'; 
 import { RemovalReason } from '../types'; 
 
+const ANNUAL_PACKAGE_SOURCE_LABELS: Record<string, string> = {
+  'pricing-model': 'Prismodell',
+  'llm-logistics': 'AI-logistikdata',
+  'lead-volume': 'Leadets volym',
+  'position-breakdown': 'Position 1 + 2',
+  'aov-fallback': 'AOV-fallback',
+  'default-fallback': 'Standardfallback'
+};
+
 interface ResultsTableProps {
   data: LeadData[];
   onDeepDive: (companyName: string, forceRefresh?: boolean) => void;
@@ -321,8 +330,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   Delvis verifierad
                                 </span>
                               )}
+                              {lead.pricingBasis === 'volume-only' && (
+                                <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Globalt prisbibliotek
+                                </span>
+                              )}
                             </div>
                             {!isAnalyzed && <span className="text-[8px] font-black text-dhl-yellow uppercase flex items-center gap-0.5"><AlertCircle className="w-2 h-2"/> DeepScan Required</span>}
+                            {lead.pricingBasis === 'volume-only' && (
+                              <span className="text-[8px] font-black text-slate-500 uppercase truncate">
+                                Market Intelligence Center • {ANNUAL_PACKAGE_SOURCE_LABELS[lead.annualPackageEstimateSource || ''] || 'Volymmodell'}
+                              </span>
+                            )}
                             {!!lead.analysisWarnings?.length && (
                               <span className="text-[8px] font-black text-slate-500 uppercase truncate">
                                 {lead.analysisWarnings[0]}

@@ -1,5 +1,16 @@
 
-import { Segment, SNIPercentage } from '../types';
+import { CarrierSettings, Segment, SNIPercentage } from '../types';
+import { estimateAnnualPackagesFromBudget } from '../services/pricingService';
+
+interface PricingMetricsOptions {
+  marketSettings?: CarrierSettings[];
+  activeCarrier?: string;
+  productName?: string;
+  weightKg?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
+}
 
 /**
  * SNI-Specifika konverteringsfaktorer (v24.7)
@@ -32,13 +43,15 @@ export const calculateRickardMetrics = (
   revenueTKR: number,
   sniCode: string,
   customPercentages: SNIPercentage[] = [],
-  marketCount: number = 1
+  marketCount: number = 1,
+  pricingOptions?: PricingMetricsOptions
 ) => {
   if (!revenueTKR || revenueTKR <= 0) {
     return {
       potentialTKR: 0,
       shippingBudgetSEK: 0,
       annualPackages: 0,
+      annualPackageEstimateSource: 'default-fallback' as const,
       pos1Volume: 0,
       pos2Volume: 0,
       percentage: 5,
@@ -62,15 +75,24 @@ export const calculateRickardMetrics = (
 
   const totalRevenueSEK = revenueTKR * 1000;
   const shippingBudgetSEK = totalRevenueSEK * factor;
-  
-  // Beräkna totalt antal paket baserat på AOV
   const totalPackages = Math.round(totalRevenueSEK / aov);
   
   // Estimera svenska paket (Sverige antas vara huvudmarknad, ca 70% om flera marknader finns)
   // Om marketCount är 1, är alla paket i Sverige.
   // Om marketCount > 1, antar vi att Sverige är 70% och resten delas på övriga.
   const swedenWeight = marketCount > 1 ? 0.7 : 1.0;
-  const annualPackages = Math.round(totalPackages * swedenWeight);
+  const swedenShippingBudgetSEK = shippingBudgetSEK * swedenWeight;
+  const pricingModelEstimate = pricingOptions?.marketSettings?.length
+    ? estimateAnnualPackagesFromBudget(pricingOptions.marketSettings, swedenShippingBudgetSEK, {
+        activeCarrier: pricingOptions.activeCarrier,
+        productName: pricingOptions.productName,
+        weightKg: pricingOptions.weightKg,
+        lengthCm: pricingOptions.lengthCm,
+        widthCm: pricingOptions.widthCm,
+        heightCm: pricingOptions.heightCm
+      })
+    : undefined;
+  const annualPackages = pricingModelEstimate ?? Math.round(totalPackages * swedenWeight);
 
   // Marknadspositionering (baserat på 50 000 svenska e-handlare)
   let marketPosition = "Nisch-aktör";
@@ -82,6 +104,7 @@ export const calculateRickardMetrics = (
     shippingBudgetSEK,
     potentialTKR: Math.round(shippingBudgetSEK / 1000),
     annualPackages: annualPackages,
+    annualPackageEstimateSource: pricingModelEstimate ? 'pricing-model' as const : 'aov-fallback' as const,
     pos1Volume: Math.round(annualPackages * 0.60),
     pos2Volume: Math.round(annualPackages * 0.22),
     percentage: Math.round(factor * 100),

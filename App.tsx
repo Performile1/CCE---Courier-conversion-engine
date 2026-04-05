@@ -50,6 +50,7 @@ import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobs
 import { createBackupRecord, deleteBackupRecord, loadBackupRecords, loadSharedSettings, loadUserSettings, saveSharedSetting, saveUserSetting, SHARED_SETTING_KEYS, USER_SETTING_KEYS } from './services/appConfigService';
 import { deletePersistedLead, loadPersistedLeads, loadSharedExclusions, replacePersistedLeads, replaceSharedExclusions, upsertPersistedLead } from './services/leadRepository';
 import { signOut, supabase } from './services/supabaseClient';
+import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, buildDeepDiveAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './services/analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from './services/techSolutionConfig';
 import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
@@ -57,8 +58,10 @@ import { Language, translate } from './services/i18n';
 import { 
   SearchFormData, 
   LeadData, 
+  AnalysisStep,
   NewsSourceMapping, 
   SourcePolicyConfig,
+  AnalysisPolicy,
   ToolAccessConfig,
   UserRole,
   IntegrationSystem,
@@ -98,6 +101,11 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   payment: ['klarna.com', 'stripe.com', 'adyen.com'],
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   news: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se'],
+  trustedDomains: DEFAULT_ANALYSIS_TRUSTED_DOMAINS,
+  categoryPageHints: DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS,
+  batchEnrichmentLimit: DEFAULT_BATCH_ENRICHMENT_LIMIT,
+  matchingStrategy: 'strict',
+  minConfidenceThreshold: 0.65,
   strictCompanyMatch: true,
   earliestNewsYear: 2025,
   customCategories: {
@@ -270,6 +278,7 @@ export const App: React.FC = () => {
   const [deepDiveLoading, setDeepDiveLoading] = useState(false);
   const [analyzingCompany, setAnalyzingCompany] = useState<string | null>(null); 
   const [analysisSubStatus, setAnalysisSubStatus] = useState<string | null>(null);
+  const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([]);
   const [analysisResult, setAnalysisResult] = useState<LeadData | null>(null);
   const abortControllerRef = useRef<boolean>(false);
   const activeAnalysisRunIdRef = useRef(0);
@@ -1149,6 +1158,7 @@ export const App: React.FC = () => {
     setDeepDiveLoading(false);
     setAnalyzingCompany(null);
     setAnalysisSubStatus('Avbruten av användare');
+    setAnalysisSteps([]);
   };
 
   const handleSelectLead = (lead: LeadData) => {
@@ -1202,6 +1212,7 @@ export const App: React.FC = () => {
   };
 
   const runScheduledLeadReanalysis = async (job: CronJob) => {
+    const deepDiveAnalysisPolicy: AnalysisPolicy = buildDeepDiveAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
     const targetSegments = job.payload.targetSegments || [];
     const reanalysisScope = job.payload.reanalysisScope || 'active';
     const reanalysisLimit = Math.max(1, Number(job.payload.reanalysisLimit || 10));
@@ -1262,7 +1273,9 @@ export const App: React.FC = () => {
         undefined,
         sourcePolicies,
         activeSourceCountry,
-        techSolutionConfig
+        techSolutionConfig,
+        deepDiveAnalysisPolicy,
+        marketSettings
       );
 
       const mergedLead = mergeMonitoredLead(candidate.lead, { ...refreshed, id: candidate.lead.id });
@@ -1280,8 +1293,10 @@ export const App: React.FC = () => {
 
   const handleSearch = async (formData: SearchFormData) => {
     const runId = Date.now();
+    const batchAnalysisPolicy: AnalysisPolicy = buildBatchAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
     activeAnalysisRunIdRef.current = runId;
     setLoading(true); setError(null);
+    setAnalysisSteps([]);
     abortControllerRef.current = false;
     try {
       if (formData.companyNameOrOrg?.trim()) {
@@ -1300,7 +1315,9 @@ export const App: React.FC = () => {
           undefined,
           sourcePolicies,
           activeSourceCountry,
-          techSolutionConfig
+          techSolutionConfig,
+          batchAnalysisPolicy,
+          marketSettings
         );
         if (newLeads.length === 0) {
           setError("Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.");
@@ -1328,6 +1345,7 @@ export const App: React.FC = () => {
     if (!companyName || deepDiveLoading) return;
 
     const runId = Date.now();
+    const deepDiveAnalysisPolicy: AnalysisPolicy = buildDeepDiveAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
     activeAnalysisRunIdRef.current = runId;
     
     setError(null); 
@@ -1335,6 +1353,7 @@ export const App: React.FC = () => {
     setAnalyzingCompany(companyName);
     setDeepDiveLoading(true);
     setAnalysisResult(null);
+    setAnalysisSteps([]);
 
     const shouldReplaceWithTempLead = !forceRefresh || !deepDiveLead;
     if (shouldReplaceWithTempLead) {
@@ -1351,7 +1370,8 @@ export const App: React.FC = () => {
         decisionMakers: [],
         websiteUrl: '',
         carriers: '',
-        analysisDate: ''
+        analysisDate: '',
+        analysisSteps: []
       };
       setDeepDiveLead(tempLead);
     }
@@ -1362,6 +1382,7 @@ export const App: React.FC = () => {
         (partial, status) => {
           if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) return;
           if (status) setAnalysisSubStatus(status);
+          if (partial.analysisSteps) setAnalysisSteps(partial.analysisSteps);
           setDeepDiveLead(prev => ({ ...prev, ...partial } as LeadData));
           if (partial.id) handleUpdateLead(partial as LeadData);
         },
@@ -1374,9 +1395,12 @@ export const App: React.FC = () => {
         undefined,
         sourcePolicies,
         activeSourceCountry,
-        techSolutionConfig
+        techSolutionConfig,
+        deepDiveAnalysisPolicy,
+        marketSettings
       );
       if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) return;
+      setAnalysisSteps(final.analysisSteps || []);
       setDeepDiveLead(final);
       setAnalysisResult(final);
     } catch (err: any) { 
@@ -1876,6 +1900,7 @@ export const App: React.FC = () => {
                    mailFocusWords={mailFocusWords}
                    activeIntegrations={integrations}
                    activeCarrier={activeCarrier}
+                   marketSettings={marketSettings}
                    threePLProviders={threePLProviders}
                    onSaveThreePL={handleSaveThreePL}
                  />
@@ -1888,6 +1913,7 @@ export const App: React.FC = () => {
                  deepDiveLoading={deepDiveLoading} 
                  analyzingCompany={analyzingCompany} 
                  subStatus={analysisSubStatus} 
+                  analysisSteps={analysisSteps}
                  analysisResult={analysisResult} 
                  onDismiss={() => setAnalysisResult(null)} 
                    onCancel={handleCancelProcessing}

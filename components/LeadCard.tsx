@@ -6,9 +6,10 @@ import {
   ArrowDownRight, RefreshCw, UserCheck, Calendar as CalendarIcon,
   MessageSquare, ExternalLink, Save, Loader2, Check, X, Zap, Target, BarChart3, FileText, Share2, AlertCircle
 } from 'lucide-react';
-import { LeadData, Segment, ThreePLProvider, VerifiedLeadField } from '../types';
+import { CarrierSettings, LeadData, Segment, ThreePLProvider, VerifiedLeadField } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateEmailSuggestion } from '../services/openrouterService';
+import { buildOfferRecommendation, derivePricingScenarioFromLead, formatSek, normalizeCarrierSettings } from '../services/pricingService';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -27,6 +28,7 @@ interface LeadCardProps {
   mailFocusWords?: string[];
   activeIntegrations?: string[];
   activeCarrier?: string;
+  marketSettings?: CarrierSettings[];
   threePLProviders?: ThreePLProvider[];
   onSaveThreePL?: (providers: ThreePLProvider[]) => void;
 }
@@ -70,6 +72,24 @@ const VERIFIED_FIELD_LABELS: Record<VerifiedLeadField, string> = {
   emailPattern: 'E-postmönster'
 };
 
+const ANNUAL_PACKAGE_SOURCE_LABELS: Record<string, string> = {
+  'pricing-model': 'Prismodell',
+  'llm-logistics': 'AI-logistikdata',
+  'lead-volume': 'Leadets volym',
+  'position-breakdown': 'Position 1 + 2',
+  'aov-fallback': 'AOV-fallback',
+  'default-fallback': 'Standardfallback'
+};
+
+const PRODUCT_SOURCE_LABELS: Record<string, string> = {
+  'lead-product': 'Sparad produkt',
+  'checkout-mapping': 'Checkoutmappning',
+  'checkout-service': 'Checkoutsignal',
+  'volume-band': 'Volymband',
+  'segment-default': 'Segmentdefault',
+  'configured-default': 'Konfigurerad standard'
+};
+
 const LeadCard: React.FC<LeadCardProps> = ({ 
   data, 
   onUpdateLead, 
@@ -85,6 +105,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
   mailFocusWords = [],
   activeIntegrations = [],
   activeCarrier: activeCarrierProp,
+  marketSettings = [],
   threePLProviders = [],
   onSaveThreePL
 }) => {
@@ -171,6 +192,36 @@ const LeadCard: React.FC<LeadCardProps> = ({
     p.address.toLowerCase().trim() === editData.warehouseAddress.toLowerCase().trim()
   );
 
+  const normalizedMarketSettings = normalizeCarrierSettings(marketSettings || []);
+  const pricingScenario = normalizedMarketSettings.length ? derivePricingScenarioFromLead(editData, normalizedMarketSettings) : null;
+  const offerRecommendation = normalizedMarketSettings.length ? buildOfferRecommendation(normalizedMarketSettings, editData) : null;
+
+  const buildQuoteRecommendationHtml = () => {
+    if (!pricingScenario || !offerRecommendation || !offerRecommendation.targetPrice) {
+      return '';
+    }
+
+    const productLabel = pricingScenario.productName || 'vald transportprodukt';
+    const focusCarrierLabel = offerRecommendation.focusMatch?.carrier.name || activeCarrier || 'fokuscarrier';
+    const floorLabel = offerRecommendation.recommendedPriceFloor ? formatSek(offerRecommendation.recommendedPriceFloor) : 'Ej satt';
+    const ceilingLabel = offerRecommendation.recommendedPriceCeiling ? formatSek(offerRecommendation.recommendedPriceCeiling) : 'Ej satt';
+    const currentFocusLabel = offerRecommendation.focusMatch ? formatSek(offerRecommendation.focusMatch.effectivePrice) : 'Ingen prisrad';
+    const annualPackagesLabel = pricingScenario.annualPackages.toLocaleString('sv-SE');
+
+    return `
+      <div style="margin-top: 20px; padding: 16px; border: 1px solid #fecaca; background: #fff7f7;">
+        <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #991b1b;">Prisrekommendation</p>
+        <p style="margin: 0 0 10px; font-size: 14px; color: #111827;">
+          Rekommenderad offertniva for <strong>${productLabel}</strong> vid cirka <strong>${annualPackagesLabel}</strong> paket per ar: <strong>${formatSek(offerRecommendation.targetPrice)}</strong>.
+        </p>
+        <p style="margin: 0 0 6px; font-size: 13px; color: #334155;">Nuvarande fokuspris hos ${focusCarrierLabel}: <strong>${currentFocusLabel}</strong></p>
+        <p style="margin: 0 0 6px; font-size: 13px; color: #334155;">Prisgolv: <strong>${floorLabel}</strong> | Pristak: <strong>${ceilingLabel}</strong></p>
+        <p style="margin: 0 0 6px; font-size: 13px; color: #334155;">Volymkalla: ${ANNUAL_PACKAGE_SOURCE_LABELS[editData.annualPackageEstimateSource || ''] || 'Leaddata'}</p>
+        <p style="margin: 0; font-size: 13px; color: #334155;">Positionering: ${offerRecommendation.positioning}</p>
+      </div>
+    `;
+  };
+
   // Sync state when data prop changes
   useEffect(() => {
     if (data) {
@@ -225,7 +276,9 @@ const LeadCard: React.FC<LeadCardProps> = ({
         ...mailFocusWords,
         contact.title,
         editData.ecommercePlatform || '',
-        activeCarrier
+        activeCarrier,
+        pricingScenario?.productName || '',
+        offerRecommendation?.targetPrice ? `${offerRecommendation.targetPrice.toFixed(2)} SEK` : ''
       ].filter(Boolean);
       
       let html = await generateEmailSuggestion(
@@ -237,6 +290,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
         mailLanguage,
         contact
       );
+
+      const quoteRecommendationHtml = buildQuoteRecommendationHtml();
+      if (quoteRecommendationHtml) {
+        html += quoteRecommendationHtml;
+      }
 
       // Append signature and calendar link if they exist
       if (customSignature || calendarUrl) {
@@ -933,6 +991,78 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <Truck className="w-4 h-4 text-[#D40511]" /> Logistik & Infrastruktur
                     <ConfidenceBadge level={editData.dataConfidence?.checkout} />
                   </h3>
+
+                  {offerRecommendation && pricingScenario && (
+                    <div className="p-4 bg-slate-950 text-white rounded-none border border-slate-900">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Offertrekommendation</p>
+                          <h4 className="text-sm font-black uppercase tracking-wide">Pris mot konkurrenter</h4>
+                        </div>
+                        <Target className="w-4 h-4 text-[#ffcc00]" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="bg-white/5 border border-white/10 p-3">
+                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Produktprofil</p>
+                          <p className="text-xs font-bold text-white">{pricingScenario.productName}</p>
+                          <p className="text-[10px] text-slate-300 mt-1">{pricingScenario.weightKg} kg, {pricingScenario.lengthCm}x{pricingScenario.widthCm}x{pricingScenario.heightCm} cm</p>
+                          <p className="text-[10px] text-slate-300 mt-1">Prisbas: Globalt prisbibliotek i Market Intelligence Center</p>
+                          <p className="text-[10px] text-slate-300 mt-1">Produktkalla: {PRODUCT_SOURCE_LABELS[editData.pricingProductSource || ''] || 'Beraknad standard'}</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-3">
+                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Arsvolym</p>
+                          <p className="text-xs font-bold text-white">{pricingScenario.annualPackages.toLocaleString('sv-SE')} paket</p>
+                          <p className="text-[10px] text-slate-300 mt-1">Volymkalla: {ANNUAL_PACKAGE_SOURCE_LABELS[editData.annualPackageEstimateSource || ''] || 'Leaddata'}</p>
+                          <p className="text-[10px] text-slate-300 mt-1">Prissatt enbart pa volymband, inte kundprofil.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 mb-3">
+                        <div className="bg-emerald-500/10 border border-emerald-400/30 p-3">
+                          <p className="text-[10px] font-black uppercase text-emerald-300 mb-1">Fokuscarrier idag</p>
+                          <p className="text-lg font-black text-white">{offerRecommendation.focusMatch ? formatSek(offerRecommendation.focusMatch.effectivePrice) : 'Saknar prisrad'}</p>
+                          <p className="text-[10px] text-slate-300 mt-1">{offerRecommendation.focusMatch?.carrier.name || 'Valj eller konfigurera fokuscarrier i Market Intelligence Center.'}</p>
+                        </div>
+                        <div className="bg-[#ffcc00]/10 border border-[#ffcc00]/30 p-3">
+                          <p className="text-[10px] font-black uppercase text-[#ffcc00] mb-1">Rekommenderad offertniva</p>
+                          <p className="text-lg font-black text-white">{offerRecommendation.targetPrice ? formatSek(offerRecommendation.targetPrice) : 'Ingen rekommendation'}</p>
+                          <p className={`text-[10px] mt-1 ${offerRecommendation.priceDelta >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                            {offerRecommendation.targetPrice && offerRecommendation.focusMatch
+                              ? `${offerRecommendation.priceDelta >= 0 ? '+' : ''}${offerRecommendation.priceDelta.toFixed(2)} SEK mot nuvarande fokuspris`
+                              : offerRecommendation.positioning}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 p-3 mb-3">
+                        <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Prisintervall att spela inom</p>
+                        <div className="flex items-center justify-between text-xs gap-3">
+                          <span className="font-bold text-white">Gol v: {offerRecommendation.recommendedPriceFloor ? formatSek(offerRecommendation.recommendedPriceFloor) : '—'}</span>
+                          <span className="font-bold text-white">Tak: {offerRecommendation.recommendedPriceCeiling ? formatSek(offerRecommendation.recommendedPriceCeiling) : '—'}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 mt-2">{offerRecommendation.positioning}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Matchande konkurrenter</p>
+                        {offerRecommendation.allMatches.length ? offerRecommendation.allMatches.map((entry) => (
+                          <div key={`${entry.carrier.name}-${entry.matchedRule.id}`} className={`flex items-center justify-between gap-3 p-2 border ${entry.carrier.isFocusCarrier ? 'border-[#ffcc00]/40 bg-[#ffcc00]/10' : 'border-white/10 bg-white/5'}`}>
+                            <div>
+                              <p className="text-xs font-black text-white">{entry.carrier.name}{entry.carrier.isFocusCarrier ? ' (fokus)' : ''}</p>
+                              <p className="text-[10px] text-slate-300">{entry.matchedRule.productName} • {entry.matchedRule.customerAnnualPackagesMin.toLocaleString('sv-SE')}-{entry.matchedRule.customerAnnualPackagesMax.toLocaleString('sv-SE')} paket</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-black text-white">{formatSek(entry.effectivePrice)}</p>
+                              <p className="text-[10px] text-slate-300">Baspris {formatSek(entry.matchedRule.priceSek)}</p>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="text-[10px] text-slate-300">Inga prisrader matchar detta lead. Lagg in fler produkt- och volymintervall i Market Intelligence Center.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Huvudadress</p>

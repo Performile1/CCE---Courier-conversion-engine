@@ -3,7 +3,8 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, Segment, SourcePolicyConfig, VerifiedFieldEvidence, VerifiedLeadField, VerifiedRegistrySnapshot } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, Segment, SourcePolicyConfig, VerifiedFieldEvidence, VerifiedLeadField, VerifiedRegistrySnapshot, CarrierSettings } from "../types";
+import { selectPricingProductForLead } from './pricingService';
 
 /**
  * PERFORMILE - TURBO ENGINE (v25.1)
@@ -314,7 +315,8 @@ export async function generateDeepDiveSequential(
   activeCarrier: string,
   threePLProviders: ThreePLProvider[],
   sourcePolicies?: SourcePolicyConfig,
-  activeCountry?: string
+  activeCountry?: string,
+  marketSettings?: CarrierSettings[]
 ): Promise<LeadData> {
   onUpdate({}, "Aktiverar Performile Surgical Engine v25.1...");
 
@@ -350,7 +352,10 @@ export async function generateDeepDiveSequential(
     const revenueTKR = parseRevenueToTKROptional(rawData.company_data?.revenue_tkr);
     const marketCount = rawData.company_data?.market_count;
     const metrics = revenueTKR !== undefined
-      ? calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount || 1)
+      ? calculateRickardMetrics(revenueTKR, rawData.company_data?.sni_code || '', sniPercentages, marketCount || 1, {
+          marketSettings,
+          activeCarrier
+        })
       : undefined;
         const companyWebsiteUrl = rawData.company_data?.domain ? `https://${rawData.company_data.domain}` : '';
         const financialSourceUrl = pickSourceUrl(groundingSources, effectivePolicies.financial);
@@ -449,6 +454,7 @@ export async function generateDeepDiveSequential(
       potentialSek: metrics?.shippingBudgetSEK,
       freightBudget: metrics ? `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr` : '',
       annualPackages: metrics?.annualPackages,
+      annualPackageEstimateSource: metrics?.annualPackageEstimateSource,
       pos1Volume: metrics?.pos1Volume,
       pos2Volume: metrics?.pos2Volume,
       segment: metrics ? determineSegmentByPotential(metrics.shippingBudgetSEK) : Segment.UNKNOWN,
@@ -489,6 +495,14 @@ export async function generateDeepDiveSequential(
       }
     };
 
+    const pricingProduct = marketSettings?.length
+      ? selectPricingProductForLead(lead, marketSettings)
+      : undefined;
+
+    lead.pricingProductName = pricingProduct?.productName;
+    lead.pricingProductSource = pricingProduct?.source;
+    lead.pricingBasis = 'volume-only';
+
     onUpdate(lead, "Analys slutförd.");
     return lead;
 
@@ -505,7 +519,8 @@ export async function generateLeads(
   activeCarrier: string,
   threePLProviders: ThreePLProvider[],
   sourcePolicies?: SourcePolicyConfig,
-  activeCountry?: string
+  activeCountry?: string,
+  marketSettings?: CarrierSettings[]
 ): Promise<LeadData[]> {
   try {
     const { effectivePolicies, promptSuffix } = buildSourceManagerPrompt(sourcePolicies, activeCountry);
@@ -554,13 +569,16 @@ export async function generateLeads(
       const rev = parseRevenueToTKROptional(l.revenue);
       const marketCount = l.marketCount;
       const metrics = rev !== undefined
-        ? calculateRickardMetrics(rev, l.sniCode || '', sniPercentages, marketCount || 1)
+        ? calculateRickardMetrics(rev, l.sniCode || '', sniPercentages, marketCount || 1, {
+            marketSettings,
+            activeCarrier
+          })
         : undefined;
       
       // Map nested logisticsMetrics to top-level LeadData fields if they exist
-      const annualPackages = l.logisticsMetrics?.estimatedAnnualPackages || metrics?.annualPackages;
-      const pos1Volume = l.logisticsMetrics?.pos1_volume || metrics?.pos1Volume;
-      const pos2Volume = l.logisticsMetrics?.pos2_volume || metrics?.pos2Volume;
+      const annualPackages = metrics?.annualPackages || l.logisticsMetrics?.estimatedAnnualPackages;
+      const pos1Volume = metrics?.pos1Volume || l.logisticsMetrics?.pos1_volume;
+      const pos2Volume = metrics?.pos2Volume || l.logisticsMetrics?.pos2_volume;
       const strategicPitch = l.logisticsMetrics?.strategic_pitch || '';
       const companyWebsiteUrl = l.domain ? `https://${String(l.domain).replace(/^https?:\/\//, '')}` : pickString(l.websiteUrl, l.website);
       const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
@@ -577,7 +595,7 @@ export async function generateLeads(
         latestNews: buildFieldEvidence(l.latestNews, newsSourceUrl, l.latestNews, capturedAt)
       };
 
-      return {
+      const leadDraft: LeadData = {
         ...l,
         id: crypto.randomUUID(),
         revenue: rev !== undefined ? `${rev.toLocaleString('sv-SE')} tkr` : '',
@@ -585,6 +603,7 @@ export async function generateLeads(
         warehouseAddress: l.warehouseAddress || '',
         marketCount,
         annualPackages,
+        annualPackageEstimateSource: l.logisticsMetrics?.estimatedAnnualPackages ? 'llm-logistics' : metrics?.annualPackageEstimateSource,
         pos1Volume,
         pos2Volume,
         strategicPitch,
@@ -601,6 +620,17 @@ export async function generateLeads(
           capturedAt
         } : undefined,
         verifiedFieldEvidence: Object.values(verifiedFieldEvidence).some(Boolean) ? verifiedFieldEvidence : undefined
+      } as LeadData;
+
+      const pricingProduct = marketSettings?.length
+        ? selectPricingProductForLead(leadDraft, marketSettings)
+        : undefined;
+
+      return {
+        ...leadDraft,
+        pricingProductName: pricingProduct?.productName,
+        pricingProductSource: pricingProduct?.source,
+        pricingBasis: 'volume-only'
       } as LeadData;
     });
 

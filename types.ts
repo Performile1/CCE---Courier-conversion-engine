@@ -27,7 +27,74 @@ export interface CarrierSettings {
   volumeOmbud: number;
   volumeSkap: number;
   volumeHem: number;
+  isFocusCarrier?: boolean;
+  priceRules?: CarrierPriceRule[];
+  productMappings?: CarrierProductMapping[];
 }
+
+export interface CarrierPriceRule {
+  id: string;
+  productName: string;
+  customerAnnualPackagesMin: number;
+  customerAnnualPackagesMax: number;
+  weightMinKg: number;
+  weightMaxKg: number;
+  maxLengthCm: number;
+  maxWidthCm: number;
+  maxHeightCm: number;
+  priceSek: number;
+  notes?: string;
+}
+
+export interface CarrierProductMapping {
+  id: string;
+  checkoutKeyword: string;
+  deliveryMethodKeyword?: string;
+  mappedProductName: string;
+  notes?: string;
+}
+
+export interface CarrierCsvPriceRow {
+  carrierName: string;
+  isFocusCarrier?: boolean;
+  marketShare?: number;
+  avgPrice?: number;
+  dmt?: number;
+  sulfur?: number;
+  volumeOmbud?: number;
+  volumeSkap?: number;
+  volumeHem?: number;
+  productName: string;
+  customerAnnualPackagesMin: number;
+  customerAnnualPackagesMax: number;
+  weightMinKg: number;
+  weightMaxKg: number;
+  maxLengthCm: number;
+  maxWidthCm: number;
+  maxHeightCm: number;
+  priceSek: number;
+  ruleNotes?: string;
+  checkoutKeyword?: string;
+  deliveryMethodKeyword?: string;
+  mappedProductName?: string;
+  mappingNotes?: string;
+}
+
+export type AnnualPackageEstimateSource =
+  | 'pricing-model'
+  | 'llm-logistics'
+  | 'lead-volume'
+  | 'position-breakdown'
+  | 'aov-fallback'
+  | 'default-fallback';
+
+export type PricingProductSource =
+  | 'lead-product'
+  | 'checkout-mapping'
+  | 'checkout-service'
+  | 'volume-band'
+  | 'segment-default'
+  | 'configured-default';
 
 export interface SearchFormData {
   companyNameOrOrg: string;
@@ -100,6 +167,8 @@ export interface SourcePolicyConfig {
   trustedDomains?: string[];
   categoryPageHints?: Record<string, string[]>;
   batchEnrichmentLimit?: number;
+  matchingStrategy?: 'strict' | 'balanced' | 'relaxed';
+  minConfidenceThreshold?: number;
   strictCompanyMatch?: boolean;
   earliestNewsYear?: number;
   customCategories?: Record<string, string[]>;
@@ -114,11 +183,103 @@ export interface SourcePolicyConfig {
     trustedDomains?: string[];
     categoryPageHints?: Record<string, string[]>;
     batchEnrichmentLimit?: number;
+    matchingStrategy?: 'strict' | 'balanced' | 'relaxed';
+    minConfidenceThreshold?: number;
     strictCompanyMatch?: boolean;
     earliestNewsYear?: number;
     customCategories?: Record<string, string[]>;
     categoryFieldMappings?: Record<string, string[]>;
   }>;
+}
+
+export interface AnalysisPolicy {
+  id: string;
+  version: number;
+  name: string;
+  market: 'SE' | 'UK' | 'DACH' | 'GLOBAL';
+  enabled: boolean;
+  matching: {
+    strategy: 'strict' | 'balanced' | 'relaxed';
+    minConfidenceThreshold: number;
+    allowFuzzyWithoutOrgNumber: boolean;
+    rejectConflictingEntities: boolean;
+  };
+  sources: {
+    trustedDomains: string[];
+    categoryPageHints: Record<string, string[]>;
+    weighting: {
+      registry: number;
+      officialSite: number;
+      industryMedia: number;
+      generalWeb: number;
+    };
+    categories: {
+      financial: string[];
+      addresses: string[];
+      decisionMakers: string[];
+      payment: string[];
+      webSoftware: string[];
+      news: string[];
+    };
+  };
+  news: {
+    recentWindowMonths: number;
+    historicalWindowMonths: number;
+    earliestNewsYear: number;
+    requireVerifiedRecentForPrimarySummary: boolean;
+  };
+  batch: {
+    maxEnrichmentLimit: number;
+    discoverySampleRate: number;
+    prioritizationWeights: {
+      revenue: number;
+      techSignal: number;
+      newsSignal: number;
+      icpMatch: number;
+      contactSignal: number;
+    };
+  };
+  fallbacks: {
+    allowEstimatedFinancials: boolean;
+    allowHistoricalNewsFallback: boolean;
+    allowJobPostingTechInference: boolean;
+    allowGeneralWebForContacts: boolean;
+  };
+}
+
+export type StepStatus = 'running' | 'success' | 'partial' | 'failed' | 'skipped' | 'fallback_used';
+
+export type AnalysisStepName =
+  | 'identity'
+  | 'source_grounding'
+  | 'financials'
+  | 'tech_stack'
+  | 'checkout'
+  | 'payment'
+  | 'news'
+  | 'contacts';
+
+export type AnalysisErrorCode =
+  | 'no_source_hits'
+  | 'rate_limited'
+  | 'entity_ambiguity'
+  | 'timeout'
+  | 'crawl_blocked'
+  | 'registry_unavailable'
+  | 'strict_match_rejected'
+  | 'parse_failed';
+
+export interface AnalysisStep {
+  step: AnalysisStepName;
+  status: StepStatus;
+  errorCode?: AnalysisErrorCode;
+  durationMs: number;
+  evidenceCount: number;
+  confidence: number;
+  sourceDomains: string[];
+  sourceUrls: string[];
+  fallbackFromStep?: AnalysisStepName;
+  summary: string;
 }
 
 export type UserRole = 'admin' | 'user' | 'viewer';
@@ -319,9 +480,13 @@ export interface LeadData {
   potentialSek?: number;
   freightBudget: string;
   annualPackages?: number;
+  annualPackageEstimateSource?: AnnualPackageEstimateSource;
   pos1Volume?: number;
   pos2Volume?: number;
   estimatedAOV?: number;
+  pricingProductName?: string;
+  pricingProductSource?: PricingProductSource;
+  pricingBasis?: 'volume-only';
   marketShareOfTotal?: string;
   conversionFactor?: number;
   activeMarkets?: string[];
@@ -394,4 +559,5 @@ export interface LeadData {
   analysisCompleteness?: 'full' | 'partial' | 'thin';
   analysisWarnings?: string[];
   analysisTelemetry?: string[];
+  analysisSteps?: AnalysisStep[];
 }

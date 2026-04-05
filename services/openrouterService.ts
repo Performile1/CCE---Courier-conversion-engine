@@ -3,8 +3,10 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, CarrierSettings } from "../types";
+import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig';
+import { selectPricingProductForLead } from './pricingService';
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine
@@ -77,17 +79,7 @@ export function resetCostTracker(): void {
 
 const MIN_INTERVAL = 300; // Keep fast by default; rely on adaptive backoff on 429
 let lastCallTime = 0;
-const DEFAULT_BATCH_ENRICHMENT_LIMIT = 10;
-const DEFAULT_TRUSTED_DOMAINS = [
-  'allabolag.se',
-  'kreditrapporten.se',
-  'boolag.se',
-  'ratsit.se',
-  'bolagsverket.se',
-  'ehandel.se',
-  'market.se',
-  'breakit.se'
-];
+const DEFAULT_TRUSTED_DOMAINS = DEFAULT_ANALYSIS_TRUSTED_DOMAINS;
 const FINANCIAL_SOURCE_DOMAINS = ['allabolag.se', 'kreditrapporten.se', 'boolag.se', 'ratsit.se', 'bolagsverket.se'];
 const ADDRESS_SOURCE_DOMAINS = ['allabolag.se', 'boolag.se', 'ratsit.se', 'bolagsverket.se', 'hitta.se', 'eniro.se'];
 const CONTACT_SOURCE_DOMAINS = ['ratsit.se', 'allabolag.se', 'linkedin.com', 'hitta.se'];
@@ -141,47 +133,67 @@ function determineAnalysisCompleteness(input: {
   if (signals >= 3) return 'partial';
   return 'thin';
 }
-const DEFAULT_CATEGORY_PAGE_HINTS: Record<string, string[]> = {
-  financial: ['bokslut', 'omsättning', 'resultat', 'soliditet', 'likviditet', 'annual report'],
-  revenue: ['omsättning', 'nettoomsättning', 'bokslut'],
-  omsattning: ['omsättning', 'nettoomsättning', 'bokslut'],
-  profit: ['resultat', 'årets resultat', 'efter finansnetto'],
-  resultat: ['resultat', 'årets resultat', 'efter finansnetto'],
-  solidity: ['soliditet', 'bokslut', 'årsredovisning'],
-  likviditet: ['likviditet', 'bokslut', 'årsredovisning'],
-  riskstatus: ['anmärkning', 'kfm', 'skuldsaldo', 'skuldsättningsgrad', 'status', 'ärende', 'årsredovisning', 'registrerat'],
-  status: ['status', 'likvidation', 'konkurs', 'rekonstruktion', 'ärende', 'registrerat'],
-  betalningsanmarkning: ['betalningsanmärkning', 'anmärkning', 'kfm'],
-  skuldsaldo: ['skuldsaldo', 'kfm', 'kronofogden'],
-  skuldsattningsgrad: ['skuldsättningsgrad', 'skuld', 'eget kapital'],
-  addresses: ['adress', 'besöksadress', 'postadress', 'kontakt', 'karta'],
-  adresser: ['adress', 'besöksadress', 'lageradress', 'kontakt'],
-  decisionMakers: ['ledning', 'styrelse', 'ceo', 'vd', 'kontaktperson', 'linkedin'],
-  beslutsfattare: ['ledning', 'styrelse', 'vd', 'kontaktperson', 'linkedin'],
-  payment: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],
-  betalning: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],
-  checkout: ['checkout', 'leverans', 'frakt', 'betalning'],
-  webSoftware: ['platform', 'tech stack', 'shopify', 'woocommerce', 'norce', 'scripts'],
-  plattform: ['platform', 'shopify', 'woocommerce', 'norce', 'centra', 'scripts'],
-  tasystem: ['nshift', 'unifaun', 'centiro', 'ingrid', 'logtrade'],
-  news: ['nyheter', 'pressmeddelande', 'expansion', 'förvärv', 'ärende', 'årsredovisning', 'nyemission', 'registrerat']
-};
+const DEFAULT_CATEGORY_PAGE_HINTS: Record<string, string[]> = DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS;
 
-function getConfiguredTrustedDomains(sourcePolicies?: SourcePolicyConfig): string[] {
-  return Array.from(new Set((sourcePolicies?.trustedDomains?.length ? sourcePolicies.trustedDomains : DEFAULT_TRUSTED_DOMAINS)
+function upsertAnalysisStep(
+  steps: AnalysisStep[],
+  patch: Partial<AnalysisStep> & Pick<AnalysisStep, 'step' | 'status' | 'summary'>
+): AnalysisStep[] {
+  const nextStep: AnalysisStep = {
+    durationMs: 0,
+    evidenceCount: 0,
+    confidence: 0,
+    sourceDomains: [],
+    sourceUrls: [],
+    ...patch
+  };
+  const existingIndex = steps.findIndex((step) => step.step === patch.step);
+  if (existingIndex >= 0) {
+    const next = [...steps];
+    next[existingIndex] = { ...next[existingIndex], ...nextStep };
+    return next;
+  }
+  return [...steps, nextStep];
+}
+
+function countEvidence(...values: Array<unknown>): number {
+  let total = 0;
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      total += value.filter(Boolean).length;
+      continue;
+    }
+    if (value && typeof value === 'object') {
+      total += Object.keys(value as Record<string, unknown>).length;
+      continue;
+    }
+    if (value) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+function getConfiguredTrustedDomains(sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): string[] {
+  const configuredDomains = analysisPolicy?.sources?.trustedDomains?.length
+    ? analysisPolicy.sources.trustedDomains
+    : (sourcePolicies?.trustedDomains?.length ? sourcePolicies.trustedDomains : DEFAULT_TRUSTED_DOMAINS);
+
+  return Array.from(new Set(configuredDomains
     .map((domain) => normalizeDomain(domain))
     .filter(Boolean)));
 }
 
-function getConfiguredCategoryPageHints(sourcePolicies?: SourcePolicyConfig): Record<string, string[]> {
+function getConfiguredCategoryPageHints(sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): Record<string, string[]> {
   return {
     ...DEFAULT_CATEGORY_PAGE_HINTS,
-    ...(sourcePolicies?.categoryPageHints || {})
+    ...(sourcePolicies?.categoryPageHints || {}),
+    ...(analysisPolicy?.sources?.categoryPageHints || {})
   };
 }
 
-function getBatchEnrichmentLimit(sourcePolicies?: SourcePolicyConfig): number {
-  const configured = Number(sourcePolicies?.batchEnrichmentLimit);
+function getBatchEnrichmentLimit(sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): number {
+  const configured = Number(analysisPolicy?.batch?.maxEnrichmentLimit ?? sourcePolicies?.batchEnrichmentLimit);
   return Number.isFinite(configured) && configured > 0 ? Math.max(1, Math.round(configured)) : DEFAULT_BATCH_ENRICHMENT_LIMIT;
 }
 
@@ -473,7 +485,7 @@ async function resolveCompanyIdentity(
   }
 }
 
-function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sourcePolicies?: SourcePolicyConfig, sniCode?: string): string[] {
+function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy, sniCode?: string): string[] {
   const normalizedSni = (sniCode || '').trim();
   const fromMappings = newsSourceMappings
     .filter((m) => {
@@ -483,15 +495,15 @@ function getPreferredDomains(newsSourceMappings: NewsSourceMapping[], sourcePoli
     })
     .flatMap((m) => m.sources || []);
 
-  const merged = [...getConfiguredTrustedDomains(sourcePolicies), ...fromMappings]
+  const merged = [...getConfiguredTrustedDomains(sourcePolicies, analysisPolicy), ...fromMappings]
     .map((d) => normalizeDomain(d))
     .filter(Boolean);
 
   return Array.from(new Set(merged));
 }
 
-function getSourcePriorityBlock(preferredDomains: string[], sourcePolicies?: SourcePolicyConfig): string {
-  const merged = Array.from(new Set([...preferredDomains, ...getConfiguredTrustedDomains(sourcePolicies)]));
+function getSourcePriorityBlock(preferredDomains: string[], sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): string {
+  const merged = Array.from(new Set([...preferredDomains, ...getConfiguredTrustedDomains(sourcePolicies, analysisPolicy)]));
   const pickByCategory = (domains: string[]) => domains.filter((d) => merged.includes(d));
 
   const financial = pickByCategory(FINANCIAL_SOURCE_DOMAINS);
@@ -932,7 +944,8 @@ function updateSourcePerformance(domainHits: Record<string, number>): void {
 
 async function fetchCategoryExactPageEvidenceBundle(
   companyName: string,
-  sourcePolicies: SourcePolicyConfig
+  sourcePolicies: SourcePolicyConfig,
+  analysisPolicy?: AnalysisPolicy
 ): Promise<{ promptEvidence: string; coverage: SourceCoverageEntry[]; domainHits: Record<string, number> }> {
   if (!companyName) return { promptEvidence: '', coverage: [], domainHits: {} };
 
@@ -945,11 +958,12 @@ async function fetchCategoryExactPageEvidenceBundle(
   );
 
   const categories = Object.keys(categoryDomains).slice(0, 6);
+  const configuredPageHints = getConfiguredCategoryPageHints(sourcePolicies, analysisPolicy);
   for (const category of categories) {
     const domains = (categoryDomains[category] || []).map(normalizeDomain).filter(Boolean).slice(0, 4);
     if (!domains.length) continue;
 
-    const pageHints = CATEGORY_PAGE_HINTS[category] || ['about', 'kontakt', 'nyheter'];
+    const pageHints = configuredPageHints[category] || ['about', 'kontakt', 'nyheter'];
     const siteQuery = domains.map((d) => `site:${d}`).join(' OR ');
     const hintQuery = pageHints.slice(0, 3).join(' OR ');
     const query = `${companyName} (${siteQuery}) (${hintQuery})`;
@@ -986,13 +1000,17 @@ async function fetchCategoryExactPageEvidenceBundle(
           }
         );
 
-        externalUrls = (broadResponse.data?.results || [])
+        const candidateUrls: string[] = (broadResponse.data?.results || [])
           .map((r: any) => pickString(r?.url))
-          .filter(Boolean)
-          .map(u => ({ raw: u, domain: normalizeDomain(u) }))
-          .filter(item => item.domain && !preferredSet.has(item.domain))
+          .filter((url: string) => Boolean(url));
+
+        const normalizedCandidates: Array<{ raw: string; domain: string }> = candidateUrls
+          .map((url: string) => ({ raw: url, domain: normalizeDomain(url) }))
+          .filter((candidate: { raw: string; domain: string }) => candidate.domain && !preferredSet.has(candidate.domain));
+
+        externalUrls = normalizedCandidates
           .slice(0, 2)
-          .map(item => item.raw);
+          .map((candidate: { raw: string; domain: string }) => candidate.raw);
       } catch {
         externalUrls = [];
       }
@@ -1661,8 +1679,9 @@ async function fetchDecisionMakersTargeted(
         const linkedinVerified = url.includes('linkedin.com') && aliasMatch;
         const companyVerified = aliasMatch || orgMatch;
         if (!companyVerified) continue;
-        const name = nameMatches[0];
-        const role = roleMatches[0];
+        const name = nameMatches[0] ?? '';
+        const role = roleMatches[0] ?? '';
+        if (!name || !role) continue;
         if (!roleMatchesFocus(role, roleSynonyms)) continue;
         if (/rickard|wigrund/i.test(name)) continue;
         if (isLikelyGenericPersonName(name)) continue;
@@ -2010,11 +2029,28 @@ export async function generateDeepDiveSequential(
   model?: ModelName,
   sourcePolicies?: SourcePolicyConfig,
   activeCountry?: string,
-  techSolutionConfig?: TechSolutionConfig
+  techSolutionConfig?: TechSolutionConfig,
+  analysisPolicy?: AnalysisPolicy,
+  marketSettings?: CarrierSettings[]
 ): Promise<LeadData> {
   const activeModel = model || selectedModel;
+  let analysisSteps: AnalysisStep[] = [];
   const analysisTelemetry: string[] = [];
   const analysisWarnings: string[] = [];
+  const publishStep = (
+    step: AnalysisStepName,
+    status: AnalysisStep['status'],
+    summary: string,
+    extra?: Partial<AnalysisStep>
+  ) => {
+    analysisSteps = upsertAnalysisStep(analysisSteps, {
+      step,
+      status,
+      summary,
+      ...extra
+    });
+    onUpdate({ analysisSteps: [...analysisSteps] }, summary);
+  };
   const pushTelemetry = (message: string) => {
     const normalized = String(message || '').trim();
     if (normalized) analysisTelemetry.push(normalized);
@@ -2026,9 +2062,10 @@ export async function generateDeepDiveSequential(
   onUpdate({}, `Aktiverar OpenRouter Surgical Engine med ${MODEL_CONFIG[activeModel].displayName}...`);
 
   const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
+  const effectiveAnalysisPolicy = analysisPolicy || buildAnalysisPolicyFromSourcePolicyConfig(effectivePolicies, activeCountry);
   const customDomains = Object.values(effectivePolicies.customCategories || {}).flat();
   const preferredDomains = Array.from(new Set([
-    ...getPreferredDomains(newsSourceMappings),
+    ...getPreferredDomains(newsSourceMappings, effectivePolicies, effectiveAnalysisPolicy),
     ...effectivePolicies.news,
     ...effectivePolicies.financial,
     ...effectivePolicies.addresses,
@@ -2037,7 +2074,8 @@ export async function generateDeepDiveSequential(
     ...effectivePolicies.webSoftware,
     ...customDomains
   ].map(normalizeDomain).filter(Boolean)));
-  const strictCompanyMatchEnabled = effectivePolicies.strictCompanyMatch !== false;
+  const identityStartedAt = Date.now();
+  const strictCompanyMatchEnabled = effectiveAnalysisPolicy.matching.strategy !== 'relaxed';
   const resolvedIdentity = strictCompanyMatchEnabled
     ? await resolveCompanyIdentity(formData.companyNameOrOrg, preferredDomains)
     : {
@@ -2045,6 +2083,13 @@ export async function generateDeepDiveSequential(
         orgNumber: extractOrgNumberFromText(formData.companyNameOrOrg),
         aliases: buildCompanyAliases(formData.companyNameOrOrg)
       };
+  publishStep('identity', strictCompanyMatchEnabled ? 'success' : 'fallback_used', strictCompanyMatchEnabled ? 'Bolagsidentitet matchad.' : 'Relaxed matching användes för bolagsidentitet.', {
+    durationMs: Date.now() - identityStartedAt,
+    evidenceCount: countEvidence(resolvedIdentity.orgNumber, resolvedIdentity.aliases),
+    confidence: strictCompanyMatchEnabled ? 0.9 : 0.6,
+    sourceDomains: preferredDomains.slice(0, 5),
+    sourceUrls: []
+  });
   const strictCompanyName = resolvedIdentity.canonicalName || formData.companyNameOrOrg;
   const strictOrgNumber = resolvedIdentity.orgNumber || extractOrgNumberFromText(formData.companyNameOrOrg);
   const identityLabel = strictOrgNumber ? `${strictCompanyName} (${strictOrgNumber})` : strictCompanyName;
@@ -2061,7 +2106,7 @@ ${strictCompanyMatchEnabled
 
 ### SOURCE PRIORITY
 Prioritera dessa källor när tillgängligt: ${preferredDomains.join(', ')}.
-${getSourcePriorityBlock(preferredDomains)}
+${getSourcePriorityBlock(preferredDomains, effectivePolicies, effectiveAnalysisPolicy)}
 ${getSourcePriorityByPartBlock(effectivePolicies)}
 
 ### NEWS RUNTIME RULES
@@ -2083,11 +2128,29 @@ Om relevant nyhetsinformation hittas, inkludera ett fält \"latest_news\" med ko
   try {
     onUpdate({}, "Genomför teknisk & finansiell revision...");
     onUpdate({}, 'Samlar källunderlag via Tavily/Google, Allabolag och Crawl4ai...');
+    publishStep('source_grounding', 'running', 'Samlar källunderlag via Tavily/Google och Crawl4ai...');
+    publishStep('financials', 'running', 'Hämtar verifierad finansiell registerdata...');
+    const sourceAndFinancialStartedAt = Date.now();
     const [sourceBundle, financialEvidence] = await Promise.all([
-      fetchCategoryExactPageEvidenceBundle(identityLabel, effectivePolicies),
+      fetchCategoryExactPageEvidenceBundle(identityLabel, effectivePolicies, effectiveAnalysisPolicy),
       fetchVerifiedFinancials(strictOrgNumber, strictCompanyName)
     ]);
     const sourceGroundingEvidence = sourceBundle.promptEvidence;
+    publishStep('source_grounding', sourceGroundingEvidence ? 'success' : 'partial', sourceGroundingEvidence ? 'Source grounding hämtades.' : 'Source grounding gav begränsat underlag.', {
+      durationMs: Date.now() - sourceAndFinancialStartedAt,
+      evidenceCount: countEvidence(sourceBundle.coverage, sourceBundle.domainHits),
+      confidence: sourceGroundingEvidence ? 0.85 : 0.4,
+      sourceDomains: Object.keys(sourceBundle.domainHits || {}),
+      sourceUrls: (sourceBundle.coverage || []).map((entry) => entry.url || '').filter(Boolean)
+    });
+    publishStep('financials', financialEvidence.confidence === 'verified' ? 'success' : 'partial', financialEvidence.confidence === 'verified' ? 'Verifierad finansiell registerdata hämtad.' : 'Finansiell registerdata kunde inte verifieras fullt ut.', {
+      durationMs: Date.now() - sourceAndFinancialStartedAt,
+      evidenceCount: countEvidence(financialEvidence.parsed),
+      confidence: financialEvidence.confidence === 'verified' ? 1 : 0.35,
+      sourceDomains: financialEvidence.sourceUrl ? [normalizeDomain(financialEvidence.sourceUrl)] : [],
+      sourceUrls: financialEvidence.sourceUrl ? [financialEvidence.sourceUrl] : [],
+      errorCode: financialEvidence.confidence === 'verified' ? undefined : 'registry_unavailable'
+    });
     pushTelemetry(sourceGroundingEvidence ? 'Source grounding hittades via Tavily/Crawl4ai.' : 'Source grounding gav inga externa träffar.');
     pushTelemetry(financialEvidence.confidence === 'verified'
       ? 'Finansiell registerdata verifierad.'
@@ -2141,6 +2204,10 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     let detectedEmailPattern = '';
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
+      publishStep('checkout', 'running', 'Crawlar checkoutflöden...');
+      publishStep('payment', 'running', 'Detekterar verifierad betalsetup...');
+      publishStep('tech_stack', 'running', 'Bygger verifierad tech-profil...');
+      const commercialSignalsStartedAt = Date.now();
       const phase24 = await Promise.all([
         fetchCheckoutPositions(parsedDomain, activeCarrier, techSolutionConfig),
         fetchVerifiedPaymentSetup(parsedDomain, techSolutionConfig),
@@ -2165,10 +2232,34 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       pushTelemetry(detectedEmailPattern
         ? 'E-postmönster identifierat.'
         : 'E-postmönster kunde inte identifieras.');
+      publishStep('checkout', checkoutCrawlResult.positions.length ? 'success' : 'partial', checkoutCrawlResult.positions.length ? 'Checkout crawl verifierade checkout-positioner.' : 'Checkout crawl gav inga verifierade checkout-positioner.', {
+        durationMs: Date.now() - commercialSignalsStartedAt,
+        evidenceCount: checkoutCrawlResult.positions.length,
+        confidence: checkoutCrawlResult.positions.length ? 0.9 : 0.25,
+        sourceDomains: checkoutCrawlResult.sourceUrl ? [normalizeDomain(checkoutCrawlResult.sourceUrl)] : [],
+        sourceUrls: checkoutCrawlResult.sourceUrl ? [checkoutCrawlResult.sourceUrl] : []
+      });
+      publishStep('payment', paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 'success' : 'partial', paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 'Payment-detection hittade verifierad betalsetup.' : 'Payment-detection hittade ingen verifierad betalsetup.', {
+        durationMs: Date.now() - commercialSignalsStartedAt,
+        evidenceCount: countEvidence(paymentEvidence.paymentProvider, paymentEvidence.checkoutSolution),
+        confidence: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 0.85 : 0.25,
+        sourceDomains: paymentEvidence.sourceUrl ? [normalizeDomain(paymentEvidence.sourceUrl)] : [],
+        sourceUrls: paymentEvidence.sourceUrl ? [paymentEvidence.sourceUrl] : []
+      });
+      publishStep('tech_stack', techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 'success' : 'partial', techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 'Tech-profil verifierad via crawl.' : 'Tech-profil gav inga verifierade träffar.', {
+        durationMs: Date.now() - commercialSignalsStartedAt,
+        evidenceCount: countEvidence(techProfile.platforms, techProfile.taSystems, techProfile.paymentProviders, techProfile.checkoutSolutions),
+        confidence: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 0.8 : 0.2,
+        sourceDomains: techProfile.sourceUrl ? [normalizeDomain(techProfile.sourceUrl)] : [],
+        sourceUrls: techProfile.sourceUrl ? [techProfile.sourceUrl] : []
+      });
     } catch {
       pushWarning('Checkout crawl, payment-detection eller tech crawl misslyckades. AI-svaret kan därför vara tunnare än normalt.');
       pushTelemetry('Phase 2+4 misslyckades och föll tillbaka till AI-data.');
       onUpdate({}, 'Varning: checkout crawl/tech-detection gav inget verifierat underlag.');
+      publishStep('checkout', 'failed', 'Checkout crawl misslyckades och föll tillbaka till AI-data.', { errorCode: 'crawl_blocked' });
+      publishStep('payment', 'failed', 'Payment-detection misslyckades och föll tillbaka till AI-data.', { errorCode: 'crawl_blocked', fallbackFromStep: 'checkout' });
+      publishStep('tech_stack', 'failed', 'Tech-profil misslyckades och föll tillbaka till AI-data.', { errorCode: 'crawl_blocked', fallbackFromStep: 'checkout' });
     }
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
@@ -2178,6 +2269,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     try {
       if (llmContactCount < 2) {
         onUpdate({}, 'Söker beslutsfattare via rollstyrd källsökning...');
+        publishStep('contacts', 'running', 'Söker beslutsfattare via rollstyrd källsökning...');
+        const contactsStartedAt = Date.now();
         const dmResult = await fetchDecisionMakersTargeted(
           pickString(companyData?.name, companyData?.company_name) || strictCompanyName,
           pickString(companyData?.org_nr, companyData?.organization_number) || strictOrgNumber,
@@ -2190,11 +2283,19 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         pushTelemetry(dmResult.contacts.length
           ? `Beslutsfattarsökning kompletterade med ${dmResult.contacts.length} kontakter.`
           : 'Beslutsfattarsökning gav inga extra kontakter.');
+        publishStep('contacts', dmResult.contacts.length ? 'success' : 'partial', dmResult.contacts.length ? 'Beslutsfattare kompletterades.' : 'Beslutsfattarsökning gav inga extra kontakter.', {
+          durationMs: Date.now() - contactsStartedAt,
+          evidenceCount: dmResult.contacts.length,
+          confidence: dmResult.contacts.length ? 0.8 : 0.25,
+          sourceDomains: preferredDomains.slice(0, 5),
+          sourceUrls: dmResult.contacts.map((contact) => contact.linkedin).filter(Boolean)
+        });
       }
     } catch {
       pushWarning('Beslutsfattarsökning misslyckades. Kontaktdata kan vara ofullständig.');
       pushTelemetry('Phase 3 misslyckades och föll tillbaka till befintliga kontaktfält.');
       onUpdate({}, 'Varning: beslutsfattarsökning gav inga verifierade kompletteringar.');
+      publishStep('contacts', 'failed', 'Beslutsfattarsökning misslyckades och föll tillbaka till befintliga kontaktfält.', { errorCode: 'no_source_hits' });
     }
 
     const registryFields = financialEvidence.parsed || {};
@@ -2220,7 +2321,10 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     const verifiedActiveMarkets = retailEvidence.activeMarkets;
     const marketCount = verifiedActiveMarkets.length || pickNumber(companyData?.market_count, companyData?.marketCount);
     const metrics = revenueTKR !== undefined
-      ? calculateRickardMetrics(revenueTKR, sniCode || '', sniPercentages, marketCount || 1)
+      ? calculateRickardMetrics(revenueTKR, sniCode || '', sniPercentages, marketCount || 1, {
+          marketSettings,
+          activeCarrier
+        })
       : undefined;
     const verifiedProfitMargin = pickString(registryFields.profitMargin)
       || deriveProfitMargin(
@@ -2267,7 +2371,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       .filter(Boolean);
     const verifiedNews = await fetchLatestNews(
       pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
-      Array.from(new Set([...getPreferredDomains(newsSourceMappings, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean))),
+      Array.from(new Set([...getPreferredDomains(newsSourceMappings, effectivePolicies, effectiveAnalysisPolicy, sniCode), ...effectivePolicies.news].map(normalizeDomain).filter(Boolean))),
       {
         orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
         contactNames,
@@ -2277,6 +2381,12 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     );
     const finalLatestNews = verifiedNews.summary || '';
     pushTelemetry(verifiedNews.summary ? 'Nyhetssökning hittade verifierade nyheter.' : 'Nyhetssökning gav inga verifierade nyheter.');
+    publishStep('news', verifiedNews.summary ? 'success' : 'partial', verifiedNews.summary ? 'Nyhetssökning hittade verifierade nyheter.' : 'Nyhetssökning gav inga verifierade nyheter.', {
+      evidenceCount: verifiedNews.items.length,
+      confidence: verifiedNews.summary ? 0.8 : 0.25,
+      sourceDomains: verifiedNews.sources || [],
+      sourceUrls: verifiedNews.items.map((item) => item.url).filter(Boolean)
+    });
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
     const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
       pickString(companyData?.domain, companyData?.website, companyData?.url),
@@ -2467,6 +2577,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       potentialSek: metrics?.shippingBudgetSEK,
       freightBudget: metrics ? `${metrics.potentialTKR.toLocaleString('sv-SE')} tkr` : '',
       annualPackages: metrics?.annualPackages,
+      annualPackageEstimateSource: metrics?.annualPackageEstimateSource,
       pos1Volume: metrics?.pos1Volume,
       pos2Volume: metrics?.pos2Volume,
       segment: metrics ? determineSegmentByPotential(metrics.shippingBudgetSEK) : Segment.UNKNOWN,
@@ -2513,6 +2624,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         !(techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length) ? 'Ingen verifierad tech-profil hittades.' : ''
       ]),
       analysisTelemetry: dedupeMessages(analysisTelemetry),
+      analysisSteps: analysisSteps,
       analysisCompleteness: determineAnalysisCompleteness({
         revenue: revenueTKR !== undefined ? `${revenueTKR}` : '',
         websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url),
@@ -2541,6 +2653,14 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       } as DataConfidence
     };
 
+    const pricingProduct = marketSettings?.length
+      ? selectPricingProductForLead(lead, marketSettings)
+      : undefined;
+
+    lead.pricingProductName = pricingProduct?.productName;
+    lead.pricingProductSource = pricingProduct?.source;
+    lead.pricingBasis = 'volume-only';
+
     onUpdate(lead, "Analys slutförd.");
     return lead;
 
@@ -2562,11 +2682,15 @@ export async function generateLeads(
   model?: ModelName,
   sourcePolicies?: SourcePolicyConfig,
   activeCountry?: string,
-  techSolutionConfig?: TechSolutionConfig
+  techSolutionConfig?: TechSolutionConfig,
+  analysisPolicy?: AnalysisPolicy,
+  marketSettings?: CarrierSettings[]
 ): Promise<LeadData[]> {
   const activeModel = model || selectedModel;
   try {
     const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
+    const effectiveAnalysisPolicy = analysisPolicy || buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies, activeCountry);
+    const batchEnrichmentLimit = getBatchEnrichmentLimit(effectivePolicies, effectiveAnalysisPolicy);
     const customDomains = Object.values(effectivePolicies.customCategories || {}).flat();
     const preferredDomains = Array.from(new Set([
       ...effectivePolicies.news,
@@ -2612,11 +2736,14 @@ export async function generateLeads(
       const rev = parseRevenueToTKR(revenueRaw);
       const marketCount = pickNumber(l.marketCount, l.market_count) || 1;
       const sniCode = pickString(l.sniCode, l.sni_code, l.sni);
-      let metrics = calculateRickardMetrics(rev, sniCode, sniPercentages, marketCount);
-      
-      const annualPackages = pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages) || metrics.annualPackages;
-      const pos1Volume = pickNumber(logisticsMetrics?.pos1_volume, logisticsMetrics?.pos1Volume) || metrics.pos1Volume;
-      const pos2Volume = pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume) || metrics.pos2Volume;
+      let metrics: ReturnType<typeof calculateRickardMetrics> | undefined = calculateRickardMetrics(rev, sniCode, sniPercentages, marketCount, {
+        marketSettings,
+        activeCarrier
+      });
+
+      const annualPackages = metrics?.annualPackages || pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages);
+      const pos1Volume = metrics?.pos1Volume || pickNumber(logisticsMetrics?.pos1_volume, logisticsMetrics?.pos1Volume);
+      const pos2Volume = metrics?.pos2Volume || pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume);
       const strategicPitch = pickString(logisticsMetrics?.strategic_pitch, logisticsMetrics?.strategicPitch);
 
       const domainRaw = pickString(l.domain, l.website, l.websiteUrl, l.url);
@@ -2632,7 +2759,7 @@ export async function generateLeads(
       }));
 
       // Apply heavier evidence checks on the first leads to avoid quota spikes in large batches.
-      const shouldEnrich = index < BATCH_ENRICHMENT_LIMIT;
+      const shouldEnrich = index < batchEnrichmentLimit;
       const analysisWarnings: string[] = [];
       const analysisTelemetry: string[] = [];
       let financialEvidence: VerifiedFinancialEvidence = { evidenceText: '', confidence: 'missing', parsed: {} };
@@ -2696,7 +2823,7 @@ export async function generateLeads(
           }
         }
       } else {
-        analysisWarnings.push(`Endast quick-scan användes i batch. Full enrichment körs på de första ${BATCH_ENRICHMENT_LIMIT} leadsen i varje körning.`);
+        analysisWarnings.push(`Endast quick-scan användes i batch. Full enrichment körs på de första ${batchEnrichmentLimit} leadsen i varje körning.`);
         analysisTelemetry.push('Leadet markerades som quick-scan på grund av batchbegränsning.');
       }
 
@@ -2712,9 +2839,13 @@ export async function generateLeads(
         : undefined;
       const effectiveRevenueTkr = registryFields.revenueTkr ?? historyRevenueTKR ?? (l.revenue ? parseRevenueToTKROptional(l.revenue) : undefined);
       const effectiveMarketCount = retailEvidence.activeMarkets.length || marketCount;
-      metrics = effectiveRevenueTkr !== undefined
-        ? calculateRickardMetrics(effectiveRevenueTkr, sniCode || '', sniPercentages, effectiveMarketCount || 1)
+      const recalculatedMetrics: ReturnType<typeof calculateRickardMetrics> | undefined = effectiveRevenueTkr !== undefined
+        ? calculateRickardMetrics(effectiveRevenueTkr, sniCode || '', sniPercentages, effectiveMarketCount || 1, {
+            marketSettings,
+            activeCarrier
+          })
         : undefined;
+      metrics = recalculatedMetrics;
       const verifiedSolidity = pickString(registryFields.solidity, l.solidity, l.equity_ratio);
       const verifiedLiquidityRatio = pickString(registryFields.liquidityRatio, l.liquidityRatio, l.liquidity_ratio);
       const verifiedDebtBalance = pickString(registryFields.debtBalance, l.debtBalance, l.debt_balance_tkr);
@@ -2789,6 +2920,14 @@ export async function generateLeads(
             capturedAt
           }
         : undefined;
+
+      const decisionMakerSourceUrl = decisionMakers
+        .find((contact) => contact.verificationNote?.includes('Källa: '))
+        ?.verificationNote?.split('Källa: ')[1]?.split(' | ')[0];
+      const decisionMakerEvidenceText = decisionMakers
+        .map((contact) => contact.verificationNote || '')
+        .filter(Boolean)
+        .join(' | ');
 
       const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> | undefined = (() => {
         const evidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
@@ -2905,8 +3044,8 @@ export async function generateLeads(
           ),
           decisionMakers: buildFieldEvidence(
             decisionMakers,
-            decisionMakers.find((contact) => contact.verificationNote.includes('Källa: '))?.verificationNote.split('Källa: ')[1]?.split(' | ')[0],
-            decisionMakers.map((contact) => contact.verificationNote).filter(Boolean).join(' | '),
+            decisionMakerSourceUrl,
+            decisionMakerEvidenceText,
             capturedAt,
             dmConfidence === 'verified' ? 'verified' : 'estimated'
           ),
@@ -2929,7 +3068,7 @@ export async function generateLeads(
         return Object.values(evidence).some(Boolean) ? evidence : undefined;
       })();
 
-      return {
+      const leadDraft: LeadData = {
         ...l,
         id: crypto.randomUUID(),
         companyName: pickString(l.companyName, l.company_name, l.name),
@@ -2958,6 +3097,9 @@ export async function generateLeads(
         marketCount: verifiedActiveMarkets.length || marketCount,
         activeMarkets: verifiedActiveMarkets,
         annualPackages: metrics ? annualPackages : undefined,
+        annualPackageEstimateSource: pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages)
+          ? 'llm-logistics'
+          : metrics?.annualPackageEstimateSource,
         pos1Volume: metrics ? pos1Volume : undefined,
         pos2Volume: metrics ? pos2Volume : undefined,
         strategicPitch,
@@ -3010,6 +3152,48 @@ export async function generateLeads(
           !(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution) ? 'Ingen verifierad betalsetup hittades.' : ''
         ]),
         analysisTelemetry: dedupeMessages(analysisTelemetry),
+        analysisSteps: [
+          {
+            step: 'financials',
+            status: financialEvidence.confidence === 'verified' ? 'success' : shouldEnrich ? 'partial' : 'skipped',
+            durationMs: 0,
+            evidenceCount: countEvidence(financialEvidence.parsed),
+            confidence: financialEvidence.confidence === 'verified' ? 1 : shouldEnrich ? 0.35 : 0,
+            sourceDomains: financialEvidence.sourceUrl ? [normalizeDomain(financialEvidence.sourceUrl)] : [],
+            sourceUrls: financialEvidence.sourceUrl ? [financialEvidence.sourceUrl] : [],
+            summary: financialEvidence.confidence === 'verified' ? 'Verifierad finansiell data hittad.' : shouldEnrich ? 'Finansiell verifiering gav begränsat utfall.' : 'Finansiell verifiering hoppades över i quick-scan.'
+          },
+          {
+            step: 'checkout',
+            status: checkoutEvidence.positions.length ? 'success' : shouldEnrich ? 'partial' : 'skipped',
+            durationMs: 0,
+            evidenceCount: checkoutEvidence.positions.length,
+            confidence: checkoutEvidence.positions.length ? 0.85 : shouldEnrich ? 0.25 : 0,
+            sourceDomains: checkoutEvidence.sourceUrl ? [normalizeDomain(checkoutEvidence.sourceUrl)] : [],
+            sourceUrls: checkoutEvidence.sourceUrl ? [checkoutEvidence.sourceUrl] : [],
+            summary: checkoutEvidence.positions.length ? 'Checkout crawl hittade verifierade positioner.' : shouldEnrich ? 'Checkout crawl gav inga verifierade positioner.' : 'Checkout crawl hoppades över i quick-scan.'
+          },
+          {
+            step: 'news',
+            status: newsEvidence.summary ? 'success' : shouldEnrich ? 'partial' : 'skipped',
+            durationMs: 0,
+            evidenceCount: newsEvidence.items.length,
+            confidence: newsEvidence.summary ? 0.8 : shouldEnrich ? 0.25 : 0,
+            sourceDomains: newsEvidence.sources || [],
+            sourceUrls: newsEvidence.items.map((item) => item.url).filter(Boolean),
+            summary: newsEvidence.summary ? 'Nyheter verifierades.' : shouldEnrich ? 'Nyhetssökning gav inga verifierade nyheter.' : 'Nyhetssökning hoppades över i quick-scan.'
+          },
+          {
+            step: 'contacts',
+            status: decisionMakers.length ? (dmConfidence === 'verified' ? 'success' : 'partial') : shouldEnrich ? 'partial' : 'skipped',
+            durationMs: 0,
+            evidenceCount: decisionMakers.length,
+            confidence: dmConfidence === 'verified' ? 0.85 : decisionMakers.length ? 0.4 : 0,
+            sourceDomains: decisionMakers.map((contact) => contact.linkedin || '').filter(Boolean).map((value) => normalizeDomain(value)),
+            sourceUrls: decisionMakers.map((contact) => contact.linkedin || '').filter(Boolean),
+            summary: decisionMakers.length ? 'Beslutsfattardata tillgänglig.' : shouldEnrich ? 'Beslutsfattarsökning gav inga verifierade kontakter.' : 'Beslutsfattarsökning hoppades över i quick-scan.'
+          }
+        ],
         analysisCompleteness: shouldEnrich
           ? determineAnalysisCompleteness({
               revenue: effectiveRevenueTkr !== undefined ? `${effectiveRevenueTkr}` : '',
@@ -3030,6 +3214,17 @@ export async function generateLeads(
           news: newsEvidence.confidence,
           emailPattern: emailPattern ? 'found' : 'missing'
         }
+      } as LeadData;
+
+      const pricingProduct = marketSettings?.length
+        ? selectPricingProductForLead(leadDraft, marketSettings)
+        : undefined;
+
+      return {
+        ...leadDraft,
+        pricingProductName: pricingProduct?.productName,
+        pricingProductSource: pricingProduct?.source,
+        pricingBasis: 'volume-only'
       } as LeadData;
     }));
 
