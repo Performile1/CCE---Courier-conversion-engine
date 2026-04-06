@@ -290,6 +290,52 @@ const LeadCard: React.FC<LeadCardProps> = ({
     return 'bg-slate-100 text-slate-600 border border-slate-200';
   };
 
+  const analysisStepLabelMap: Record<string, string> = {
+    identity: 'Identitet',
+    source_grounding: 'Kallunderlag',
+    financials: 'Finans',
+    checkout: 'Checkout',
+    payment: 'Betalning',
+    tech_stack: 'Tech',
+    contacts: 'Kontakter',
+    news: 'Nyheter'
+  };
+
+  const analysisProviderLabelMap: Record<string, string> = {
+    openrouter: 'OpenRouter',
+    tavily: 'Tavily',
+    crawl4ai: 'Crawl4AI',
+    registry: 'Register',
+    internal: 'Intern'
+  };
+
+  const getAnalysisStepStatusClass = (status?: string) => {
+    if (status === 'success') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'failed') return 'bg-red-50 text-red-700 border-red-200';
+    if (status === 'partial' || status === 'fallback_used') return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (status === 'skipped') return 'bg-slate-100 text-slate-600 border-slate-200';
+    return 'bg-blue-50 text-blue-700 border-blue-200';
+  };
+
+  const formatAnalysisStepTime = (value?: string) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '—';
+    return parsed.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const processingStatusBadgeClass = editData.processingStatus === 'failed'
+    ? 'bg-red-50 text-red-700 border border-red-200'
+    : editData.processingStatus === 'partial'
+      ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+      : 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+
+  const processingStatusLabel = editData.processingStatus === 'failed'
+    ? 'Processing failed'
+    : editData.processingStatus === 'partial'
+      ? 'Processing partial'
+      : 'Processing ready';
+
   const diagnosticsTabContent = (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4 border border-slate-200 bg-slate-50 p-4">
@@ -322,25 +368,49 @@ const LeadCard: React.FC<LeadCardProps> = ({
           {(editData.analysisSteps?.length || 0) > 0 && (
             <div className="border border-slate-200 bg-white p-4">
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Analyssteg</p>
+              <div className="hidden lg:flex items-stretch gap-2 overflow-x-auto pb-3 mb-4 border-b border-slate-100">
+                {editData.analysisSteps?.map((step) => (
+                  <div key={`${step.step}-timeline`} className="min-w-[152px] border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">
+                        {analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}
+                      </p>
+                      <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${getAnalysisStepStatusClass(step.status)}`}>
+                        {step.status}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-slate-200 overflow-hidden">
+                      <div className={`h-full ${
+                        step.status === 'success'
+                          ? 'bg-emerald-500'
+                          : step.status === 'failed'
+                            ? 'bg-red-500'
+                            : step.status === 'partial' || step.status === 'fallback_used'
+                              ? 'bg-yellow-500'
+                              : step.status === 'skipped'
+                                ? 'bg-slate-400'
+                                : 'bg-blue-500'
+                      }`} style={{ width: `${Math.max(12, Math.round((step.confidence || 0) * 100))}%` }} />
+                    </div>
+                    <div className="mt-3 text-[10px] text-slate-500 space-y-1">
+                      <p><span className="font-black text-slate-700">Provider:</span> {analysisProviderLabelMap[step.provider || ''] || step.provider || '—'}</p>
+                      <p><span className="font-black text-slate-700">Klart:</span> {formatAnalysisStepTime(step.completedAt || step.startedAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {editData.analysisSteps?.map((step) => (
                   <div key={step.step} className="border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{step.step.replace(/_/g, ' ')}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}</p>
+                          <span className="px-1.5 py-0.5 text-[8px] font-black uppercase border border-slate-200 bg-white text-slate-600">{analysisProviderLabelMap[step.provider || ''] || step.provider || 'Provider okand'}</span>
+                        </div>
                         <p className="text-xs font-bold text-slate-900 mt-1">{step.summary}</p>
                       </div>
-                      <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${
-                        step.status === 'success'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : step.status === 'failed'
-                            ? 'bg-red-50 text-red-700 border-red-200'
-                            : step.status === 'partial' || step.status === 'fallback_used'
-                              ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                              : step.status === 'skipped'
-                                ? 'bg-slate-100 text-slate-600 border-slate-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
+                      <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${getAnalysisStepStatusClass(step.status)}`}>
                         {step.status}
                       </span>
                     </div>
@@ -358,8 +428,30 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <div className="font-bold text-slate-900 mt-1">{step.durationMs ? `${step.durationMs} ms` : '—'}</div>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-[10px] text-slate-600">
+                      <div className="border border-slate-200 bg-white p-2">
+                        <div className="uppercase font-black text-slate-400">Start</div>
+                        <div className="font-bold text-slate-900 mt-1">{formatAnalysisStepTime(step.startedAt)}</div>
+                      </div>
+                      <div className="border border-slate-200 bg-white p-2">
+                        <div className="uppercase font-black text-slate-400">Klart</div>
+                        <div className="font-bold text-slate-900 mt-1">{formatAnalysisStepTime(step.completedAt)}</div>
+                      </div>
+                    </div>
+                    {!!step.affectedFields?.length && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {step.affectedFields.map((field) => (
+                          <span key={`${step.step}-${field}`} className="px-1.5 py-1 text-[9px] font-black uppercase tracking-wide border border-slate-200 bg-white text-slate-600">
+                            {field}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {!!step.sourceDomains?.length && (
                       <p className="text-[10px] text-slate-500 mt-3">Källor: {step.sourceDomains.join(', ')}</p>
+                    )}
+                    {step.fallbackFromStep && (
+                      <p className="text-[10px] text-yellow-700 mt-1 uppercase font-black">Fallback fran: {analysisStepLabelMap[step.fallbackFromStep] || step.fallbackFromStep}</p>
                     )}
                     {step.errorCode && (
                       <p className="text-[10px] text-red-600 mt-1 uppercase font-black">Fel: {step.errorCode}</p>
@@ -818,6 +910,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   {editData.segment}
                 </span>
                 <h2 className="text-sm font-bold text-black leading-tight">{editData.companyName}</h2>
+                {editData.processingStatus && (
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-none uppercase tracking-wide ${processingStatusBadgeClass}`}>
+                    {processingStatusLabel}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-[9px] text-black/70">
                 <span className="flex items-center gap-1"><Building className="w-2.5 h-2.5" /> {editData.orgNumber}</span>

@@ -9,27 +9,43 @@ import type { Database } from '../types/supabase';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel settings');
+export const supabaseInitializationError = !SUPABASE_URL || !SUPABASE_ANON_KEY
+  ? new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your local Vite environment.')
+  : null;
+
+const supabaseClient = supabaseInitializationError
+  ? null
+  : createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+
+function requireSupabaseClient() {
+  if (!supabaseClient) {
+    throw supabaseInitializationError;
+  }
+
+  return supabaseClient;
 }
 
-const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
+const missingSupabaseClient = new Proxy({}, {
+  get() {
+    throw (supabaseInitializationError || new Error('Supabase client is not initialized.'));
+  }
 });
 
 // The exported client is intentionally relaxed because the checked-in generated
 // schema types are incomplete compared to the active database shape.
-export const supabase: any = supabaseClient;
+export const supabase: any = supabaseClient || missingSupabaseClient;
 
 /**
  * Get current user session
  */
 export async function getCurrentSession() {
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await requireSupabaseClient().auth.getSession();
   if (error) throw error;
   return data.session;
 }
@@ -38,7 +54,7 @@ export async function getCurrentSession() {
  * Get current user
  */
 export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const { data: { user }, error } = await requireSupabaseClient().auth.getUser();
   if (error) throw error;
   return user;
 }
@@ -47,7 +63,7 @@ export async function getCurrentUser() {
  * Sign up with email
  */
 export async function signUp(email: string, password: string, fullName: string) {
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await requireSupabaseClient().auth.signUp({
     email,
     password,
     options: {
@@ -65,7 +81,7 @@ export async function signUp(email: string, password: string, fullName: string) 
  * Sign in with email
  */
 export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await requireSupabaseClient().auth.signInWithPassword({
     email,
     password
   });
@@ -78,7 +94,7 @@ export async function signIn(email: string, password: string) {
  * Sign out
  */
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await requireSupabaseClient().auth.signOut();
   if (error) throw error;
 }
 
@@ -86,7 +102,7 @@ export async function signOut() {
  * Reset password
  */
 export async function resetPassword(email: string) {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { data, error } = await requireSupabaseClient().auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/callback`
   });
 
@@ -99,7 +115,7 @@ export async function resetPassword(email: string) {
  * If shouldCreateUser=true, Supabase can create user on first link use.
  */
 export async function sendMagicLink(email: string, shouldCreateUser: boolean = true) {
-  const { data, error } = await supabase.auth.signInWithOtp({
+  const { data, error } = await requireSupabaseClient().auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser,
@@ -115,7 +131,7 @@ export async function sendMagicLink(email: string, shouldCreateUser: boolean = t
  * Admin helper for sending password reset email.
  */
 export async function sendPasswordResetEmail(email: string) {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { data, error } = await requireSupabaseClient().auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/callback`
   });
 
@@ -139,7 +155,7 @@ export async function inviteUserWithActivation(
   role: 'admin' | 'user' | 'viewer',
   fullName?: string
 ): Promise<InviteUserResult> {
-  const { data: sessionData } = await supabase.auth.getSession();
+  const { data: sessionData } = await requireSupabaseClient().auth.getSession();
   const accessToken = sessionData.session?.access_token;
 
   if (!accessToken) {
@@ -168,7 +184,7 @@ export async function inviteUserWithActivation(
  * Update password
  */
 export async function updatePassword(newPassword: string) {
-  const { data, error } = await supabase.auth.updateUser({
+  const { data, error } = await requireSupabaseClient().auth.updateUser({
     password: newPassword
   });
 
@@ -180,7 +196,7 @@ export async function updatePassword(newPassword: string) {
  * Listen for auth changes
  */
 export function onAuthStateChange(callback: (user: any) => void) {
-  return supabase.auth.onAuthStateChange((event, session) => {
+  return requireSupabaseClient().auth.onAuthStateChange((event, session) => {
     callback(session?.user || null);
   });
 }
@@ -195,7 +211,7 @@ export async function createUserProfile(
   phone?: string,
   username?: string
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await requireSupabaseClient()
     .from('users')
     .upsert({
       id: userId,

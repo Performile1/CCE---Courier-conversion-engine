@@ -283,17 +283,26 @@ export type AnalysisErrorCode =
   | 'crawl_blocked'
   | 'registry_unavailable'
   | 'strict_match_rejected'
-  | 'parse_failed';
+  | 'parse_failed'
+  | 'schema_invalid';
+
+export type LeadProcessingStatus = 'ready' | 'partial' | 'failed';
+
+export type AnalysisStepProvider = 'openrouter' | 'tavily' | 'crawl4ai' | 'registry' | 'internal';
 
 export interface AnalysisStep {
   step: AnalysisStepName;
   status: StepStatus;
+  provider?: AnalysisStepProvider;
   errorCode?: AnalysisErrorCode;
+  startedAt?: string;
+  completedAt?: string;
   durationMs: number;
   evidenceCount: number;
   confidence: number;
   sourceDomains: string[];
   sourceUrls: string[];
+  affectedFields?: VerifiedLeadField[];
   fallbackFromStep?: AnalysisStepName;
   summary: string;
 }
@@ -561,6 +570,9 @@ export interface LeadData {
   };
 
   sourceCoverage?: SourceCoverageEntry[];
+  processingStatus?: LeadProcessingStatus;
+  processingErrorCode?: AnalysisErrorCode;
+  processingErrorMessage?: string;
 
   // ── Anti-hallucination: per-field source confidence ──────────────────────
   emailPattern?: string;

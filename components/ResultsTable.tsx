@@ -291,10 +291,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 const isAnalyzed = !!lead.analysisDate && lead.analysisDate !== "";
               const isThinLead = lead.analysisCompleteness === 'thin';
               const isPartialLead = lead.analysisCompleteness === 'partial';
+              const isProcessingFailed = lead.processingStatus === 'failed';
+              const isProcessingPartial = lead.processingStatus === 'partial';
+              const shouldOpenLead = isAnalyzed || isProcessingFailed;
                 return (
                     <div 
                         key={lead.id} 
-                      className={`relative z-0 grid grid-cols-[50px_120px_100px_minmax(220px,3fr)_minmax(120px,1fr)_130px_70px_minmax(160px,2fr)_170px] hover:bg-dhl-gray-light transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-dhl-gray-light border-red-600' : 'border-transparent'}`}
+                      className={`relative z-0 grid grid-cols-[50px_120px_100px_minmax(220px,3fr)_minmax(120px,1fr)_130px_70px_minmax(160px,2fr)_170px] hover:bg-dhl-gray-light transition-colors py-3 items-center gap-2 px-2 border-l-4 cursor-pointer ${selectedIds.has(lead.id) ? 'bg-dhl-gray-light border-red-600' : isProcessingFailed ? 'bg-red-50/40 border-red-300' : isProcessingPartial ? 'bg-yellow-50/40 border-yellow-300' : 'border-transparent'}`}
                         onClick={() => onSelectLead?.(lead)}
                     >
                         <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -330,6 +333,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   Delvis verifierad
                                 </span>
                               )}
+                              {isProcessingFailed && (
+                                <span className="bg-red-50 text-red-700 border border-red-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Processing failed
+                                </span>
+                              )}
+                              {isProcessingPartial && !isProcessingFailed && (
+                                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[8px] font-black px-1 rounded-sm uppercase">
+                                  Processing partial
+                                </span>
+                              )}
                               {lead.pricingBasis === 'volume-only' && (
                                 <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[8px] font-black px-1 rounded-sm uppercase">
                                   Globalt prisbibliotek
@@ -345,6 +358,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             {!!lead.analysisWarnings?.length && (
                               <span className="text-[8px] font-black text-slate-500 uppercase truncate">
                                 {lead.analysisWarnings[0]}
+                              </span>
+                            )}
+                            {isProcessingFailed && (
+                              <span className="text-[8px] font-black text-red-700 uppercase truncate">
+                                {lead.processingErrorCode || 'schema_invalid'}: {lead.processingErrorMessage || 'Leadet kunde inte materialiseras fullt ut.'}
                               </span>
                             )}
                         </div>
@@ -369,20 +387,20 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <button 
                                 onClick={(e) => { 
                                   e.stopPropagation(); 
-                                  if (isAnalyzed) {
+                                  if (shouldOpenLead) {
                                      onSelectLead?.(lead);
                                   } else {
                                      onDeepDive(lead.companyName); 
                                   }
                                 }} 
-                                title={isAnalyzed ? "Öppna Analys" : "Kör Djupanalys"}
+                                title={shouldOpenLead ? "Öppna Analys" : "Kör Djupanalys"}
                                 className={`p-2 rounded-sm shadow-sm transition-all flex items-center justify-center ${
-                                    isAnalyzed 
+                                  shouldOpenLead 
                                     ? 'bg-dhl-black text-white hover:bg-black' 
                                     : 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 animate-pulse'
                                 }`}
                             >
-                                {isAnalyzed ? <FileText className="w-3.5 h-3.5" /> : <Microscope className="w-3.5 h-3.5" />}
+                                {shouldOpenLead ? <FileText className="w-3.5 h-3.5" /> : <Microscope className="w-3.5 h-3.5" />}
                             </button>
                             <button 
                                 type="button"

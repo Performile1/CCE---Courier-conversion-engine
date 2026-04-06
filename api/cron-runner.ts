@@ -32,6 +32,18 @@ function getScheduledSourceCountry(job: CronJob): string {
   return String(payload.activeSourceCountry || payload.sourceCountry || 'global').trim().toLowerCase() || 'global';
 }
 
+function extractStructuredErrorCode(error: any): string | null {
+  return error?.processingErrorCode || error?.code || null;
+}
+
+function formatStructuredJobError(error: any): string {
+  return JSON.stringify({
+    message: error?.message || 'Job failed',
+    processingErrorCode: extractStructuredErrorCode(error),
+    timestamp: new Date().toISOString()
+  });
+}
+
 async function persistDecisionMakers(adminClient: any, leadId: string, lead: LeadData) {
   await adminClient.from('decision_makers').delete().eq('lead_id', leadId);
 
@@ -57,8 +69,8 @@ async function persistAnalysisHistory(adminClient: any, userId: string, analysis
     analysis_type: analysisType,
     company_name: companyName,
     model_used: lead.aiModel || null,
-    success: true,
-    result_summary: `${lead.companyName} • ${lead.segment || 'UNKNOWN'} • ${lead.revenue || 'utan omsättning'}`,
+    success: lead.processingStatus !== 'failed',
+    result_summary: `${lead.companyName} • ${lead.segment || 'UNKNOWN'} • ${lead.revenue || 'utan omsättning'}${lead.processingStatus ? ` • ${lead.processingStatus}` : ''}`,
     raw_analysis: lead,
     created_at: new Date().toISOString()
   });
@@ -235,7 +247,9 @@ async function executeBatchJob(adminClient: any, userId: string, job: CronJob) {
     await persistAnalysisHistory(adminClient, userId, 'batch', lead.companyName, lead);
   }
 
-  return `Batch klar: ${leads.length} leads`;
+  const failedCount = leads.filter((lead) => lead.processingStatus === 'failed').length;
+  const partialCount = leads.filter((lead) => lead.processingStatus === 'partial').length;
+  return `Batch klar: ${leads.length} leads${failedCount ? `, ${failedCount} failed` : ''}${partialCount ? `, ${partialCount} partial` : ''}`;
 }
 
 async function executeReanalysisJob(adminClient: any, userId: string, job: CronJob) {
@@ -373,17 +387,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('id', job.id);
         results.push({ id: job.id, status: 'success', summary });
       } catch (jobError: any) {
+        const structuredError = formatStructuredJobError(jobError);
         await adminClient
           .from('scheduled_jobs')
           .update({
             last_run_at: nowIso,
             next_run_at: computeNextRun(job.cronExpression, new Date()).toString(),
             last_status: 'error',
-            last_error: jobError?.message || 'Job failed',
+            last_error: structuredError,
             updated_at: new Date().toISOString()
           })
           .eq('id', job.id);
-        results.push({ id: job.id, status: 'error', error: jobError?.message || 'Job failed' });
+        results.push({ id: job.id, status: 'error', error: structuredError });
       }
     }
 

@@ -1788,6 +1788,53 @@ export const App: React.FC = () => {
     return 'Batchsökning';
   };
 
+  const parseCronLastError = (rawValue?: string) => {
+    if (!rawValue) return null;
+
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          message: String((parsed as any).message || rawValue),
+          processingErrorCode: (parsed as any).processingErrorCode ? String((parsed as any).processingErrorCode) : '',
+          timestamp: (parsed as any).timestamp ? String((parsed as any).timestamp) : ''
+        };
+      }
+    } catch {
+      return {
+        message: rawValue,
+        processingErrorCode: '',
+        timestamp: ''
+      };
+    }
+
+    return {
+      message: rawValue,
+      processingErrorCode: '',
+      timestamp: ''
+    };
+  };
+
+  const cronJobsWithMeta = cronJobs.map((job) => ({
+    ...job,
+    parsedLastError: parseCronLastError(job.lastError)
+  }));
+
+  const cronStatusCounts = cronJobsWithMeta.reduce((acc, job) => {
+    if (job.lastStatus === 'success') acc.success += 1;
+    else if (job.lastStatus === 'error') acc.error += 1;
+    else if (job.lastStatus === 'running') acc.running += 1;
+    else acc.idle += 1;
+    return acc;
+  }, { success: 0, error: 0, running: 0, idle: 0 });
+
+  const latestCronJob = [...cronJobsWithMeta]
+    .sort((a, b) => {
+      const aTime = new Date(a.parsedLastError?.timestamp || a.lastRunAt || 0).getTime();
+      const bTime = new Date(b.parsedLastError?.timestamp || b.lastRunAt || 0).getTime();
+      return bTime - aTime;
+    })[0];
+
   return (
     <>
       {/* Show loading or login based on auth state */}
@@ -1860,6 +1907,44 @@ export const App: React.FC = () => {
                <span><strong>Systemmeddelande:</strong> {error}</span>
              </div>
              <button onClick={() => setError(null)} className="text-red-900 font-bold px-2">X</button>
+          </div>
+        )}
+
+        {cronJobs.length > 0 && (
+          <div className="mb-6 rounded-sm border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Driftstatus cron</div>
+                <div className="mt-1 text-sm text-slate-700">
+                  {useRemoteCronExecution ? 'Backend-scheduler aktiv' : 'Lokal scheduler aktiv'}
+                  {latestCronJob?.name ? ` • Senast uppdaterad: ${latestCronJob.name}` : ''}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase">
+                <span className="rounded-sm border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">Jobb {cronJobs.length}</span>
+                <span className="rounded-sm border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">Success {cronStatusCounts.success}</span>
+                <span className="rounded-sm border border-red-200 bg-red-50 px-2 py-1 text-red-700">Error {cronStatusCounts.error}</span>
+                <span className="rounded-sm border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Running {cronStatusCounts.running}</span>
+              </div>
+            </div>
+            {(latestCronJob?.lastStatus || latestCronJob?.lastResultSummary || latestCronJob?.parsedLastError) && (
+              <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  {latestCronJob?.lastStatus && (
+                    <span className={`rounded-sm border px-2 py-1 font-black uppercase ${latestCronJob.lastStatus === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : latestCronJob.lastStatus === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+                      {latestCronJob.lastStatus}
+                    </span>
+                  )}
+                  {latestCronJob?.lastResultSummary && <span>{latestCronJob.lastResultSummary}</span>}
+                </div>
+                {latestCronJob?.parsedLastError && (
+                  <div className="truncate text-red-700 lg:max-w-[55%]">
+                    {latestCronJob.parsedLastError.processingErrorCode ? `${latestCronJob.parsedLastError.processingErrorCode}: ` : ''}
+                    {latestCronJob.parsedLastError.message}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -2069,7 +2154,7 @@ export const App: React.FC = () => {
 
             <div className="space-y-2">
               {cronJobs.length === 0 && <div className="text-xs text-slate-500 italic">Inga cron-jobb skapade.</div>}
-              {cronJobs.map((job) => (
+              {cronJobsWithMeta.map((job) => (
                 <div key={job.id} className="border border-dhl-gray-medium rounded-sm p-3 bg-white flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -2090,6 +2175,26 @@ export const App: React.FC = () => {
                     <div className="text-[10px] text-slate-500">Omfång: {job.payload.reanalysisScope || 'active'} • Max per körning: {job.payload.reanalysisLimit || 10}</div>
                   )}
                   <div className="text-[10px] text-slate-500">Senast: {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString('sv-SE') : 'Aldrig'} • Nasta: {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString('sv-SE') : '-'}</div>
+                  {job.lastStatus && (
+                    <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                      <span className={`px-2 py-1 rounded-sm font-black uppercase ${job.lastStatus === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : job.lastStatus === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                        {job.lastStatus}
+                      </span>
+                      {job.lastResultSummary && <span className="text-slate-600">{job.lastResultSummary}</span>}
+                    </div>
+                  )}
+                  {job.parsedLastError && (
+                    <div className="border border-red-100 bg-red-50 rounded-sm p-2 text-[10px] text-red-800">
+                      <div className="font-black uppercase">Senaste fel</div>
+                      {job.parsedLastError.processingErrorCode && (
+                        <div className="mt-1 font-mono text-red-700">Kod: {job.parsedLastError.processingErrorCode}</div>
+                      )}
+                      <div className="mt-1">{job.parsedLastError.message}</div>
+                      {job.parsedLastError.timestamp && (
+                        <div className="mt-1 text-red-600">{new Date(job.parsedLastError.timestamp).toLocaleString('sv-SE')}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
