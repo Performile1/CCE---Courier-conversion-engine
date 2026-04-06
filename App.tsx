@@ -936,8 +936,13 @@ export const App: React.FC = () => {
       if (idx > -1) {
         newList = [...prev];
         const existingLead = newList[idx];
-        const finalLead = { ...existingLead, ...updatedLead };
-        if (updatedLead.id?.startsWith('temp_') && !existingLead.id.startsWith('temp_')) {
+        // Use field-wise Truth Persistence merge. mergeLeadData preserves
+        // existingLead.id, existingLead.address, and all confidence-locked
+        // fields; it does NOT perform a blanket spread.
+        const finalLead = mergeLeadData(existingLead, updatedLead);
+        // Safety: always keep the stored id (mergeLeadData never updates id,
+        // but be explicit in case a temp id slipped through upstream).
+        if (existingLead.id && !existingLead.id.startsWith('temp_')) {
           finalLead.id = existingLead.id;
         }
 

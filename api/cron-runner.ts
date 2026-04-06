@@ -367,10 +367,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const results: Array<{ id: string; status: string; summary?: string; error?: string }> = [];
 
     for (const job of jobs) {
-      await adminClient
+      // Optimistic lock: atomically claim the job only if it has not already
+      // been picked up by a concurrent invocation.
+      //
+      // The WHERE clause requires that the row is still in a "claimable" state:
+      //   - last_status is NOT 'running', OR
+      //   - it IS 'running' but was last updated more than 10 minutes ago,
+      //     which means a previous invocation crashed without finishing and the
+      //     lock has expired.
+      //
+      // Supabase returns the number of updated rows via `count`.
+      // If count === 0, another instance already claimed this job — skip it.
+      const claimTs = new Date().toISOString();
+      const staleLockCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+      const { count: claimedCount, error: claimError } = await adminClient
         .from('scheduled_jobs')
-        .update({ last_status: 'running', updated_at: new Date().toISOString(), last_error: null })
-        .eq('id', job.id);
+        .update({ last_status: 'running', updated_at: claimTs, last_error: null }, { count: 'exact' })
+        .eq('id', job.id)
+        .or(`last_status.neq.running,updated_at.lt.${staleLockCutoff}`);
+
+      if (claimError) {
+        results.push({ id: job.id, status: 'skipped', error: `Lock claim failed: ${claimError.message}` });
+        continue;
+      }
+
+      if ((claimedCount ?? 0) === 0) {
+        // Another concurrent invocation already claimed this job.
+        results.push({ id: job.id, status: 'skipped', summary: 'Already claimed by another invocation' });
+        continue;
+      }
 
       try {
         const summary = await executeJob(adminClient, job as CronJob);
