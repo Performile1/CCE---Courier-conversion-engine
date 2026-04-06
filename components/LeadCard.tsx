@@ -241,6 +241,11 @@ const LeadCard: React.FC<LeadCardProps> = ({
   const checkoutEvidence = editData.verifiedFieldEvidence?.checkoutOptions;
   const activeMarketsEvidence = editData.verifiedFieldEvidence?.activeMarkets;
   const storeCountEvidence = editData.verifiedFieldEvidence?.storeCount;
+  const logisticsStep = editData.analysisSteps?.find((step) => step.step === 'logistics');
+  const checkoutStep = editData.analysisSteps?.find((step) => step.step === 'checkout');
+  const runningAnalysisSteps = editData.analysisSteps?.filter((step) => step.status === 'running') || [];
+  const latestRunningStep = runningAnalysisSteps[runningAnalysisSteps.length - 1];
+  const hasLiveAnalysisProgress = runningAnalysisSteps.length > 0;
 
   const buildQuoteRecommendationHtml = () => {
     if (!pricingScenario || !offerRecommendation || !offerRecommendation.targetPrice) {
@@ -619,12 +624,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
         ...prev,
         ...data
       }));
-      if (data.analysisDate) {
+      const hasRunningSteps = Boolean(data.analysisSteps?.some((step) => step.status === 'running'));
+      if (hasRunningSteps) {
+        setIsAnalyzing(true);
+        setDeepScanActive(false);
+        setScanComplete(false);
+        setAnalysisText(data.analysisSteps?.find((step) => step.status === 'running')?.summary || 'Kör Surgical QuickScan AI...');
+      } else if (data.analysisDate) {
         setIsAnalyzing(false);
         setAnalysisText('Kör Surgical QuickScan AI...');
         setDeepScanActive(true);
         setScanComplete(true);
       } else {
+        setIsAnalyzing(false);
         setDeepScanActive(false);
         setScanComplete(false);
       }
@@ -1391,6 +1403,48 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <ConfidenceBadge level={editData.dataConfidence?.checkout} />
                   </h3>
 
+                  {(logisticsStep || checkoutStep) && (
+                    <div className="grid grid-cols-1 gap-2">
+                      {logisticsStep && (
+                        <div className="p-3 bg-white rounded-none border border-slate-100 shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Logistikdiagnostik</p>
+                              <p className="text-xs font-bold text-dhl-black mt-1">{logisticsStep.summary}</p>
+                            </div>
+                            <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-sm border ${getAnalysisStepStatusClass(logisticsStep.status)}`}>
+                              {logisticsStep.status}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] text-slate-600">
+                            <div className="border border-slate-200 bg-slate-50 p-2">
+                              <div className="uppercase font-black text-slate-400">Confidence</div>
+                              <div className="font-bold text-slate-900 mt-1">{Math.round(((logisticsStep.confidenceScore ?? logisticsStep.confidence) || 0) * 100)}%</div>
+                            </div>
+                            <div className="border border-slate-200 bg-slate-50 p-2">
+                              <div className="uppercase font-black text-slate-400">Coverage</div>
+                              <div className="font-bold text-slate-900 mt-1">{logisticsStep.fieldCoverage ? `${logisticsStep.fieldCoverage.filled}/${logisticsStep.fieldCoverage.total}` : (logisticsStep.evidenceCount || 0)}</div>
+                            </div>
+                            <div className="border border-slate-200 bg-slate-50 p-2">
+                              <div className="uppercase font-black text-slate-400">Engine</div>
+                              <div className="font-bold text-slate-900 mt-1">{logisticsStep.diagnostics?.engine || '—'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {checkoutStep && checkoutStep.status === 'fallback_used' && (
+                        <div className="p-3 bg-yellow-50 rounded-none border border-yellow-200">
+                          <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider mb-1">Checkout fallback</p>
+                          <p className="text-xs font-bold text-yellow-900">{checkoutStep.summary}</p>
+                          {checkoutStep.diagnostics?.errorContext?.message && (
+                            <p className="text-[10px] text-yellow-800 mt-1">{checkoutStep.diagnostics.errorContext.message}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="p-3 bg-dhl-gray-light rounded-none border border-slate-100">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Huvudadress</p>
@@ -1470,17 +1524,25 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     </div>
                     <div className="space-y-2">
                       {editData.checkoutOptions?.map((opt, i) => (
-                        <div key={i} className={`flex items-center justify-between text-xs ${opt.inCheckout === false ? 'opacity-70' : ''}`}>
-                          <span className="flex items-center gap-2">
-                            <span className={`w-4 h-4 rounded-none flex items-center justify-center text-[9px] font-bold ${opt.inCheckout === false ? 'bg-red-100 text-red-600' : 'bg-dhl-gray-light text-dhl-gray-dark'}`}>
-                              {opt.inCheckout === false ? '✗' : opt.position}
+                        <div key={i} className="space-y-1.5">
+                          <div className={`flex items-center justify-between text-xs ${opt.inCheckout === false ? 'opacity-70' : ''}`}>
+                            <span className="flex items-center gap-2">
+                              <span className={`w-4 h-4 rounded-none flex items-center justify-center text-[9px] font-bold ${opt.inCheckout === false ? 'bg-red-100 text-red-600' : 'bg-dhl-gray-light text-dhl-gray-dark'}`}>
+                                {opt.inCheckout === false ? '✗' : opt.position}
+                              </span>
+                              <span className={opt.inCheckout === false ? 'line-through text-red-400' : 'text-dhl-gray-dark'}>{opt.carrier}</span>
+                              {opt.inCheckout === false && (
+                                <span className="px-1 py-0.5 bg-red-100 text-red-700 text-[7px] font-black uppercase border border-red-200">EJ I CHECKOUT</span>
+                              )}
                             </span>
-                            <span className={opt.inCheckout === false ? 'line-through text-red-400' : 'text-dhl-gray-dark'}>{opt.carrier}</span>
-                            {opt.inCheckout === false && (
-                              <span className="px-1 py-0.5 bg-red-100 text-red-700 text-[7px] font-black uppercase border border-red-200">EJ I CHECKOUT</span>
-                            )}
-                          </span>
-                          <span className={`font-bold ${opt.inCheckout === false ? 'text-red-400' : 'text-dhl-black'}`}>{opt.price}</span>
+                            <span className={`font-bold ${opt.inCheckout === false ? 'text-red-400' : 'text-dhl-black'}`}>{opt.price}</span>
+                          </div>
+                          {(opt.inCheckout === false || opt.position === 0) && (
+                            <div className="ml-6 p-2 bg-red-50 border border-red-100 flex items-center gap-2">
+                              <Target className="w-3 h-3 text-red-600" />
+                              <span className="text-[10px] font-black text-red-700 uppercase">Pitch: Saknas i kassan - sälj in {activeCarrier || 'fokuscarrier'}!</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2017,6 +2079,39 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       Kör en djupanalys av bolagets logistikflöden, DMT-påslag och potentiella Revenue Recovery.
                     </p>
                   </div>
+
+                  {hasLiveAnalysisProgress && (
+                    <div className="w-full max-w-md border border-slate-200 bg-white p-4 text-left shadow-sm">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Live Analysis Progress</p>
+                          <p className="text-xs font-bold text-dhl-black mt-1">{latestRunningStep?.summary || analysisText}</p>
+                        </div>
+                        <Loader2 className="w-4 h-4 text-[#D40511] animate-spin" />
+                      </div>
+                      <div className="space-y-2">
+                        {editData.analysisSteps?.map((step) => (
+                          <div key={step.stepId || step.step} className="flex items-center justify-between gap-3 text-[10px] border border-slate-100 bg-slate-50 p-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {step.status === 'success' || step.status === 'fallback_used' ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              ) : step.status === 'failed' ? (
+                                <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                              ) : step.status === 'running' ? (
+                                <Loader2 className="w-3.5 h-3.5 text-[#D40511] animate-spin shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              )}
+                              <span className="font-bold text-dhl-black truncate">{step.label || analysisStepLabelMap[step.step] || step.step}</span>
+                            </div>
+                            <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${getAnalysisStepStatusClass(step.status)}`}>
+                              {step.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <button 
                     onClick={handleQuickScan}

@@ -74,7 +74,6 @@ export const CRMManager: React.FC<CRMManagerProps> = ({ userId, leads, onSyncCom
         userId,
         leads,
         crmType,
-        apiToken,
         setSyncStatus
       );
       if (result.success) {

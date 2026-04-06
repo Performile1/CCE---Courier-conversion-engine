@@ -46,6 +46,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
+import { mergeLeadData } from './services/lead/leadMappingService';
 import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobsApi';
 import { createBackupRecord, deleteBackupRecord, loadBackupRecords, loadSharedSettings, loadUserSettings, saveSharedSetting, saveUserSetting, SHARED_SETTING_KEYS, USER_SETTING_KEYS } from './services/appConfigService';
 import { deletePersistedLead, loadPersistedLeads, loadSharedExclusions, replacePersistedLeads, replaceSharedExclusions, upsertPersistedLead } from './services/leadRepository';
@@ -287,6 +288,9 @@ export const App: React.FC = () => {
   const cronJobsHydratedRef = useRef(false);
   const settingsHydratedRef = useRef(false);
   const backupsHydratedRef = useRef(false);
+  const [settingsInitializationStatus, setSettingsInitializationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const canPersistHydratedSettings = Boolean(user?.id && settingsInitializationStatus === 'success');
 
   const [demoDataTrigger, setDemoDataTrigger] = useState<{ type: 'single' | 'batch', timestamp: number } | null>(null);
   const [resetFormTrigger, setResetFormTrigger] = useState(0);
@@ -408,12 +412,17 @@ export const App: React.FC = () => {
     if (!user?.id) {
       settingsHydratedRef.current = false;
       backupsHydratedRef.current = false;
+      setSettingsInitializationStatus('idle');
       return;
     }
 
     let cancelled = false;
 
     const hydrateConfig = async () => {
+      settingsHydratedRef.current = false;
+      backupsHydratedRef.current = false;
+      setSettingsInitializationStatus('loading');
+
       try {
         const [userSettings, sharedSettings, backupRecords] = await Promise.all([
           loadUserSettings(user.id, [USER_SETTING_KEYS.mailSettings, USER_SETTING_KEYS.selectedIntegrations]),
@@ -491,13 +500,19 @@ export const App: React.FC = () => {
 
         setBackups(backupRecords);
       } catch (error) {
-        console.warn('Could not hydrate app config from Supabase:', error);
-      } finally {
         if (!cancelled) {
-          settingsHydratedRef.current = true;
-          backupsHydratedRef.current = true;
+          setSettingsInitializationStatus('error');
         }
+        console.warn('Could not hydrate app config from Supabase:', error);
+        return;
       }
+
+      if (!cancelled) {
+        settingsHydratedRef.current = true;
+        backupsHydratedRef.current = true;
+        setSettingsInitializationStatus('success');
+      }
+
     };
 
     hydrateConfig();
@@ -508,7 +523,7 @@ export const App: React.FC = () => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveUserSetting(user.id, USER_SETTING_KEYS.mailSettings, {
       templateSv: mailTemplateSv,
@@ -520,18 +535,18 @@ export const App: React.FC = () => {
     }).catch((error) => {
       console.warn('Could not persist mail settings:', error);
     });
-  }, [calendarUrl, mailAttachments, mailFocusWords, mailSignature, mailTemplateEn, mailTemplateSv, user?.id]);
+  }, [calendarUrl, canPersistHydratedSettings, mailAttachments, mailFocusWords, mailSignature, mailTemplateEn, mailTemplateSv, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveUserSetting(user.id, USER_SETTING_KEYS.selectedIntegrations, integrations).catch((error) => {
       console.warn('Could not persist selected integrations:', error);
     });
-  }, [integrations, user?.id]);
+  }, [canPersistHydratedSettings, integrations, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.sourceConfiguration, {
       newsSourceMappings,
@@ -540,63 +555,63 @@ export const App: React.FC = () => {
     }, user.id).catch((error) => {
       console.warn('Could not persist shared source configuration:', error);
     });
-  }, [activeSourceCountry, newsSourceMappings, sourcePolicies, user?.id]);
+  }, [activeSourceCountry, canPersistHydratedSettings, newsSourceMappings, sourcePolicies, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.toolAccessConfig, toolAccessConfig, user.id).catch((error) => {
       console.warn('Could not persist tool access config:', error);
     });
-  }, [toolAccessConfig, user?.id]);
+  }, [canPersistHydratedSettings, toolAccessConfig, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.availableSystems, availableSystems, user.id).catch((error) => {
       console.warn('Could not persist available systems:', error);
     });
-  }, [availableSystems, user?.id]);
+  }, [availableSystems, canPersistHydratedSettings, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.sniPercentages, sniPercentages, user.id).catch((error) => {
       console.warn('Could not persist SNI percentages:', error);
     });
-  }, [sniPercentages, user?.id]);
+  }, [canPersistHydratedSettings, sniPercentages, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.threePLProviders, threePLProviders, user.id).catch((error) => {
       console.warn('Could not persist 3PL providers:', error);
     });
-  }, [threePLProviders, user?.id]);
+  }, [canPersistHydratedSettings, threePLProviders, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.marketSettings, marketSettings, user.id).catch((error) => {
       console.warn('Could not persist market settings:', error);
     });
-  }, [marketSettings, user?.id]);
+  }, [canPersistHydratedSettings, marketSettings, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.activeCarrier, activeCarrier, user.id).catch((error) => {
       console.warn('Could not persist active carrier:', error);
     });
-  }, [activeCarrier, user?.id]);
+  }, [activeCarrier, canPersistHydratedSettings, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !settingsHydratedRef.current) return;
+    if (!canPersistHydratedSettings) return;
 
     void saveSharedSetting(SHARED_SETTING_KEYS.techSolutions, techSolutionConfig, user.id).catch((error) => {
       console.warn('Could not persist tech solution config:', error);
     });
-  }, [techSolutionConfig, user?.id]);
+  }, [canPersistHydratedSettings, techSolutionConfig, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -887,12 +902,13 @@ export const App: React.FC = () => {
   };
 
   const mergeMonitoredLead = (previous: LeadData, next: LeadData): LeadData => {
-    const merged = {
-      ...previous,
-      ...next,
-      id: previous.id || next.id,
-      source: previous.source || next.source
-    } as LeadData;
+    // Use field-wise Truth Persistence merge instead of blanket spread.
+    // Identity fields (id, orgNumber) and address are preserved from previous;
+    // all other fields follow per-category merge rules in leadMappingService.
+    const merged = mergeLeadData(previous, next);
+    // Always keep original id and source — orchestrator responsibility.
+    merged.id = previous.id || next.id;
+    merged.source = previous.source || next.source;
 
     const detectedChanges = buildLeadChanges(previous, merged);
     merged.changeHighlights = detectedChanges;
