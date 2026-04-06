@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings } from "../types";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings, SourceCoverageExtractionMethod, AnalysisDiagnosticEngine, AnalysisDiagnosticSourceType } from "../types";
 import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig';
 import { selectPricingProductForLead } from './pricingService';
@@ -91,6 +91,7 @@ const STEP_DEFAULT_PROVIDER: Record<AnalysisStepName, AnalysisStepProvider> = {
   identity: 'internal',
   source_grounding: 'tavily',
   financials: 'registry',
+  logistics: 'crawl4ai',
   tech_stack: 'crawl4ai',
   checkout: 'crawl4ai',
   payment: 'crawl4ai',
@@ -102,12 +103,83 @@ const STEP_AFFECTED_FIELDS: Record<AnalysisStepName, VerifiedLeadField[]> = {
   identity: [],
   source_grounding: [],
   financials: ['revenue', 'profit', 'financialHistory', 'solidity', 'liquidityRatio', 'profitMargin', 'legalStatus', 'paymentRemarks', 'debtBalance', 'debtEquityRatio'],
+  logistics: ['address', 'visitingAddress', 'warehouseAddress', 'activeMarkets', 'storeCount'],
   tech_stack: ['ecommercePlatform', 'taSystem'],
   checkout: ['checkoutOptions'],
   payment: ['paymentProvider', 'checkoutSolution'],
   news: ['latestNews'],
   contacts: ['decisionMakers', 'emailPattern']
 };
+
+const STEP_LABELS: Record<AnalysisStepName, string> = {
+  identity: 'Identity',
+  source_grounding: 'Source Grounding',
+  financials: 'Financials',
+  logistics: 'Logistics',
+  tech_stack: 'Tech Stack',
+  checkout: 'Checkout',
+  payment: 'Payment',
+  news: 'News',
+  contacts: 'Contacts'
+};
+
+function mapProviderToDiagnosticEngine(provider?: AnalysisStepProvider): AnalysisDiagnosticEngine {
+  if (provider === 'registry') return 'registry';
+  if (provider === 'crawl4ai') return 'crawl';
+  return 'llm_inference';
+}
+
+function classifyDiagnosticSourceType(url: string, provider?: AnalysisStepProvider): AnalysisDiagnosticSourceType {
+  const domain = normalizeDomain(url);
+  if (domain.includes('linkedin.com')) return 'social';
+  if (provider === 'registry' || provider === 'crawl4ai') return 'primary';
+  return 'secondary';
+}
+
+function buildAnalysisStepDiagnostics(step: AnalysisStep): AnalysisStep['diagnostics'] {
+  const sources = (step.sourceUrls || []).filter(Boolean).map((url) => ({
+    url,
+    weight: roundCoverageScore(step.confidence || 0),
+    type: classifyDiagnosticSourceType(url, step.provider)
+  }));
+
+  return {
+    engine: mapProviderToDiagnosticEngine(step.provider),
+    durationMs: step.durationMs || 0,
+    sources,
+    errorContext: step.errorCode
+      ? {
+          code: String(step.errorCode).toUpperCase(),
+          message: step.summary
+        }
+      : undefined
+  };
+}
+
+function buildAnalysisStepFieldCoverage(step: AnalysisStep): AnalysisStep['fieldCoverage'] {
+  const total = Math.max(1, step.affectedFields?.length || 0);
+  const filled = Math.min(total, Math.max(0, step.evidenceCount || 0));
+  const verified = step.confidence >= 0.75
+    ? filled
+    : Math.min(filled, Math.round(filled * Math.max(0, step.confidence || 0)));
+
+  return {
+    total,
+    filled,
+    verified
+  };
+}
+
+function hydrateAnalysisStep(step: AnalysisStep): AnalysisStep {
+  return {
+    ...step,
+    stepId: step.step,
+    label: step.label || STEP_LABELS[step.step],
+    confidenceScore: step.confidenceScore ?? step.confidence,
+    fieldCoverage: step.fieldCoverage || buildAnalysisStepFieldCoverage(step),
+    diagnostics: step.diagnostics || buildAnalysisStepDiagnostics(step)
+  };
+}
 
 function getEffectiveTechSolutionConfig(config?: TechSolutionConfig): TechSolutionConfig {
   return normalizeTechSolutionConfig(config || DEFAULT_TECH_SOLUTION_CONFIG);
@@ -161,7 +233,7 @@ function upsertAnalysisStep(
   steps: AnalysisStep[],
   patch: Partial<AnalysisStep> & Pick<AnalysisStep, 'step' | 'status' | 'summary'>
 ): AnalysisStep[] {
-  const nextStep: AnalysisStep = {
+  const nextStep = hydrateAnalysisStep({
     provider: STEP_DEFAULT_PROVIDER[patch.step],
     durationMs: 0,
     evidenceCount: 0,
@@ -169,12 +241,13 @@ function upsertAnalysisStep(
     sourceDomains: [],
     sourceUrls: [],
     affectedFields: STEP_AFFECTED_FIELDS[patch.step],
+    label: STEP_LABELS[patch.step],
     ...patch
-  };
+  });
   const existingIndex = steps.findIndex((step) => step.step === patch.step);
   if (existingIndex >= 0) {
     const next = [...steps];
-    next[existingIndex] = { ...next[existingIndex], ...nextStep };
+    next[existingIndex] = hydrateAnalysisStep({ ...next[existingIndex], ...nextStep });
     return next;
   }
   return [...steps, nextStep];
@@ -247,10 +320,11 @@ function buildFailedBatchLead(rawLead: any, activeModel: ModelName, errorCode: A
     analysisWarnings: [errorMessage],
     analysisTelemetry: ['Leadet markerades som failed i batchmaterialisering i stället för att tyst filtreras bort.'],
     analysisCompleteness: 'thin',
-    analysisSteps: [{
+    analysisSteps: [hydrateAnalysisStep({
       step: 'identity',
       status: 'failed',
       provider: STEP_DEFAULT_PROVIDER.identity,
+      label: STEP_LABELS.identity,
       errorCode,
       startedAt: capturedAt,
       completedAt: capturedAt,
@@ -261,7 +335,7 @@ function buildFailedBatchLead(rawLead: any, activeModel: ModelName, errorCode: A
       sourceUrls: [],
       affectedFields: [],
       summary
-    }]
+    })]
   } as LeadData;
 }
 
@@ -394,9 +468,11 @@ async function fetchVerifiedFinancialBundle(
 }
 
 async function fetchCommercialSignalsBundle(
+  companyName: string,
   domain: string,
   activeCarrier: string,
   techSolutionConfig: TechSolutionConfig | undefined,
+  analysisPolicy: AnalysisPolicy | undefined,
   sourceGroundingEvidence: string,
   financialEvidenceText: string
 ): Promise<{
@@ -406,18 +482,41 @@ async function fetchCommercialSignalsBundle(
   retailEvidence: RetailFootprintEvidence;
   detectedEmailPattern: string;
   telemetryMessages: string[];
+  logisticsStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
   checkoutStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
   paymentStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
   techStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
 }> {
   const commercialSignalsStartedAt = Date.now();
-  const [checkoutCrawlResult, paymentEvidence, techProfile, retailEvidence, detectedEmailPattern] = await Promise.all([
+  const [checkoutCrawlResult, paymentEvidence, techProfile, retailFootprint, detectedEmailPattern] = await Promise.all([
     fetchCheckoutPositions(domain, activeCarrier, techSolutionConfig),
     fetchVerifiedPaymentSetup(domain, techSolutionConfig),
     fetchStructuredTechProfile(domain, techSolutionConfig),
     fetchRetailFootprint(domain),
     detectEmailPattern(domain, `${sourceGroundingEvidence || ''} ${financialEvidenceText || ''}`.trim())
   ]);
+
+  const retailFallback = (!retailFootprint.storeCount && !retailFootprint.activeMarkets.length && !retailFootprint.visitingAddress && !retailFootprint.warehouseAddress && analysisPolicy?.matching?.strategy !== 'strict')
+    ? await fetchRetailFallbackSignals(companyName, domain, analysisPolicy)
+    : null;
+  const checkoutFallbackUsed = !checkoutCrawlResult.positions.length
+    && analysisPolicy?.matching?.strategy !== 'strict'
+    && Boolean(
+      paymentEvidence.paymentProvider
+      || paymentEvidence.checkoutSolution
+      || techProfile.paymentProviders.length
+      || techProfile.checkoutSolutions.length
+    );
+  const checkoutFallbackUrl = paymentEvidence.sourceUrl || techProfile.sourceUrl;
+  const retailEvidence = retailFallback && retailFallback.fallbackUsed
+    ? {
+        ...retailFootprint,
+        ...retailFallback,
+        activeMarkets: retailFallback.activeMarkets.length ? retailFallback.activeMarkets : retailFootprint.activeMarkets,
+        confidence: retailFallback.confidence,
+        failureContext: retailFallback.failureContext || retailFootprint.failureContext
+      }
+    : retailFootprint;
 
   return {
     checkoutCrawlResult,
@@ -426,8 +525,13 @@ async function fetchCommercialSignalsBundle(
     retailEvidence,
     detectedEmailPattern,
     telemetryMessages: [
+      retailEvidence.storeCount || retailEvidence.activeMarkets.length || retailEvidence.visitingAddress || retailEvidence.warehouseAddress
+        ? (retailEvidence.fallbackUsed ? 'Logistiksignal kompletterades via relaxed fallback-sökning.' : 'Logistiksignal verifierad via officiell crawl.')
+        : 'Logistikcrawl gav inga verifierade lager-, butiks- eller adressignaler.',
       checkoutCrawlResult.positions.length
         ? `Checkout crawl verifierade ${checkoutCrawlResult.positions.length} checkout-positioner.`
+        : checkoutFallbackUsed
+          ? 'Checkoutsignal räddades via script/head-detektion trots missad varukorgscrawl.'
         : 'Checkout crawl gav inga verifierade checkout-positioner.',
       paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution
         ? 'Payment-detection hittade verifierad betalsetup.'
@@ -439,15 +543,78 @@ async function fetchCommercialSignalsBundle(
         ? 'E-postmönster identifierat.'
         : 'E-postmönster kunde inte identifieras.'
     ],
-    checkoutStep: {
-      status: checkoutCrawlResult.positions.length ? 'success' : 'partial',
-      summary: checkoutCrawlResult.positions.length ? 'Checkout crawl verifierade checkout-positioner.' : 'Checkout crawl gav inga verifierade checkout-positioner.',
+    logisticsStep: {
+      status: retailEvidence.storeCount || retailEvidence.activeMarkets.length || retailEvidence.visitingAddress || retailEvidence.warehouseAddress
+        ? (retailEvidence.fallbackUsed ? 'fallback_used' : 'success')
+        : 'partial',
+      summary: retailEvidence.storeCount || retailEvidence.activeMarkets.length || retailEvidence.visitingAddress || retailEvidence.warehouseAddress
+        ? (retailEvidence.fallbackUsed ? 'Logistiksignal räddades via relaxed fallback.' : 'Logistiksignal verifierad via officiell crawl.')
+        : 'Logistikcrawl gav inga verifierade lager-, butiks- eller adressignaler.',
       data: {
         durationMs: Date.now() - commercialSignalsStartedAt,
-        evidenceCount: checkoutCrawlResult.positions.length,
-        confidence: checkoutCrawlResult.positions.length ? 0.9 : 0.25,
-        sourceDomains: checkoutCrawlResult.sourceUrl ? [normalizeDomain(checkoutCrawlResult.sourceUrl)] : [],
-        sourceUrls: checkoutCrawlResult.sourceUrl ? [checkoutCrawlResult.sourceUrl] : []
+        evidenceCount: countEvidence(retailEvidence.storeCount, retailEvidence.activeMarkets, retailEvidence.visitingAddress, retailEvidence.warehouseAddress),
+        confidence: retailEvidence.confidence === 'verified' ? 0.8 : retailEvidence.confidence === 'estimated' ? 0.45 : 0.2,
+        sourceDomains: retailEvidence.sourceUrl ? [normalizeDomain(retailEvidence.sourceUrl)] : [],
+        sourceUrls: retailEvidence.sourceUrl ? [retailEvidence.sourceUrl] : [],
+        errorCode: retailEvidence.failureContext ? 'no_source_hits' : undefined,
+        diagnostics: retailEvidence.failureContext
+          ? {
+              engine: retailEvidence.fallbackUsed ? 'llm_inference' : 'crawl',
+              durationMs: Date.now() - commercialSignalsStartedAt,
+              sources: retailEvidence.sourceUrl ? [{ url: retailEvidence.sourceUrl, weight: retailEvidence.confidence === 'verified' ? 0.8 : 0.45, type: retailEvidence.fallbackUsed ? 'secondary' : 'primary' }] : [],
+              errorContext: {
+                code: retailEvidence.failureContext.code,
+                message: retailEvidence.failureContext.message
+              }
+            }
+          : undefined
+      }
+    },
+    checkoutStep: {
+      status: checkoutCrawlResult.positions.length ? 'success' : checkoutFallbackUsed ? 'fallback_used' : 'partial',
+      summary: checkoutCrawlResult.positions.length
+        ? 'Checkout crawl verifierade checkout-positioner.'
+        : checkoutFallbackUsed
+          ? 'Checkoutsignal räddades via script/head-detektion trots missad varukorgscrawl.'
+          : 'Checkout crawl gav inga verifierade checkout-positioner.',
+      data: {
+        durationMs: Date.now() - commercialSignalsStartedAt,
+        evidenceCount: checkoutCrawlResult.positions.length || (checkoutFallbackUsed ? countEvidence(paymentEvidence.paymentProvider, paymentEvidence.checkoutSolution, techProfile.paymentProviders, techProfile.checkoutSolutions) : 0),
+        confidence: checkoutCrawlResult.positions.length ? 0.9 : checkoutFallbackUsed ? 0.45 : 0.25,
+        sourceDomains: checkoutCrawlResult.sourceUrl
+          ? [normalizeDomain(checkoutCrawlResult.sourceUrl)]
+          : (checkoutFallbackUrl ? [normalizeDomain(checkoutFallbackUrl)] : []),
+        sourceUrls: checkoutCrawlResult.sourceUrl
+          ? [checkoutCrawlResult.sourceUrl]
+          : (checkoutFallbackUrl ? [checkoutFallbackUrl] : []),
+        errorCode: checkoutCrawlResult.failureContext ? 'timeout' : (checkoutFallbackUsed ? 'crawl_blocked' : undefined),
+        fallbackFromStep: checkoutFallbackUsed ? 'payment' : undefined,
+        diagnostics: checkoutCrawlResult.failureContext
+          ? {
+              engine: checkoutFallbackUsed ? 'llm_inference' : 'crawl',
+              durationMs: Date.now() - commercialSignalsStartedAt,
+              sources: [
+                ...(checkoutCrawlResult.sourceUrl ? [{ url: checkoutCrawlResult.sourceUrl, weight: 0.8, type: 'primary' as const }] : []),
+                ...(checkoutFallbackUsed && checkoutFallbackUrl ? [{ url: checkoutFallbackUrl, weight: 0.45, type: 'secondary' as const }] : [])
+              ],
+              errorContext: {
+                code: checkoutCrawlResult.failureContext.code,
+                message: checkoutFallbackUsed
+                  ? `${checkoutCrawlResult.failureContext.message} Fallback använde script/head-signaler från payment/tech.`
+                  : checkoutCrawlResult.failureContext.message
+              }
+            }
+          : checkoutFallbackUsed
+            ? {
+                engine: 'llm_inference',
+                durationMs: Date.now() - commercialSignalsStartedAt,
+                sources: checkoutFallbackUrl ? [{ url: checkoutFallbackUrl, weight: 0.45, type: 'secondary' }] : [],
+                errorContext: {
+                  code: 'CHECKOUT_FALLBACK_SCRIPT_DETECTION',
+                  message: `Varukorgscrawl gav inga positioner. Fallback använde policyhints för checkout och script/head-detektion från ${normalizeDomain(checkoutFallbackUrl || domain)}.`
+                }
+              }
+            : undefined
       }
     },
     paymentStep: {
@@ -458,7 +625,18 @@ async function fetchCommercialSignalsBundle(
         evidenceCount: countEvidence(paymentEvidence.paymentProvider, paymentEvidence.checkoutSolution),
         confidence: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 0.85 : 0.25,
         sourceDomains: paymentEvidence.sourceUrl ? [normalizeDomain(paymentEvidence.sourceUrl)] : [],
-        sourceUrls: paymentEvidence.sourceUrl ? [paymentEvidence.sourceUrl] : []
+        sourceUrls: paymentEvidence.sourceUrl ? [paymentEvidence.sourceUrl] : [],
+        diagnostics: paymentEvidence.failureContext
+          ? {
+              engine: 'crawl',
+              durationMs: Date.now() - commercialSignalsStartedAt,
+              sources: paymentEvidence.sourceUrl ? [{ url: paymentEvidence.sourceUrl, weight: 0.8, type: 'primary' }] : [],
+              errorContext: {
+                code: paymentEvidence.failureContext.code,
+                message: paymentEvidence.failureContext.message
+              }
+            }
+          : undefined
       }
     },
     techStep: {
@@ -469,7 +647,18 @@ async function fetchCommercialSignalsBundle(
         evidenceCount: countEvidence(techProfile.platforms, techProfile.taSystems, techProfile.paymentProviders, techProfile.checkoutSolutions),
         confidence: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 0.8 : 0.2,
         sourceDomains: techProfile.sourceUrl ? [normalizeDomain(techProfile.sourceUrl)] : [],
-        sourceUrls: techProfile.sourceUrl ? [techProfile.sourceUrl] : []
+        sourceUrls: techProfile.sourceUrl ? [techProfile.sourceUrl] : [],
+        diagnostics: techProfile.failureContext
+          ? {
+              engine: 'crawl',
+              durationMs: Date.now() - commercialSignalsStartedAt,
+              sources: techProfile.sourceUrl ? [{ url: techProfile.sourceUrl, weight: 0.8, type: 'primary' }] : [],
+              errorContext: {
+                code: techProfile.failureContext.code,
+                message: techProfile.failureContext.message
+              }
+            }
+          : undefined
       }
     }
   };
@@ -518,6 +707,8 @@ async function fetchVerifiedNewsBundle(
     contactNames?: string[];
     strictCompanyMatch: boolean;
     earliestNewsYear?: number;
+    analysisPolicy?: AnalysisPolicy;
+    sourcePolicies?: SourcePolicyConfig;
   }
 ): Promise<{
   verifiedNews: VerifiedNewsEvidence;
@@ -1078,6 +1269,7 @@ function materializeBatchLeadDraft(input: {
       {
         step: 'financials',
         provider: STEP_DEFAULT_PROVIDER.financials,
+        label: STEP_LABELS.financials,
         status: financialEvidence.confidence === 'verified' ? 'success' : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1090,8 +1282,40 @@ function materializeBatchLeadDraft(input: {
         summary: financialEvidence.confidence === 'verified' ? 'Verifierad finansiell data hittad.' : shouldEnrich ? 'Finansiell verifiering gav begränsat utfall.' : 'Finansiell verifiering hoppades över i quick-scan.'
       },
       {
+        step: 'logistics',
+        provider: STEP_DEFAULT_PROVIDER.logistics,
+        label: STEP_LABELS.logistics,
+        status: verifiedStoreCount || verifiedActiveMarkets.length || verifiedVisitingAddress || verifiedWarehouseAddress
+          ? (retailEvidence.fallbackUsed ? 'fallback_used' : 'success')
+          : shouldEnrich ? 'partial' : 'skipped',
+        startedAt: batchStepTimestamp,
+        completedAt: batchStepTimestamp,
+        durationMs: 0,
+        evidenceCount: countEvidence(verifiedStoreCount, verifiedActiveMarkets, verifiedVisitingAddress, verifiedWarehouseAddress),
+        confidence: retailEvidence.confidence === 'verified' ? 0.8 : retailEvidence.confidence === 'estimated' ? 0.45 : shouldEnrich ? 0.2 : 0,
+        sourceDomains: retailEvidence.sourceUrl ? [normalizeDomain(retailEvidence.sourceUrl)] : [],
+        sourceUrls: retailEvidence.sourceUrl ? [retailEvidence.sourceUrl] : [],
+        affectedFields: STEP_AFFECTED_FIELDS.logistics,
+        errorCode: retailEvidence.failureContext ? 'no_source_hits' : undefined,
+        diagnostics: retailEvidence.failureContext
+          ? {
+              engine: retailEvidence.fallbackUsed ? 'llm_inference' : 'crawl',
+              durationMs: 0,
+              sources: retailEvidence.sourceUrl ? [{ url: retailEvidence.sourceUrl, weight: retailEvidence.confidence === 'verified' ? 0.8 : 0.45, type: retailEvidence.fallbackUsed ? 'secondary' : 'primary' }] : [],
+              errorContext: {
+                code: retailEvidence.failureContext.code,
+                message: retailEvidence.failureContext.message
+              }
+            }
+          : undefined,
+        summary: verifiedStoreCount || verifiedActiveMarkets.length || verifiedVisitingAddress || verifiedWarehouseAddress
+          ? (retailEvidence.fallbackUsed ? 'Logistiksignal räddades via relaxed fallback.' : 'Logistiksignal verifierad via officiell crawl.')
+          : shouldEnrich ? 'Logistikcrawl gav inga verifierade lager-, butiks- eller adressignaler.' : 'Logistikcrawl hoppades över i quick-scan.'
+      },
+      {
         step: 'checkout',
         provider: STEP_DEFAULT_PROVIDER.checkout,
+        label: STEP_LABELS.checkout,
         status: checkoutEvidence.positions.length ? 'success' : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1106,6 +1330,7 @@ function materializeBatchLeadDraft(input: {
       {
         step: 'payment',
         provider: STEP_DEFAULT_PROVIDER.payment,
+        label: STEP_LABELS.payment,
         status: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 'success' : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1120,6 +1345,7 @@ function materializeBatchLeadDraft(input: {
       {
         step: 'tech_stack',
         provider: STEP_DEFAULT_PROVIDER.tech_stack,
+        label: STEP_LABELS.tech_stack,
         status: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 'success' : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1134,6 +1360,7 @@ function materializeBatchLeadDraft(input: {
       {
         step: 'news',
         provider: STEP_DEFAULT_PROVIDER.news,
+        label: STEP_LABELS.news,
         status: newsEvidence.summary ? 'success' : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1148,6 +1375,7 @@ function materializeBatchLeadDraft(input: {
       {
         step: 'contacts',
         provider: STEP_DEFAULT_PROVIDER.contacts,
+        label: STEP_LABELS.contacts,
         status: decisionMakers.length ? (dmConfidence === 'verified' ? 'success' : 'partial') : shouldEnrich ? 'partial' : 'skipped',
         startedAt: batchStepTimestamp,
         completedAt: batchStepTimestamp,
@@ -1159,7 +1387,7 @@ function materializeBatchLeadDraft(input: {
         affectedFields: STEP_AFFECTED_FIELDS.contacts,
         summary: decisionMakers.length ? 'Beslutsfattardata tillgänglig.' : shouldEnrich ? 'Beslutsfattarsökning gav inga verifierade kontakter.' : 'Beslutsfattarsökning hoppades över i quick-scan.'
       }
-    ],
+    ].map((step) => hydrateAnalysisStep(step as AnalysisStep)),
     analysisCompleteness: shouldEnrich
       ? determineAnalysisCompleteness({
           revenue: effectiveRevenueTkr !== undefined ? `${effectiveRevenueTkr}` : '',
@@ -1296,14 +1524,24 @@ async function buildBatchLeadEvidenceBundle(input: {
     try {
       const [financialBundle, commercialBundle, newsBundle] = await Promise.all([
         fetchVerifiedFinancialBundle(pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber), pickString(rawLead.companyName, rawLead.company_name, rawLead.name)),
-        fetchCommercialSignalsBundle(domain, activeCarrier, techSolutionConfig, pickString(rawLead.companyName, rawLead.company_name, rawLead.name), pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber)),
+        fetchCommercialSignalsBundle(
+          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
+          domain,
+          activeCarrier,
+          techSolutionConfig,
+          buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies),
+          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
+          pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber)
+        ),
         fetchVerifiedNewsBundle(
           pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
           effectivePolicies.news,
           {
             orgNumber: pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber),
             strictCompanyMatch: effectivePolicies.strictCompanyMatch !== false,
-            earliestNewsYear: effectivePolicies.earliestNewsYear
+            earliestNewsYear: effectivePolicies.earliestNewsYear,
+            analysisPolicy: buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies),
+            sourcePolicies: effectivePolicies
           }
         )
       ]);
@@ -1634,6 +1872,19 @@ function getConfiguredCategoryPageHints(sourcePolicies?: SourcePolicyConfig, ana
     ...(sourcePolicies?.categoryPageHints || {}),
     ...(analysisPolicy?.sources?.categoryPageHints || {})
   };
+}
+
+function getPolicyHintsForCategory(
+  category: string,
+  analysisPolicy?: AnalysisPolicy,
+  sourcePolicies?: SourcePolicyConfig,
+  fallbackHints: string[] = []
+): string[] {
+  const configured = getConfiguredCategoryPageHints(sourcePolicies, analysisPolicy);
+  return Array.from(new Set([
+    ...(configured[category] || []),
+    ...fallbackHints
+  ].map((hint) => String(hint || '').trim()).filter(Boolean)));
 }
 
 function getBatchEnrichmentLimit(sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): number {
@@ -2361,6 +2612,59 @@ function getCategoryDomains(sourcePolicies: SourcePolicyConfig): Record<string, 
   };
 }
 
+function roundCoverageScore(value: number): number {
+  return Math.max(0, Math.min(1, Math.round(value * 100) / 100));
+}
+
+function classifyCoverageWeight(
+  category: string,
+  domain: string,
+  isPreferred: boolean,
+  analysisPolicy?: AnalysisPolicy
+): number {
+  const weighting = analysisPolicy?.sources?.weighting || {
+    registry: 1,
+    officialSite: 0.8,
+    industryMedia: 0.5,
+    generalWeb: 0.2
+  };
+  const normalizedDomain = normalizeDomain(domain);
+  const registryDomains = new Set(['allabolag.se', 'ratsit.se', 'kreditrapporten.se', 'boolag.se', 'bolagsverket.se']);
+  const industryMediaDomains = new Set(['breakit.se', 'market.se', 'ehandel.se']);
+
+  if (registryDomains.has(normalizedDomain)) return weighting.registry;
+  if (industryMediaDomains.has(normalizedDomain) || category === 'news') return weighting.industryMedia;
+  if (isPreferred) return weighting.officialSite;
+  return weighting.generalWeb;
+}
+
+function getSourceCoverageExtractionMethod(isPreferred: boolean): SourceCoverageExtractionMethod {
+  return isPreferred ? 'site_search' : 'broad_search';
+}
+
+function buildSourceCoverageEntry(input: {
+  category: string;
+  field: string;
+  domain: string;
+  url: string;
+  isPreferred: boolean;
+  analysisPolicy?: AnalysisPolicy;
+}): SourceCoverageEntry {
+  const extractionMethod = getSourceCoverageExtractionMethod(input.isPreferred);
+  const weight = classifyCoverageWeight(input.category, input.domain, input.isPreferred, input.analysisPolicy);
+  const confidenceScore = roundCoverageScore(weight + (input.isPreferred ? 0.1 : -0.05));
+
+  return {
+    category: input.category,
+    field: input.field,
+    source: input.domain,
+    url: input.url,
+    isPreferred: input.isPreferred,
+    confidenceScore,
+    extractionMethod
+  };
+}
+
 async function fetchCategoryExactPageEvidence(companyName: string, sourcePolicies: SourcePolicyConfig): Promise<string> {
   return (await fetchCategoryExactPageEvidenceBundle(companyName, sourcePolicies)).promptEvidence;
 }
@@ -2467,14 +2771,16 @@ async function fetchCategoryExactPageEvidenceBundle(
         domainHits[domain] = (domainHits[domain] || 0) + 1;
 
         const mappedFields = sourcePolicies.categoryFieldMappings?.[category] || ['unknown'];
+        const isPreferred = preferredSet.has(domain);
         mappedFields.forEach((field) => {
-          coverage.push({
+          coverage.push(buildSourceCoverageEntry({
             category,
             field,
-            source: domain,
+            domain,
             url,
-            isPreferred: preferredSet.has(domain)
-          });
+            isPreferred,
+            analysisPolicy
+          }));
         });
       });
 
@@ -2584,6 +2890,7 @@ type VerifiedFinancialEvidence = {
   confidence: 'verified' | 'estimated' | 'missing';
   sourceUrl?: string;
   parsed: VerifiedRegistryFields;
+  failureContext?: { code: string; message: string; url?: string };
 };
 
 type VerifiedPaymentEvidence = {
@@ -2592,6 +2899,7 @@ type VerifiedPaymentEvidence = {
   evidenceSnippet: string;
   confidence: 'verified' | 'estimated' | 'missing';
   sourceUrl?: string;
+  failureContext?: { code: string; message: string; url?: string };
 };
 
 type CheckoutEvidence = {
@@ -2599,6 +2907,7 @@ type CheckoutEvidence = {
   evidenceSnippet: string;
   confidence: 'crawled' | 'estimated' | 'missing';
   sourceUrl?: string;
+  failureContext?: { code: string; message: string; url?: string };
 };
 
 type VerifiedNewsEvidence = {
@@ -2606,6 +2915,7 @@ type VerifiedNewsEvidence = {
   confidence: 'verified' | 'estimated' | 'missing';
   sources: string[];
   items: NewsItem[];
+  failureContext?: { code: string; message: string; url?: string };
 };
 
 type RetailFootprintEvidence = {
@@ -2616,13 +2926,115 @@ type RetailFootprintEvidence = {
   evidenceSnippet: string;
   confidence: 'verified' | 'estimated' | 'missing';
   sourceUrl?: string;
+  failureContext?: { code: string; message: string; url?: string };
+  fallbackUsed?: boolean;
 };
 
 type StructuredTechProfile = TechDetections & {
   evidenceSnippet: string;
   confidence: 'verified' | 'estimated' | 'missing';
   sourceUrl?: string;
+  failureContext?: { code: string; message: string; url?: string };
 };
+
+function buildFailureContext(error: any, attemptedUrl?: string, emptyMessage?: string): { code: string; message: string; url?: string } {
+  const rawMessage = String(error?.response?.data?.error || error?.message || emptyMessage || 'No data returned').trim();
+  const lowered = rawMessage.toLowerCase();
+  const status = Number(error?.response?.status || 0);
+
+  let code = 'UNKNOWN_FAILURE';
+  if (error?.code === 'ECONNABORTED' || lowered.includes('timeout') || lowered.includes('timed out') || lowered.includes('navigation')) {
+    code = 'NAVIGATION_TIMEOUT';
+  } else if (status === 403 || status === 401 || lowered.includes('cloudflare') || lowered.includes('forbidden') || lowered.includes('access denied') || lowered.includes('bot')) {
+    code = 'BOT_CHALLENGE';
+  } else if (status === 404 || lowered.includes('404')) {
+    code = 'PAGE_NOT_FOUND';
+  } else if (lowered.includes('selector')) {
+    code = 'SELECTOR_NOT_FOUND';
+  } else if (lowered.includes('rate')) {
+    code = 'RATE_LIMITED';
+  } else if (lowered.includes('empty') || lowered.includes('no data') || lowered.includes('no content')) {
+    code = 'EMPTY_RESULT';
+  }
+
+  return {
+    code,
+    message: rawMessage || 'No data returned',
+    url: attemptedUrl
+  };
+}
+
+async function fetchRetailFallbackSignals(
+  companyName: string,
+  domain: string,
+  analysisPolicy?: AnalysisPolicy
+): Promise<RetailFootprintEvidence> {
+  const fallbackTerms = Array.from(new Set([
+    ...getPolicyHintsForCategory('logistics', analysisPolicy, undefined, ['lager', 'warehouse', 'distribution', 'logistikcenter']),
+    ...getPolicyHintsForCategory('news', analysisPolicy, undefined, ['butiker', 'stores', 'expansion']),
+    'lager',
+    'warehouse',
+    'distribution',
+    'logistikcenter',
+    'fraktvillkor',
+    'butiker',
+    'stores'
+  ].filter(Boolean))).slice(0, 8);
+  const query = `"${companyName}" (${fallbackTerms.map((term) => `"${term}"`).join(' OR ')})`;
+
+  try {
+    const response = await axios.post(
+      buildApiUrl('/api/tavily'),
+      { query, action: 'search', maxResults: 5 },
+      { timeout: 12000 }
+    );
+    const results: any[] = response.data?.results || [];
+    if (!results.length) {
+      return {
+        activeMarkets: [],
+        evidenceSnippet: '',
+        confidence: 'missing',
+        failureContext: buildFailureContext(null, undefined, 'Relaxed logistics search returned no fallback sources.')
+      };
+    }
+
+    const combinedContent = results
+      .map((item: any) => `${pickString(item?.title)}\n${pickString(item?.content)}`)
+      .filter(Boolean)
+      .join('\n\n');
+    const sourceUrl = pickString(results[0]?.url);
+    const activeMarkets = extractMarketLabels(combinedContent);
+    const storeCount = parseStoreCount(combinedContent);
+    const visitingAddress = parseLabeledAddress(combinedContent, ['besöksadress', 'head office', 'huvudkontor', 'adress']);
+    const warehouseAddress = parseLabeledAddress(combinedContent, ['lageradress', 'centrallager', 'warehouse', 'distributionscenter', 'logistikcenter']);
+    const evidenceKeywords = [
+      ...(warehouseAddress ? ['lager'] : []),
+      ...(storeCount ? ['butiker'] : []),
+      ...(activeMarkets.length ? [activeMarkets[0]] : [])
+    ];
+
+    return {
+      storeCount,
+      activeMarkets,
+      visitingAddress,
+      warehouseAddress,
+      evidenceSnippet: evidenceKeywords.length ? extractEvidenceSnippet(combinedContent, evidenceKeywords) : combinedContent.slice(0, 280),
+      confidence: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? 'estimated' : 'missing',
+      sourceUrl: sourceUrl || undefined,
+      fallbackUsed: Boolean(storeCount || activeMarkets.length || visitingAddress || warehouseAddress),
+      failureContext: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress)
+        ? undefined
+        : buildFailureContext(null, sourceUrl || undefined, 'Relaxed logistics fallback found sources but no extractable logistics signals.')
+    };
+  } catch (error) {
+    return {
+      activeMarkets: [],
+      evidenceSnippet: '',
+      confidence: 'missing',
+      failureContext: buildFailureContext(error, undefined, 'Relaxed logistics fallback failed.')
+    };
+  }
+}
 
 const RISK_FIELD_KEYWORDS: Record<'legalStatus' | 'paymentRemarks' | 'debtBalance' | 'debtEquityRatio', string[]> = {
   legalStatus: ['status', 'likvidation', 'konkurs', 'rekonstruktion'],
@@ -2719,7 +3131,11 @@ function buildCoverageFieldEvidence(
 
   const match = coverage
     .filter((entry) => fields.includes(entry.field as VerifiedLeadField) && entry.url)
-    .sort((a, b) => Number(b.isPreferred) - Number(a.isPreferred))[0];
+    .sort((a, b) => {
+      const preferredDelta = Number(b.isPreferred) - Number(a.isPreferred);
+      if (preferredDelta !== 0) return preferredDelta;
+      return b.confidenceScore - a.confidenceScore;
+    })[0];
 
   if (!match?.url) return undefined;
 
@@ -2898,9 +3314,10 @@ async function fetchCheckoutPositions(
   const pathsToTry = ['/checkout', '/kassan', '/varukorg', '/cart', '/leverans', '/frakt'];
   let checkoutContent = '';
   let sourceUrl = '';
+  let lastFailure: { code: string; message: string; url?: string } | undefined;
   for (const path of pathsToTry) {
+    const url = `https://${normalizedDomain}${path}`;
     try {
-      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
         { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
@@ -2912,9 +3329,12 @@ async function fetchCheckoutPositions(
         sourceUrl = url;
         break;
       }
-    } catch { /* try next path */ }
+      lastFailure = buildFailureContext(null, url, `Crawl returned insufficient checkout content for ${url}.`);
+    } catch (error) {
+      lastFailure = buildFailureContext(error, url, 'Checkout crawl failed.');
+    }
   }
-  if (!checkoutContent) return { positions: [], evidenceSnippet: '', confidence: 'missing' };
+  if (!checkoutContent) return { positions: [], evidenceSnippet: '', confidence: 'missing', failureContext: lastFailure };
   const haystack = checkoutContent.toLowerCase();
   const allCarriers = getTechPatterns(techSolutionConfig, 'logisticsSignals').flatMap((pattern) => pattern.keywords);
   const foundCarriers = allCarriers.filter(c => haystack.includes(c.toLowerCase()));
@@ -2927,7 +3347,7 @@ async function fetchCheckoutPositions(
   if (!focusFound && focusCarrier) {
     positions.push({ carrier: focusCarrier, pos: 0, service: 'EJ I CHECKOUT', price: '—', inCheckout: false });
   }
-  return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled', sourceUrl: sourceUrl || undefined };
+  return { positions, evidenceSnippet: checkoutContent.slice(0, 500), confidence: 'crawled', sourceUrl: sourceUrl || undefined, failureContext: !positions.length ? lastFailure : undefined };
 }
 
 async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: TechSolutionConfig): Promise<VerifiedPaymentEvidence> {
@@ -2939,10 +3359,11 @@ async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: Te
   const pathsToTry = ['/', '/checkout', '/kassan', '/cart', '/varukorg', '/betalning', '/payment'];
   let bestUrl = '';
   let combinedContent = '';
+  let lastFailure: { code: string; message: string; url?: string } | undefined;
 
   for (const path of pathsToTry) {
+    const url = `https://${normalizedDomain}${path}`;
     try {
-      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
         { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
@@ -2952,14 +3373,15 @@ async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: Te
       if (!content) continue;
       if (!bestUrl) bestUrl = url;
       combinedContent += `\n${content.slice(0, 2500)}`;
-    } catch {
+    } catch (error) {
+      lastFailure = buildFailureContext(error, url, 'Payment crawl failed.');
       continue;
     }
   }
 
   const haystack = combinedContent.toLowerCase();
   if (!haystack.trim()) {
-    return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
+    return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing', failureContext: lastFailure };
   }
 
   const paymentMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'paymentProviders'));
@@ -2972,7 +3394,8 @@ async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: Te
       checkoutSolution: '',
       evidenceSnippet: '',
       confidence: 'missing',
-      sourceUrl: bestUrl || undefined
+      sourceUrl: bestUrl || undefined,
+      failureContext: lastFailure || buildFailureContext(null, bestUrl || undefined, 'Payment signals were not found in crawled content.')
     };
   }
 
@@ -2994,9 +3417,10 @@ async function fetchStructuredTechProfile(domain: string, techSolutionConfig?: T
   const pathsToTry = ['/', '/checkout', '/kassan', '/cart', '/varukorg'];
   let combinedContent = '';
   let sourceUrl = '';
+  let lastFailure: { code: string; message: string; url?: string } | undefined;
   for (const path of pathsToTry) {
+    const url = `https://${normalizedDomain}${path}`;
     try {
-      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
         { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
@@ -3007,7 +3431,8 @@ async function fetchStructuredTechProfile(domain: string, techSolutionConfig?: T
         if (!sourceUrl) sourceUrl = url;
         combinedContent += `\n${content.slice(0, 2500)}`;
       }
-    } catch {
+    } catch (error) {
+      lastFailure = buildFailureContext(error, url, 'Tech crawl failed.');
       continue;
     }
   }
@@ -3025,7 +3450,8 @@ async function fetchStructuredTechProfile(domain: string, techSolutionConfig?: T
     checkoutSolutions,
     evidenceSnippet: keywords.length ? extractEvidenceSnippet(combinedContent, keywords) : '',
     confidence: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? 'verified' : 'missing',
-    sourceUrl: sourceUrl || undefined
+    sourceUrl: sourceUrl || undefined,
+    failureContext: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? undefined : lastFailure || buildFailureContext(null, sourceUrl || undefined, 'Tech crawl found no structured tech signals.')
   };
 }
 
@@ -3038,9 +3464,10 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
   const pathsToTry = ['/', '/butiker', '/stores', '/vara-butiker', '/store-locator', '/om-oss', '/about', '/kontakt', '/contact', '/kontakta-oss', '/kundservice', '/customer-service', '/leverans', '/shipping', '/villkor', '/terms'];
   let combinedContent = '';
   let sourceUrl = '';
+  let lastFailure: { code: string; message: string; url?: string } | undefined;
   for (const path of pathsToTry) {
+    const url = `https://${normalizedDomain}${path}`;
     try {
-      const url = `https://${normalizedDomain}${path}`;
       const resp = await axios.post(
         buildApiUrl('/api/crawl'),
         { url, actionType: 'crawl', includeLinks: false, includeImages: false, maxDepth: 1 },
@@ -3051,7 +3478,8 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
         if (!sourceUrl) sourceUrl = url;
         combinedContent += `\n${content.slice(0, 2500)}`;
       }
-    } catch {
+    } catch (error) {
+      lastFailure = buildFailureContext(error, url, 'Retail crawl failed.');
       continue;
     }
   }
@@ -3074,7 +3502,8 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
     warehouseAddress,
     evidenceSnippet: evidenceKeywords.length ? extractEvidenceSnippet(combinedContent, evidenceKeywords) : '',
     confidence: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? 'verified' : 'missing',
-    sourceUrl: sourceUrl || undefined
+    sourceUrl: sourceUrl || undefined,
+    failureContext: (storeCount || activeMarkets.length || visitingAddress || warehouseAddress) ? undefined : lastFailure || buildFailureContext(null, sourceUrl || undefined, 'Retail crawl found no logistics signals on the official site.')
   };
 }
 
@@ -3224,9 +3653,16 @@ function parseRetryAfterSeconds(error: any): number {
 async function fetchLatestNews(
   companyName: string,
   domains: string[],
-  options?: { orgNumber?: string; contactNames?: string[]; strictCompanyMatch?: boolean; earliestNewsYear?: number }
+  options?: {
+    orgNumber?: string;
+    contactNames?: string[];
+    strictCompanyMatch?: boolean;
+    earliestNewsYear?: number;
+    analysisPolicy?: AnalysisPolicy;
+    sourcePolicies?: SourcePolicyConfig;
+  }
 ): Promise<VerifiedNewsEvidence> {
-  if (!companyName) return { summary: '', confidence: 'missing', sources: [], items: [] };
+  if (!companyName) return { summary: '', confidence: 'missing', sources: [], items: [], failureContext: buildFailureContext(null, undefined, 'News search skipped because company name was missing.') };
 
   const aliases = buildCompanyAliases(companyName);
   const primaryAlias = aliases[0] || companyName;
@@ -3236,6 +3672,12 @@ async function fetchLatestNews(
   const orgClause = orgNumber ? ` OR "${orgNumber}"` : '';
   const strictCompanyMatch = options?.strictCompanyMatch !== false;
   const earliestNewsYear = options?.earliestNewsYear || (new Date().getFullYear() - 1);
+  const newsHints = getPolicyHintsForCategory(
+    'news',
+    options?.analysisPolicy,
+    options?.sourcePolicies,
+    ['nyheter', 'pressmeddelande', 'expansion', 'rekrytering']
+  ).slice(0, 4);
   const contactNames = (options?.contactNames || [])
     .map((n) => String(n || '').trim())
     .filter((n) => n.length > 4)
@@ -3244,7 +3686,7 @@ async function fetchLatestNews(
   const contactClause = contactNames.length
     ? ` OR (${contactNames.map((name) => `"${name}" AND "${primaryAlias}"`).join(' OR ')})`
     : '';
-  const query = `(${companyClause}${orgClause}${contactClause}) (${siteQuery}) (nyheter OR pressmeddelande OR expansion OR rekrytering)`;
+  const query = `(${companyClause}${orgClause}${contactClause}) (${siteQuery}) (${newsHints.map((hint) => `"${hint}"`).join(' OR ')})`;
 
   try {
     const [response, broadResponse] = await Promise.all([
@@ -3262,7 +3704,7 @@ async function fetchLatestNews(
       axios.post(
         buildApiUrl('/api/tavily'),
         {
-          query: `${companyName} ${contactNames.join(' ')} nyheter pressmeddelande expansion`,
+          query: `${companyName} ${contactNames.join(' ')} ${newsHints.join(' ')}`,
           action: 'search',
           maxResults: 4
         },
@@ -3273,7 +3715,7 @@ async function fetchLatestNews(
     ]);
 
     const results = [...(response.data?.results || []), ...(broadResponse.data?.results || [])];
-    if (!Array.isArray(results) || results.length === 0) return { summary: '', confidence: 'missing', sources: [], items: [] };
+    if (!Array.isArray(results) || results.length === 0) return { summary: '', confidence: 'missing', sources: [], items: [], failureContext: buildFailureContext(null, undefined, 'News search returned no results.') };
 
     const orgNormalized = normalizeOrgNumber(orgNumber);
     const filtered = results.filter((item: any) => {
@@ -3301,7 +3743,7 @@ async function fetchLatestNews(
     });
 
     const safeResults = filtered;
-    if (!safeResults.length) return { summary: '', confidence: 'missing', sources: [], items: [] };
+    if (!safeResults.length) return { summary: '', confidence: 'missing', sources: [], items: [], failureContext: buildFailureContext(null, undefined, 'News search found hits but none matched current company policy.') };
 
     const uniqueResults = Array.from(new Map<string, any>(
       safeResults
@@ -3333,7 +3775,7 @@ async function fetchLatestNews(
       items
     };
   } catch (error) {
-    return { summary: '', confidence: 'missing', sources: [], items: [] };
+    return { summary: '', confidence: 'missing', sources: [], items: [], failureContext: buildFailureContext(error, undefined, 'News search failed.') };
   }
 }
 
@@ -3618,16 +4060,18 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     let detectedEmailPattern = '';
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
+      publishStep('logistics', 'running', 'Kartlagger logistik- och butikssignaler...');
       publishStep('checkout', 'running', 'Crawlar checkoutflöden...');
       publishStep('payment', 'running', 'Detekterar verifierad betalsetup...');
       publishStep('tech_stack', 'running', 'Bygger verifierad tech-profil...');
-      const commercialBundle = await fetchCommercialSignalsBundle(parsedDomain, activeCarrier, techSolutionConfig, sourceGroundingEvidence, financialEvidence.evidenceText || '');
+      const commercialBundle = await fetchCommercialSignalsBundle(strictCompanyName, parsedDomain, activeCarrier, techSolutionConfig, effectiveAnalysisPolicy, sourceGroundingEvidence, financialEvidence.evidenceText || '');
       checkoutCrawlResult = commercialBundle.checkoutCrawlResult;
       paymentEvidence = commercialBundle.paymentEvidence;
       techProfile = commercialBundle.techProfile;
       retailEvidence = commercialBundle.retailEvidence;
       detectedEmailPattern = commercialBundle.detectedEmailPattern;
       commercialBundle.telemetryMessages.forEach(pushTelemetry);
+      publishStep('logistics', commercialBundle.logisticsStep.status, commercialBundle.logisticsStep.summary, commercialBundle.logisticsStep.data);
       publishStep('checkout', commercialBundle.checkoutStep.status, commercialBundle.checkoutStep.summary, commercialBundle.checkoutStep.data);
       publishStep('payment', commercialBundle.paymentStep.status, commercialBundle.paymentStep.summary, commercialBundle.paymentStep.data);
       publishStep('tech_stack', commercialBundle.techStep.status, commercialBundle.techStep.summary, commercialBundle.techStep.data);
@@ -3676,7 +4120,9 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
         orgNumber: pickString(companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
         contactNames,
         strictCompanyMatch: strictCompanyMatchEnabled,
-        earliestNewsYear: effectivePolicies.earliestNewsYear
+        earliestNewsYear: effectivePolicies.earliestNewsYear,
+        analysisPolicy: effectiveAnalysisPolicy,
+        sourcePolicies: effectivePolicies
       }
     );
     const verifiedNews = newsBundle.verifiedNews;

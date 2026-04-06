@@ -26,6 +26,7 @@ export const DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS: Record<string, string[]> = {
   skuldsattningsgrad: ['skuldsattningsgrad', 'skuld', 'eget kapital'],
   addresses: ['adress', 'besoksadress', 'postadress', 'kontakt', 'karta'],
   adresser: ['adress', 'besoksadress', 'lageradress', 'kontakt'],
+  logistics: ['frakt', 'leverans', 'retur', 'lager', 'warehouse', 'distribution', 'logistikcenter'],
   decisionMakers: ['ledning', 'styrelse', 'ceo', 'vd', 'kontaktperson', 'linkedin'],
   beslutsfattare: ['ledning', 'styrelse', 'vd', 'kontaktperson', 'linkedin'],
   payment: ['checkout', 'betalning', 'klarna', 'stripe', 'adyen', 'payment methods'],

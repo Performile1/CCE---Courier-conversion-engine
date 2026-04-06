@@ -269,6 +269,7 @@ export type AnalysisStepName =
   | 'identity'
   | 'source_grounding'
   | 'financials'
+  | 'logistics'
   | 'tech_stack'
   | 'checkout'
   | 'payment'
@@ -290,8 +291,43 @@ export type LeadProcessingStatus = 'ready' | 'partial' | 'failed';
 
 export type AnalysisStepProvider = 'openrouter' | 'tavily' | 'crawl4ai' | 'registry' | 'internal';
 
+export type AnalysisDiagnosticEngine = 'registry' | 'crawl' | 'llm_inference';
+
+export type AnalysisDiagnosticSourceType = 'primary' | 'secondary' | 'social';
+
+export type SourceCoverageExtractionMethod =
+  | 'direct_registry'
+  | 'site_search'
+  | 'broad_search'
+  | 'crawl_extract'
+  | 'ai_inference';
+
+export interface AnalysisStepDiagnosticSource {
+  url: string;
+  weight: number;
+  type: AnalysisDiagnosticSourceType;
+}
+
+export interface AnalysisStepDiagnostics {
+  engine: AnalysisDiagnosticEngine;
+  durationMs: number;
+  sources: AnalysisStepDiagnosticSource[];
+  errorContext?: {
+    code: string;
+    message: string;
+  };
+}
+
+export interface AnalysisStepFieldCoverage {
+  total: number;
+  filled: number;
+  verified: number;
+}
+
 export interface AnalysisStep {
   step: AnalysisStepName;
+  stepId?: AnalysisStepName;
+  label?: string;
   status: StepStatus;
   provider?: AnalysisStepProvider;
   errorCode?: AnalysisErrorCode;
@@ -305,6 +341,9 @@ export interface AnalysisStep {
   affectedFields?: VerifiedLeadField[];
   fallbackFromStep?: AnalysisStepName;
   summary: string;
+  confidenceScore?: number;
+  fieldCoverage?: AnalysisStepFieldCoverage;
+  diagnostics?: AnalysisStepDiagnostics;
 }
 
 export type UserRole = 'admin' | 'user' | 'viewer';
@@ -335,6 +374,8 @@ export interface SourceCoverageEntry {
   source: string;
   url?: string;
   isPreferred: boolean;
+  confidenceScore: number;
+  extractionMethod: SourceCoverageExtractionMethod;
 }
 
 export interface SourcePerformanceEntry {

@@ -294,6 +294,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
     identity: 'Identitet',
     source_grounding: 'Kallunderlag',
     financials: 'Finans',
+    logistics: 'Logistik',
     checkout: 'Checkout',
     payment: 'Betalning',
     tech_stack: 'Tech',
@@ -307,6 +308,14 @@ const LeadCard: React.FC<LeadCardProps> = ({
     crawl4ai: 'Crawl4AI',
     registry: 'Register',
     internal: 'Intern'
+  };
+
+  const sourceCoverageMethodLabelMap: Record<string, string> = {
+    direct_registry: 'Direct registry',
+    site_search: 'Site search',
+    broad_search: 'Broad search',
+    crawl_extract: 'Crawl extract',
+    ai_inference: 'AI inference'
   };
 
   const getAnalysisStepStatusClass = (status?: string) => {
@@ -373,7 +382,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                   <div key={`${step.step}-timeline`} className="min-w-[152px] border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">
-                        {analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}
+                        {step.label || analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}
                       </p>
                       <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${getAnalysisStepStatusClass(step.status)}`}>
                         {step.status}
@@ -393,7 +402,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                       }`} style={{ width: `${Math.max(12, Math.round((step.confidence || 0) * 100))}%` }} />
                     </div>
                     <div className="mt-3 text-[10px] text-slate-500 space-y-1">
-                      <p><span className="font-black text-slate-700">Provider:</span> {analysisProviderLabelMap[step.provider || ''] || step.provider || '—'}</p>
+                      <p><span className="font-black text-slate-700">Engine:</span> {step.diagnostics?.engine || '—'}</p>
                       <p><span className="font-black text-slate-700">Klart:</span> {formatAnalysisStepTime(step.completedAt || step.startedAt)}</p>
                     </div>
                   </div>
@@ -405,7 +414,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}</p>
+                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{step.label || analysisStepLabelMap[step.step] || step.step.replace(/_/g, ' ')}</p>
                           <span className="px-1.5 py-0.5 text-[8px] font-black uppercase border border-slate-200 bg-white text-slate-600">{analysisProviderLabelMap[step.provider || ''] || step.provider || 'Provider okand'}</span>
                         </div>
                         <p className="text-xs font-bold text-slate-900 mt-1">{step.summary}</p>
@@ -417,17 +426,33 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] text-slate-600">
                       <div className="border border-slate-200 bg-white p-2">
                         <div className="uppercase font-black text-slate-400">Confidence</div>
-                        <div className="font-bold text-slate-900 mt-1">{Math.round((step.confidence || 0) * 100)}%</div>
+                        <div className="font-bold text-slate-900 mt-1">{Math.round(((step.confidenceScore ?? step.confidence) || 0) * 100)}%</div>
                       </div>
                       <div className="border border-slate-200 bg-white p-2">
-                        <div className="uppercase font-black text-slate-400">Evidence</div>
-                        <div className="font-bold text-slate-900 mt-1">{step.evidenceCount || 0}</div>
+                        <div className="uppercase font-black text-slate-400">Coverage</div>
+                        <div className="font-bold text-slate-900 mt-1">{step.fieldCoverage ? `${step.fieldCoverage.filled}/${step.fieldCoverage.total}` : (step.evidenceCount || 0)}</div>
                       </div>
                       <div className="border border-slate-200 bg-white p-2">
                         <div className="uppercase font-black text-slate-400">Tid</div>
-                        <div className="font-bold text-slate-900 mt-1">{step.durationMs ? `${step.durationMs} ms` : '—'}</div>
+                        <div className="font-bold text-slate-900 mt-1">{step.diagnostics?.durationMs ? `${step.diagnostics.durationMs} ms` : (step.durationMs ? `${step.durationMs} ms` : '—')}</div>
                       </div>
                     </div>
+                    {step.fieldCoverage && (
+                      <div className="grid grid-cols-3 gap-2 mt-2 text-[10px] text-slate-600">
+                        <div className="border border-slate-200 bg-white p-2">
+                          <div className="uppercase font-black text-slate-400">Filled</div>
+                          <div className="font-bold text-slate-900 mt-1">{step.fieldCoverage.filled}</div>
+                        </div>
+                        <div className="border border-slate-200 bg-white p-2">
+                          <div className="uppercase font-black text-slate-400">Verified</div>
+                          <div className="font-bold text-slate-900 mt-1">{step.fieldCoverage.verified}</div>
+                        </div>
+                        <div className="border border-slate-200 bg-white p-2">
+                          <div className="uppercase font-black text-slate-400">Engine</div>
+                          <div className="font-bold text-slate-900 mt-1">{step.diagnostics?.engine || '—'}</div>
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2 mt-2 text-[10px] text-slate-600">
                       <div className="border border-slate-200 bg-white p-2">
                         <div className="uppercase font-black text-slate-400">Start</div>
@@ -450,11 +475,23 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     {!!step.sourceDomains?.length && (
                       <p className="text-[10px] text-slate-500 mt-3">Källor: {step.sourceDomains.join(', ')}</p>
                     )}
+                    {!!step.diagnostics?.sources?.length && (
+                      <div className="mt-3 space-y-1">
+                        {step.diagnostics.sources.slice(0, 3).map((source) => (
+                          <div key={`${step.step}-${source.url}`} className="text-[10px] text-slate-500 break-all">
+                            {source.type} · {Math.round(source.weight * 100)}% · {source.url}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {step.fallbackFromStep && (
                       <p className="text-[10px] text-yellow-700 mt-1 uppercase font-black">Fallback fran: {analysisStepLabelMap[step.fallbackFromStep] || step.fallbackFromStep}</p>
                     )}
-                    {step.errorCode && (
-                      <p className="text-[10px] text-red-600 mt-1 uppercase font-black">Fel: {step.errorCode}</p>
+                    {(step.diagnostics?.errorContext || step.errorCode) && (
+                      <p className="text-[10px] text-red-600 mt-1 uppercase font-black">Fel: {step.diagnostics?.errorContext?.code || step.errorCode}</p>
+                    )}
+                    {step.diagnostics?.errorContext?.message && (
+                      <p className="text-[10px] text-red-600 mt-1">{step.diagnostics.errorContext.message}</p>
                     )}
                   </div>
                 ))}
@@ -1743,11 +1780,17 @@ const LeadCard: React.FC<LeadCardProps> = ({
                           <div key={`${entry.category}-${entry.field}-${entry.source}-${idx}`} className="text-[10px] border border-slate-100 p-1.5 rounded-sm bg-dhl-gray-light">
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-bold text-dhl-black">{entry.field}</span>
-                              <span className={`px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase ${entry.isPreferred ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                {entry.isPreferred ? 'Preferred' : 'External'}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className={`px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase ${entry.isPreferred ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                  {entry.isPreferred ? 'Preferred' : 'External'}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase bg-slate-100 text-slate-700">
+                                  {Math.round((entry.confidenceScore || 0) * 100)}%
+                                </span>
+                              </div>
                             </div>
                             <div className="text-slate-600">{entry.category} · {entry.source}</div>
+                            <div className="text-slate-500 uppercase tracking-wide">{sourceCoverageMethodLabelMap[entry.extractionMethod] || entry.extractionMethod}</div>
                             {entry.url && (
                               <a href={entry.url} target="_blank" rel="noreferrer" className="text-red-600 hover:underline break-all">
                                 {entry.url}
