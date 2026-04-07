@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axiosBase from 'axios';
+import { supabase } from './supabaseClient';
 import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
@@ -7,6 +8,35 @@ import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMap
 import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig';
 import { selectPricingProductForLead } from './pricingService';
+
+/**
+ * Returns the current auth bearer token.
+ * - Browser context: Supabase session access_token
+ * - Server context (cron-runner): CRON_SECRET env var (shared server secret)
+ */
+async function getAuthToken(): Promise<string> {
+  if (typeof window === 'undefined') {
+    return process.env.CRON_SECRET || '';
+  }
+  try {
+    const { data } = await (supabase as any).auth.getSession();
+    return (data as any).session?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
+/** Custom axios instance — automatically injects Authorization header for /api/ calls */
+const axios = axiosBase.create();
+axios.interceptors.request.use(async (config) => {
+  if (config.url && /\/api\/(openrouter|tavily|crawl)/.test(config.url)) {
+    const token = await getAuthToken();
+    if (token) {
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
 
 /**
  * OPENROUTER SERVICE - Cost-Aware Model Selection Engine

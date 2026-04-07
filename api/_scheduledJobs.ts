@@ -76,3 +76,25 @@ export function rowToJob(row: any): CronJob {
     updatedAt: row.updated_at
   };
 }
+
+/**
+ * Dual-mode auth guard: accepts a Supabase user JWT or the CRON_SECRET.
+ * Use on all internal API endpoints that must not be publicly invocable.
+ */
+export async function requireApiAuth(req: VercelRequest): Promise<void> {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) {
+    throw new Error('Missing authorization header');
+  }
+
+  // Server-to-server bypass (cron-runner and other trusted callers)
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && token === cronSecret) return;
+
+  // Validate as Supabase user JWT
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient.auth.getUser(token);
+  if (error || !data.user) {
+    throw new Error('Invalid authentication token');
+  }
+}

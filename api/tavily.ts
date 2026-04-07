@@ -5,6 +5,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requireApiAuth } from './_scheduledJobs';
 
 // Support both VITE_ and non-VITE_ naming conventions
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY || process.env.VITE_TAVILY_API_KEY;
@@ -20,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -29,6 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    await requireApiAuth(req);
+  } catch (authErr: any) {
+    return res.status(401).json({ error: authErr.message || 'Unauthorized' });
   }
 
   try {

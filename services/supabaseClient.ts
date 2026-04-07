@@ -211,7 +211,7 @@ export async function createUserProfile(
   phone?: string,
   username?: string
 ) {
-  const { data, error } = await requireSupabaseClient()
+  const { data, error } = await (supabase as any)
     .from('users')
     .upsert({
       id: userId,

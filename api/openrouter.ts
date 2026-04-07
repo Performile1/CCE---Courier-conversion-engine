@@ -5,6 +5,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requireApiAuth } from './_scheduledJobs';
 
 // Secure API key from environment variables (support both VITE_ and non-VITE_ names)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
@@ -34,6 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    await requireApiAuth(req);
+  } catch (authErr: any) {
+    return res.status(401).json({ error: authErr.message || 'Unauthorized' });
   }
 
   try {
