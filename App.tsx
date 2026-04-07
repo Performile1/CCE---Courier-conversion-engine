@@ -47,13 +47,14 @@ import { ShareLeadModal } from './components/ShareLeadModal';
 import { ToolAccessManager } from './components/ToolAccessManager';
 import { generateLeads, generateDeepDiveSequential } from './services/openrouterService'; 
 import { mergeLeadData } from './services/lead/leadMappingService';
+import { useCronFormState } from './context/useCronFormState';
 import { loadRemoteCronJobs, saveRemoteCronJobs } from './services/scheduledJobsApi';
 import { createBackupRecord, deleteBackupRecord, loadBackupRecords, loadSharedSettings, loadUserSettings, saveSharedSetting, saveUserSetting, SHARED_SETTING_KEYS, USER_SETTING_KEYS } from './services/appConfigService';
 import { deletePersistedLead, loadPersistedLeads, loadSharedExclusions, replacePersistedLeads, replaceSharedExclusions, upsertPersistedLead } from './services/leadRepository';
 import { signOut, supabase } from './services/supabaseClient';
 import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, buildDeepDiveAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './services/analysisPolicy';
 import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from './services/techSolutionConfig';
-import { CronJob, CronScheduleMode, createCronJob, getDueCronJobs, isValidCronExpression, loadCronJobs, markCronJobExecuted, saveCronJobs, buildDailyCronExpression, buildIntervalCronExpression } from './services/cronJobService';
+import { CronJob, CronScheduleMode, getDueCronJobs, loadCronJobs, markCronJobExecuted, saveCronJobs } from './services/cronJobService';
 import { ShieldAlert } from 'lucide-react';
 import { Language, translate } from './services/i18n';
 import { 
@@ -235,22 +236,27 @@ export const App: React.FC = () => {
   const [cronJobs, setCronJobs] = useState<CronJob[]>(() => loadCronJobs());
   const [useRemoteCronExecution, setUseRemoteCronExecution] = useState(false);
   const [cronSyncError, setCronSyncError] = useState<string | null>(null);
-  const [cronName, setCronName] = useState('Ny schemalagd korning');
-  const [cronType, setCronType] = useState<'deep_dive' | 'batch_search' | 'lead_reanalysis'>('deep_dive');
-  const [cronScheduleMode, setCronScheduleMode] = useState<CronScheduleMode>('daily');
-  const [cronExpression, setCronExpression] = useState('0 8 * * 1-5');
-  const [cronRunHour, setCronRunHour] = useState(8);
-  const [cronRunMinute, setCronRunMinute] = useState(0);
-  const [cronWeekdaysOnly, setCronWeekdaysOnly] = useState(true);
-  const [cronIntervalMinutes, setCronIntervalMinutes] = useState(1440);
-  const [cronCompany, setCronCompany] = useState('');
-  const [cronGeo, setCronGeo] = useState('Sverige');
-  const [cronFinancialScope, setCronFinancialScope] = useState('10-100 MSEK');
-  const [cronTriggers, setCronTriggers] = useState('E-handel, logistik, expansion');
-  const [cronLeadCount, setCronLeadCount] = useState(20);
-  const [cronTargetSegments, setCronTargetSegments] = useState<Segment[]>([]);
-  const [cronReanalysisScope, setCronReanalysisScope] = useState<'active' | 'cache' | 'both'>('active');
-  const [cronReanalysisLimit, setCronReanalysisLimit] = useState(10);
+
+  // All cron form state (16 fields + helpers) lives in this headless hook.
+  const cronForm = useCronFormState();
+  const {
+    cronName, setCronName,
+    cronType, setCronType,
+    cronScheduleMode, setCronScheduleMode,
+    cronExpression, setCronExpression,
+    cronRunHour, setCronRunHour,
+    cronRunMinute, setCronRunMinute,
+    cronWeekdaysOnly, setCronWeekdaysOnly,
+    cronIntervalMinutes, setCronIntervalMinutes,
+    cronCompany, setCronCompany,
+    cronGeo, setCronGeo,
+    cronFinancialScope, setCronFinancialScope,
+    cronTriggers, setCronTriggers,
+    cronLeadCount, setCronLeadCount,
+    cronTargetSegments, setCronTargetSegments,
+    cronReanalysisScope, setCronReanalysisScope,
+    cronReanalysisLimit, setCronReanalysisLimit,
+  } = cronForm;
 
   const [existingCustomers, setExistingCustomers] = useState<string[]>([]);
   const [downloadedLeads, setDownloadedLeads] = useState<string[]>([]);
@@ -1216,21 +1222,9 @@ export const App: React.FC = () => {
     setAnalysisSubStatus(type === 'quota' ? `Kvotslut (${s}s)` : `Rate limit (${s}s)`);
   };
 
-  const getResolvedCronExpression = () => {
-    if (cronScheduleMode === 'daily') {
-      return buildDailyCronExpression(cronRunHour, cronRunMinute, cronWeekdaysOnly);
-    }
-    if (cronScheduleMode === 'interval') {
-      return buildIntervalCronExpression(cronIntervalMinutes);
-    }
-    return cronExpression.trim();
-  };
+  const getResolvedCronExpression = () => cronForm.resolvedCronExpression;
 
-  const toggleCronSegment = (segment: Segment) => {
-    setCronTargetSegments((prev) =>
-      prev.includes(segment) ? prev.filter((value) => value !== segment) : [...prev, segment]
-    );
-  };
+  const toggleCronSegment = (segment: Segment) => cronForm.toggleCronSegment(segment);
 
   const runScheduledLeadReanalysis = async (job: CronJob) => {
     const deepDiveAnalysisPolicy: AnalysisPolicy = buildDeepDiveAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
@@ -1683,59 +1677,8 @@ export const App: React.FC = () => {
   };
 
   const handleAddCronJob = () => {
-    const resolvedCronExpression = getResolvedCronExpression();
-    if (!cronName.trim() || !isValidCronExpression(resolvedCronExpression)) return;
-    if (cronType === 'deep_dive' && !cronCompany.trim()) return;
-
-    const payload: SearchFormData = cronType === 'deep_dive'
-      ? {
-          companyNameOrOrg: cronCompany.trim(),
-          geoArea: '',
-          financialScope: '',
-          triggers: '',
-          leadCount: 1,
-          focusRole1: 'VD',
-          focusRole2: 'Logistikchef',
-          focusRole3: 'E-handelschef',
-          icebreakerTopic: 'Leveransoptimering'
-        }
-      : cronType === 'lead_reanalysis'
-        ? {
-            companyNameOrOrg: '',
-            geoArea: '',
-            financialScope: '',
-            triggers: '',
-            leadCount: 1,
-            focusRole1: 'VD',
-            focusRole2: 'Logistikchef',
-            focusRole3: 'E-handelschef',
-            icebreakerTopic: 'Leveransoptimering',
-            targetSegments: cronTargetSegments,
-            reanalysisScope: cronReanalysisScope,
-            reanalysisLimit: cronReanalysisLimit
-          }
-        : {
-            companyNameOrOrg: '',
-            geoArea: cronGeo,
-            financialScope: cronFinancialScope,
-            triggers: cronTriggers,
-            leadCount: cronLeadCount,
-            focusRole1: 'VD',
-            focusRole2: 'Logistikchef',
-            focusRole3: 'E-handelschef',
-            icebreakerTopic: 'Leveransoptimering',
-            targetSegments: cronTargetSegments
-          };
-
-    const job = createCronJob({
-      name: cronName.trim(),
-      type: cronType,
-      cronExpression: resolvedCronExpression,
-      enabled: true,
-      scheduleMode: cronScheduleMode,
-      payload
-    });
-
+    const job = cronForm.buildJobFromForm();
+    if (!job) return;
     setCronJobs(prev => [job, ...prev]);
   };
 
@@ -1800,41 +1743,12 @@ export const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [cronJobs, loading, deepDiveLoading, leads, cacheData, newsSourceMappings, sniPercentages, integrations, activeCarrier, threePLProviders, sourcePolicies, activeSourceCountry, techSolutionConfig, useRemoteCronExecution]);
 
-  const resolvedCronExpression = getResolvedCronExpression();
-  const isCronFormValid = isValidCronExpression(resolvedCronExpression);
+  const resolvedCronExpression = cronForm.resolvedCronExpression;
+  const isCronFormValid = cronForm.isCronFormValid;
 
-  const describeCronJobType = (type: CronJob['type']) => {
-    if (type === 'deep_dive') return 'Analys';
-    if (type === 'lead_reanalysis') return 'Återanalys';
-    return 'Batchsökning';
-  };
+  const describeCronJobType = (type: CronJob['type']) => cronForm.describeCronJobType(type);
 
-  const parseCronLastError = (rawValue?: string) => {
-    if (!rawValue) return null;
-
-    try {
-      const parsed = JSON.parse(rawValue);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          message: String((parsed as any).message || rawValue),
-          processingErrorCode: (parsed as any).processingErrorCode ? String((parsed as any).processingErrorCode) : '',
-          timestamp: (parsed as any).timestamp ? String((parsed as any).timestamp) : ''
-        };
-      }
-    } catch {
-      return {
-        message: rawValue,
-        processingErrorCode: '',
-        timestamp: ''
-      };
-    }
-
-    return {
-      message: rawValue,
-      processingErrorCode: '',
-      timestamp: ''
-    };
-  };
+  const parseCronLastError = (rawValue?: string) => cronForm.parseCronLastError(rawValue);
 
   const cronJobsWithMeta = cronJobs.map((job) => ({
     ...job,
