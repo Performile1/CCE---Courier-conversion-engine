@@ -1483,6 +1483,7 @@ export const App: React.FC = () => {
       setAnalysisSteps(final.analysisSteps || []);
       setDeepDiveLead(final);
       setAnalysisResult(final);
+      await handleUpdateLead(final);
     } catch (err: any) { 
       if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) {
         return;

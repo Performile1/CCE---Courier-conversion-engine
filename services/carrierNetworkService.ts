@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axiosBase from 'axios';
+import { supabase } from './supabaseClient.js';
 import { CarrierSettings } from '../types';
 
 export interface CarrierNetworkSnapshot {
@@ -58,6 +59,30 @@ const CARRIER_SOURCE_CONFIG: Record<string, CarrierSourceConfig> = {
     ]
   }
 };
+
+async function getAuthToken(): Promise<string> {
+  if (typeof window === 'undefined') {
+    return process.env.CRON_SECRET || '';
+  }
+
+  try {
+    const { data } = await (supabase as any).auth.getSession();
+    return (data as any).session?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
+const axios = axiosBase.create();
+axios.interceptors.request.use(async (config) => {
+  if (config.url && /\/api\/(openrouter|tavily|crawl)/.test(config.url)) {
+    const token = await getAuthToken();
+    if (token) {
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
 
 function resolveApiBaseUrl(): string {
   const configuredBaseUrl = String(

@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axiosBase from 'axios';
+import { supabase } from './supabaseClient.js';
 import { LeadData } from '../types';
 
 /**
@@ -30,6 +31,30 @@ interface HallucinationAnalysis {
   overallTrust: 'high' | 'medium' | 'low';
   recommendations: string[];
 }
+
+async function getAuthToken(): Promise<string> {
+  if (typeof window === 'undefined') {
+    return process.env.CRON_SECRET || '';
+  }
+
+  try {
+    const { data } = await (supabase as any).auth.getSession();
+    return (data as any).session?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
+const axios = axiosBase.create();
+axios.interceptors.request.use(async (config) => {
+  if (config.url && /\/api\/(openrouter|tavily|crawl)/.test(config.url)) {
+    const token = await getAuthToken();
+    if (token) {
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
 
 function resolveApiBaseUrl(): string {
   const configuredBaseUrl = (import.meta.env.VITE_BASE_URL || '').trim();
