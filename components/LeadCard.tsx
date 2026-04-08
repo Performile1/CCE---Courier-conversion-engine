@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Plus, Trash2, Linkedin, Mail, ChevronRight, 
   MapPin, Building, Package, DollarSign, Microscope, 
@@ -1263,11 +1263,19 @@ const LeadCard: React.FC<LeadCardProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">
                         <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider mb-1">Fraktestimat</p>
-                        <p className="text-sm font-black text-black">{displayValue(editData.freightBudget)}</p>
+                        {isEditing ? (
+                          <input type="text" value={editData.freightBudget || ''} onChange={e => setEditData({...editData, freightBudget: e.target.value})} className="text-sm font-black text-black w-full bg-yellow-100 border border-black/20 p-0.5 outline-none focus:border-[#D40511]" />
+                        ) : (
+                          <p className="text-sm font-black text-black">{displayValue(editData.freightBudget)}</p>
+                        )}
                       </div>
                       <div className="p-3 bg-[#FFCC00] rounded-none border border-black/10 shadow-sm">
                         <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider mb-1">Årliga Paket</p>
-                        <p className="text-sm font-black text-black">{displayNumber(editData.annualPackages)}</p>
+                        {isEditing ? (
+                          <input type="number" value={editData.annualPackages || 0} onChange={e => setEditData({...editData, annualPackages: parseInt(e.target.value) || 0})} className="text-sm font-black text-black w-full bg-yellow-100 border border-black/20 p-0.5 outline-none focus:border-[#D40511]" />
+                        ) : (
+                          <p className="text-sm font-black text-black">{displayNumber(editData.annualPackages)}</p>
+                        )}
                       </div>
                     </div>
 
@@ -1277,16 +1285,35 @@ const LeadCard: React.FC<LeadCardProps> = ({
                         <span className="w-12">År</span>
                         <span className="flex-1 text-center">Omsättning</span>
                         <span className="w-16 text-right">Resultat</span>
+                        {isEditing && <span className="w-5"></span>}
                       </div>
-                      <div className="space-y-2 mt-1">
-                        {editData.financialHistory?.slice(0, 3).map((h, i) => (
-                          <div key={i} className="flex justify-between items-center text-xs border-b border-dhl-gray-medium/50 pb-1 last:border-0">
-                            <span className="text-slate-500 font-medium w-12">{h.year}</span>
-                            <span className="text-dhl-black font-bold flex-1 text-center">{h.revenue}</span>
-                            <span className={`font-bold w-16 text-right ${(h.profit || '').includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>{h.profit}</span>
+                      <div className="space-y-1 mt-1">
+                        {(isEditing ? editData.financialHistory || [] : editData.financialHistory?.slice(0, 3) || []).map((h, i) => (
+                          <div key={i} className="flex items-center gap-1 text-xs border-b border-dhl-gray-medium/50 pb-1 last:border-0">
+                            {isEditing ? (
+                              <>
+                                <input type="text" value={h.year || ''} placeholder="År" onChange={e => { const fh = [...(editData.financialHistory || [])]; fh[i] = {...fh[i], year: e.target.value}; setEditData({...editData, financialHistory: fh}); }} className="w-12 bg-white border border-dhl-gray-medium p-0.5 outline-none focus:border-[#D40511] text-xs text-center" />
+                                <input type="text" value={h.revenue || ''} placeholder="Omsättning" onChange={e => { const fh = [...(editData.financialHistory || [])]; fh[i] = {...fh[i], revenue: e.target.value}; setEditData({...editData, financialHistory: fh}); }} className="flex-1 bg-white border border-dhl-gray-medium p-0.5 outline-none focus:border-[#D40511] text-xs text-center" />
+                                <input type="text" value={h.profit || ''} placeholder="Resultat" onChange={e => { const fh = [...(editData.financialHistory || [])]; fh[i] = {...fh[i], profit: e.target.value}; setEditData({...editData, financialHistory: fh}); }} className="w-16 bg-white border border-dhl-gray-medium p-0.5 outline-none focus:border-[#D40511] text-xs text-right" />
+                                <button onClick={() => setEditData({...editData, financialHistory: (editData.financialHistory || []).filter((_, idx) => idx !== i)})} className="w-5 h-5 flex items-center justify-center text-red-400 hover:text-red-600 flex-shrink-0">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-slate-500 font-medium w-12">{h.year}</span>
+                                <span className="text-dhl-black font-bold flex-1 text-center">{h.revenue}</span>
+                                <span className={`font-bold w-16 text-right ${(h.profit || '').includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>{h.profit}</span>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
+                      {isEditing && (
+                        <button onClick={() => setEditData({...editData, financialHistory: [...(editData.financialHistory || []), {year: '', revenue: '', profit: ''}]})} className="mt-2 w-full text-[10px] font-bold text-dhl-gray-dark border border-dashed border-dhl-gray-medium py-1 hover:border-[#D40511] hover:text-[#D40511] transition-all">
+                          + Lägg till år
+                        </button>
+                      )}
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div className={`p-3 rounded-none border ${getSolidityStyle(editData.solidity || '').className}`}>
@@ -2337,323 +2364,6 @@ const LeadCard: React.FC<LeadCardProps> = ({
                 </div>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Edit Overlay */}
-      <AnimatePresence>
-        {isEditing && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 p-8"
-          >
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-bold text-dhl-black">Redigera Lead</h2>
-                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-dhl-gray-light rounded-none transition-all">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bolagsnamn</label>
-                  <input 
-                    type="text" 
-                    value={editData.companyName} 
-                    onChange={e => setEditData({...editData, companyName: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Org. Nummer</label>
-                  <input 
-                    type="text" 
-                    value={editData.orgNumber} 
-                    onChange={e => setEditData({...editData, orgNumber: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Adress</label>
-                  <input 
-                    type="text" 
-                    value={editData.address} 
-                    onChange={e => setEditData({...editData, address: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Omsättning</label>
-                  <input 
-                    type="text" 
-                    value={editData.revenue} 
-                    onChange={e => setEditData({...editData, revenue: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fraktestimat</label>
-                  <input 
-                    type="text" 
-                    value={editData.freightBudget} 
-                    onChange={e => setEditData({...editData, freightBudget: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Årliga Paket</label>
-                  <input 
-                    type="number" 
-                    value={editData.annualPackages} 
-                    onChange={e => setEditData({...editData, annualPackages: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">E-plattform</label>
-                  <input 
-                    type="text" 
-                    value={editData.ecommercePlatform} 
-                    onChange={e => setEditData({...editData, ecommercePlatform: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">TA-System</label>
-                  <input 
-                    type="text" 
-                    value={editData.taSystem} 
-                    onChange={e => setEditData({...editData, taSystem: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Affärsmodell</label>
-                  <input 
-                    type="text" 
-                    value={editData.businessModel} 
-                    onChange={e => setEditData({...editData, businessModel: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Antal Butiker</label>
-                  <input 
-                    type="number" 
-                    value={editData.storeCount} 
-                    onChange={e => setEditData({...editData, storeCount: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Telefon</label>
-                  <input 
-                    type="text" 
-                    value={editData.phoneNumber || ''} 
-                    onChange={e => setEditData({...editData, phoneNumber: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bransch</label>
-                  <input 
-                    type="text" 
-                    value={editData.industry || ''} 
-                    onChange={e => setEditData({...editData, industry: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lageradress</label>
-                  <input 
-                    type="text" 
-                    value={editData.warehouseAddress || ''} 
-                    onChange={e => setEditData({...editData, warehouseAddress: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hemsida URL</label>
-                  <input 
-                    type="text" 
-                    value={editData.websiteUrl || ''} 
-                    onChange={e => setEditData({...editData, websiteUrl: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Soliditet</label>
-                  <input 
-                    type="text" 
-                    value={editData.solidity || ''} 
-                    onChange={e => setEditData({...editData, solidity: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Likviditet</label>
-                  <input 
-                    type="text" 
-                    value={editData.liquidityRatio || ''} 
-                    onChange={e => setEditData({...editData, liquidityRatio: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vinstmarginal</label>
-                  <input 
-                    type="text" 
-                    value={editData.profitMargin || ''} 
-                    onChange={e => setEditData({...editData, profitMargin: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skuldsättningsgrad</label>
-                  <input 
-                    type="text" 
-                    value={editData.debtEquityRatio || ''} 
-                    onChange={e => setEditData({...editData, debtEquityRatio: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skuldsaldo</label>
-                  <input 
-                    type="text" 
-                    value={editData.debtBalance || ''} 
-                    onChange={e => setEditData({...editData, debtBalance: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Betalningsanm.</label>
-                  <input 
-                    type="text" 
-                    value={editData.paymentRemarks || ''} 
-                    onChange={e => setEditData({...editData, paymentRemarks: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">B2C %</label>
-                  <input 
-                    type="number" 
-                    value={editData.b2cPercentage ?? ''} 
-                    onChange={e => setEditData({...editData, b2cPercentage: e.target.value === '' ? undefined : parseInt(e.target.value, 10)})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">B2B %</label>
-                  <input 
-                    type="number" 
-                    value={editData.b2bPercentage ?? ''} 
-                    onChange={e => setEditData({...editData, b2bPercentage: e.target.value === '' ? undefined : parseInt(e.target.value, 10)})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Omsättningsår</label>
-                  <input 
-                    type="text" 
-                    value={editData.revenueYear || ''} 
-                    onChange={e => setEditData({...editData, revenueYear: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vinst</label>
-                  <input 
-                    type="text" 
-                    value={editData.profit || ''} 
-                    onChange={e => setEditData({...editData, profit: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Anställda</label>
-                  <input 
-                    type="number" 
-                    value={editData.employeesCount || 0} 
-                    onChange={e => setEditData({...editData, employeesCount: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Est. AOV (kr)</label>
-                  <input 
-                    type="number" 
-                    value={editData.estimatedAOV || 0} 
-                    onChange={e => setEditData({...editData, estimatedAOV: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Potential (SEK)</label>
-                  <input 
-                    type="number" 
-                    value={editData.potentialSek || 0} 
-                    onChange={e => setEditData({...editData, potentialSek: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Aktiva Marknader</label>
-                  <input 
-                    type="text" 
-                    value={Array.isArray(editData.activeMarkets) ? editData.activeMarkets.join(', ') : ''} 
-                    onChange={e => setEditData({...editData, activeMarkets: e.target.value.split(',').map(value => value.trim()).filter(Boolean)})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recovery Potential</label>
-                  <input 
-                    type="text" 
-                    value={editData.recoveryPotentialSek || ''} 
-                    onChange={e => setEditData({...editData, recoveryPotentialSek: e.target.value})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conversion Score (%)</label>
-                  <input 
-                    type="number" 
-                    value={editData.conversionScore || 0} 
-                    onChange={e => setEditData({...editData, conversionScore: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Strategisk Pitch</label>
-                <textarea 
-                  rows={4}
-                  value={editData.strategicPitch} 
-                  onChange={e => setEditData({...editData, strategicPitch: e.target.value})}
-                  className="w-full px-4 py-2 bg-dhl-gray-light border border-dhl-gray-medium rounded-none focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none"
-                />
-              </div>
-
-              <div className="pt-6 flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  className="px-6 py-2.5 bg-dhl-gray-light text-dhl-gray-dark font-bold rounded-none hover:bg-dhl-gray-medium transition-all"
-                >
-                  Avbryt
-                </button>
-                <button 
-                  onClick={handleSave}
-                  className="px-8 py-2.5 bg-[#D40511] text-white font-bold rounded-none hover:bg-red-700 transition-all shadow-lg shadow-red-100"
-                >
-                  Spara Lead
-                </button>
-              </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
