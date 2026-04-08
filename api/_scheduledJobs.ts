@@ -22,6 +22,19 @@ export function createAdminClient() {
   });
 }
 
+function createAuthValidationClient() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const authKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !authKey) {
+    throw new Error('Missing SUPABASE_URL or auth key (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY)');
+  }
+
+  return createClient(supabaseUrl, authKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
 export async function requireAuthenticatedUser(req: VercelRequest) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
@@ -92,8 +105,8 @@ export async function requireApiAuth(req: VercelRequest): Promise<void> {
   if (cronSecret && token === cronSecret) return;
 
   // Validate as Supabase user JWT
-  const adminClient = createAdminClient();
-  const { data, error } = await adminClient.auth.getUser(token);
+  const authClient = createAuthValidationClient();
+  const { data, error } = await authClient.auth.getUser(token);
   if (error || !data.user) {
     throw new Error('Invalid authentication token');
   }

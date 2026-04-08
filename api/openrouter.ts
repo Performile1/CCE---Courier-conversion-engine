@@ -24,12 +24,13 @@ function getMissingAuthBackendEnv(): string[] {
   const missing: string[] = [];
   const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
   if (!hasSupabaseUrl) missing.push('SUPABASE_URL (or VITE_SUPABASE_URL)');
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  const hasAuthKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+  if (!hasAuthKey) missing.push('SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY (or VITE_SUPABASE_ANON_KEY)');
   return missing;
 }
 
 function isAuthBackendConfigError(message: string): boolean {
-  return /missing\s+supabase_url\s+or\s+supabase_service_role_key/i.test(message);
+  return /missing\s+supabase_url\s+or\s+auth\s+key|missing\s+supabase_url\s+or\s+supabase_service_role_key/i.test(message);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
