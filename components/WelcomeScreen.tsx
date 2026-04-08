@@ -5,9 +5,25 @@ interface WelcomeScreenProps {
   userName?: string;
 }
 
+function formatDisplayName(rawName: string): string {
+  const cleaned = String(rawName || '')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return 'User';
+
+  return cleaned
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userName = 'User' }) => {
   const [opacity, setOpacity] = useState(1);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const displayName = formatDisplayName(userName);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -48,7 +64,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userNam
 
         {/* Welcome Text */}
         <h1 className="text-5xl font-bold text-dhl-red mb-4">
-          Välkommen, {userName}!
+          Välkommen, {displayName}!
         </h1>
 
         {/* Subtitle */}
