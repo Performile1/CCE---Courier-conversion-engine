@@ -34,7 +34,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isVisible, userNam
         <div className="mb-8">
           {!logoLoadFailed ? (
             <img
-              src="/cce-logo.png"
+              src="/favicon.svg"
               alt="CCE logo"
               className="w-[360px] max-w-[85vw] h-auto mx-auto rounded-sm shadow-md"
               onError={() => setLogoLoadFailed(true)}

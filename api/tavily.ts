@@ -17,6 +17,18 @@ interface TavilyRequest {
   context?: Record<string, any>;
 }
 
+function getMissingAuthBackendEnv(): string[] {
+  const missing: string[] = [];
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+  if (!hasSupabaseUrl) missing.push('SUPABASE_URL (or VITE_SUPABASE_URL)');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  return missing;
+}
+
+function isAuthBackendConfigError(message: string): boolean {
+  return /missing\s+supabase_url\s+or\s+supabase_service_role_key/i.test(message);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
@@ -35,13 +47,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await requireApiAuth(req);
   } catch (authErr: any) {
-    return res.status(401).json({ error: authErr.message || 'Unauthorized' });
+    const authMessage = authErr?.message || 'Unauthorized';
+    if (isAuthBackendConfigError(authMessage)) {
+      return res.status(500).json({
+        error: 'API authentication backend is not configured',
+        code: 'auth_backend_not_configured',
+        diagnostics: {
+          endpoint: '/api/tavily',
+          missingEnv: getMissingAuthBackendEnv(),
+          hint: 'Set missing Supabase admin environment variables in Vercel.'
+        }
+      });
+    }
+
+    return res.status(401).json({
+      error: authMessage,
+      code: 'unauthorized'
+    });
   }
 
   try {
     if (!TAVILY_API_KEY) {
       return res.status(500).json({
-        error: 'TAVILY_API_KEY not configured in Vercel environment variables'
+        error: 'Tavily backend key is missing',
+        code: 'tavily_config_missing',
+        diagnostics: {
+          endpoint: '/api/tavily',
+          missingEnv: ['TAVILY_API_KEY (or VITE_TAVILY_API_KEY)'],
+          hint: 'Set TAVILY_API_KEY in Vercel project environment variables.'
+        }
       });
     }
 
@@ -69,8 +103,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
   } catch (error: any) {
-    console.error('Tavily API Handler Error:', error.message);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    const message = error?.message || 'Internal server error';
+    console.error('Tavily API Handler Error:', message);
+    return res.status(500).json({
+      error: 'Tavily handler exception',
+      code: 'tavily_handler_exception',
+      diagnostics: {
+        endpoint: '/api/tavily',
+        message
+      }
+    });
   }
 }
 
@@ -90,14 +132,28 @@ async function performSearch(query: string, res: VercelResponse) {
     if (!response.ok) {
       const upstream = await response.json().catch(() => ({}));
       const message = upstream?.error || upstream?.message || response.statusText;
-      throw new Error(`Tavily API error: ${message}`);
+      return res.status(response.status).json({
+        error: `Tavily API error: ${message}`,
+        code: 'tavily_upstream_error',
+        diagnostics: {
+          endpoint: '/api/tavily',
+          upstreamStatus: response.status
+        }
+      });
     }
 
     const data = await response.json();
     return res.status(200).json({ results: data.results || [] });
 
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: 'Tavily search failed',
+      code: 'tavily_search_exception',
+      diagnostics: {
+        endpoint: '/api/tavily',
+        message: error?.message || 'Unknown error'
+      }
+    });
   }
 }
 

@@ -20,12 +20,24 @@ interface OpenRouterRequest {
   responseMimeType?: string;
 }
 
+function getMissingAuthBackendEnv(): string[] {
+  const missing: string[] = [];
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+  if (!hasSupabaseUrl) missing.push('SUPABASE_URL (or VITE_SUPABASE_URL)');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  return missing;
+}
+
+function isAuthBackendConfigError(message: string): boolean {
+  return /missing\s+supabase_url\s+or\s+supabase_service_role_key/i.test(message);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS for frontend
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -40,13 +52,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await requireApiAuth(req);
   } catch (authErr: any) {
-    return res.status(401).json({ error: authErr.message || 'Unauthorized' });
+    const authMessage = authErr?.message || 'Unauthorized';
+    if (isAuthBackendConfigError(authMessage)) {
+      return res.status(500).json({
+        error: 'API authentication backend is not configured',
+        code: 'auth_backend_not_configured',
+        diagnostics: {
+          endpoint: '/api/openrouter',
+          missingEnv: getMissingAuthBackendEnv(),
+          hint: 'Set missing Supabase admin environment variables in Vercel.'
+        }
+      });
+    }
+
+    return res.status(401).json({
+      error: authMessage,
+      code: 'unauthorized'
+    });
   }
 
   try {
     if (!OPENROUTER_API_KEY) {
       return res.status(500).json({
-        error: 'OPENROUTER_API_KEY not configured in Vercel environment variables'
+        error: 'OpenRouter backend key is missing',
+        code: 'openrouter_config_missing',
+        diagnostics: {
+          endpoint: '/api/openrouter',
+          missingEnv: ['OPENROUTER_API_KEY (or VITE_OPENROUTER_API_KEY)'],
+          hint: 'Set OPENROUTER_API_KEY in Vercel project environment variables.'
+        }
       });
     }
 
@@ -111,7 +145,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const upstream = await response.json().catch(() => ({ error: 'Unknown error' }));
       const upstreamMessage = typeof upstream?.error === 'string' ? upstream.error : (upstream?.error?.message || upstream?.message || 'OpenRouter API error');
-      return res.status(response.status).json({ error: upstreamMessage, retryAfter: retryAfter || undefined });
+      return res.status(response.status).json({
+        error: upstreamMessage,
+        code: 'openrouter_upstream_error',
+        retryAfter: retryAfter || undefined,
+        diagnostics: {
+          endpoint: '/api/openrouter',
+          upstreamStatus: response.status,
+          model: modelId
+        }
+      });
     }
 
     const data = await response.json();
@@ -141,8 +184,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
-    console.error('OpenRouter API Handler Error:', error.message);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    const message = error?.message || 'Internal server error';
+    console.error('OpenRouter API Handler Error:', message);
+    return res.status(500).json({
+      error: 'OpenRouter handler exception',
+      code: 'openrouter_handler_exception',
+      diagnostics: {
+        endpoint: '/api/openrouter',
+        message
+      }
+    });
   }
 }
 

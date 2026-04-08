@@ -3056,8 +3056,11 @@ async function callOpenRouterWithRetry(
         continue;
       }
 
-      const backendError = error.response?.data?.error || error.message || 'Unknown OpenRouter error';
-      const errorMsg = typeof backendError === 'string' ? backendError : String(backendError);
+      const responseData = error?.response?.data;
+      const backendError = responseData?.error ?? responseData?.message ?? error?.message ?? 'Unknown OpenRouter error';
+      const errorMsg = typeof backendError === 'string'
+        ? backendError
+        : (backendError?.message || JSON.stringify(backendError));
       console.error('OpenRouter API Error:', errorMsg);
       throw new Error(`OpenRouter API failed: ${errorMsg}`);
     }

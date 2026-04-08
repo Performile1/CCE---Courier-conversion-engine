@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireAuthenticatedUser, rowToJob, setCors, jobToRow } from './_scheduledJobs';
 import { CronJob } from '../services/cronJobService';
 
+function isMissingScheduledJobsTable(error: any): boolean {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P01' || (message.includes('scheduled_jobs') && message.includes('does not exist'));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
 
@@ -25,7 +31,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingScheduledJobsTable(error)) {
+          res.status(200).json({ jobs: [] });
+          return;
+        }
+        throw error;
+      }
       res.status(200).json({ jobs: (data || []).map(rowToJob) });
       return;
     }
@@ -37,14 +49,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { error: upsertError } = await adminClient
         .from('scheduled_jobs')
         .upsert(jobs.map((job) => jobToRow(user.id, job)), { onConflict: 'id' });
-      if (upsertError) throw upsertError;
+      if (upsertError) {
+        if (isMissingScheduledJobsTable(upsertError)) {
+          res.status(200).json({ jobs });
+          return;
+        }
+        throw upsertError;
+      }
     }
 
     const { data: existingRows, error: existingError } = await adminClient
       .from('scheduled_jobs')
       .select('id')
       .eq('user_id', user.id);
-    if (existingError) throw existingError;
+    if (existingError) {
+      if (isMissingScheduledJobsTable(existingError)) {
+        res.status(200).json({ jobs });
+        return;
+      }
+      throw existingError;
+    }
 
     const existingIds = (existingRows || []).map((row: any) => row.id);
     const idsToDelete = existingIds.filter((id: string) => !jobIds.includes(id));
@@ -62,7 +86,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    if (error) throw error;
+    if (error) {
+      if (isMissingScheduledJobsTable(error)) {
+        res.status(200).json({ jobs });
+        return;
+      }
+      throw error;
+    }
 
     res.status(200).json({ jobs: (data || []).map(rowToJob) });
   } catch (error: any) {
