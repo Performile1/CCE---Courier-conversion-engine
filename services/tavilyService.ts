@@ -33,10 +33,6 @@ interface HallucinationAnalysis {
 }
 
 async function getAuthToken(): Promise<string> {
-  if (typeof window === 'undefined') {
-    return process.env.CRON_SECRET || '';
-  }
-
   try {
     const { data } = await (supabase as any).auth.getSession();
     return (data as any).session?.access_token || '';

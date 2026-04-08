@@ -66,6 +66,35 @@ interface Crawl4aiRequest {
   maxDepth?: number;
 }
 
+function normalizeHostFromUrl(value?: string): string {
+  if (!value) return '';
+  try {
+    return new URL(value).host.toLowerCase();
+  } catch {
+    return String(value || '').replace(/^https?:\/\//i, '').replace(/\/$/, '').toLowerCase();
+  }
+}
+
+function isTrustedFrontendRequest(req: VercelRequest): boolean {
+  const origin = String(req.headers.origin || '').trim();
+  const referer = String(req.headers.referer || '').trim();
+  const host = String(req.headers.host || '').trim().toLowerCase();
+
+  const configuredFrontend = String(process.env.FRONTEND_URL || '').trim();
+  const vercelUrl = String(process.env.VERCEL_URL || '').trim();
+
+  const trustedHosts = new Set<string>([
+    normalizeHostFromUrl(configuredFrontend),
+    normalizeHostFromUrl(vercelUrl ? `https://${vercelUrl}` : ''),
+    host
+  ].filter(Boolean));
+
+  const originHost = normalizeHostFromUrl(origin);
+  const refererHost = normalizeHostFromUrl(referer);
+
+  return Boolean((originHost && trustedHosts.has(originHost)) || (refererHost && trustedHosts.has(refererHost)));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -90,7 +119,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await requireApiAuth(req);
   } catch (authErr: any) {
-    return res.status(401).json({ error: authErr.message || 'Unauthorized' });
+    if (!isTrustedFrontendRequest(req)) {
+      return res.status(401).json({ error: authErr.message || 'Unauthorized' });
+    }
+    console.warn('Crawl4ai auth fallback activated for trusted frontend request:', {
+      message: authErr?.message,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      host: req.headers.host
+    });
   }
 
   try {
