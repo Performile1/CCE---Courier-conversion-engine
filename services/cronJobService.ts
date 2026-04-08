@@ -1,4 +1,4 @@
-import { SearchFormData, Segment } from '../types';
+import { SearchFormData, Segment } from '../types.js';
 
 export type CronJobType = 'deep_dive' | 'batch_search' | 'lead_reanalysis';
 

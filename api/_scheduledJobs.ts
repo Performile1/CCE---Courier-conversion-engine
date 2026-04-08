@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { CronJob } from '../services/cronJobService';
+import type { CronJob } from '../services/cronJobService.js';
 
 export function setCors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');

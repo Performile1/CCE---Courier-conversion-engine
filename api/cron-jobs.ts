@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedUser, rowToJob, setCors, jobToRow } from './_scheduledJobs';
-import { CronJob } from '../services/cronJobService';
+import { requireAuthenticatedUser, rowToJob, setCors, jobToRow } from './_scheduledJobs.js';
+import type { CronJob } from '../services/cronJobService.js';
 
 function isMissingScheduledJobsTable(error: any): boolean {
   const code = String(error?.code || '').toUpperCase();

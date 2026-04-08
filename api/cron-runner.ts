@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateDeepDiveSequential, generateLeads } from '../services/openrouterService';
-import { computeNextRun, CronJob } from '../services/cronJobService';
-import { AnalysisPolicy, LeadData, SearchFormData, SourcePolicyConfig } from '../types';
-import { buildAnalysisPolicyFromSourcePolicyConfig } from '../services/analysisPolicy';
-import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from '../services/techSolutionConfig';
-import { createAdminClient, rowToJob, setCors } from './_scheduledJobs';
+import { generateDeepDiveSequential, generateLeads } from '../services/openrouterService.js';
+import { computeNextRun } from '../services/cronJobService.js';
+import type { CronJob } from '../services/cronJobService.js';
+import type { AnalysisPolicy, LeadData, SearchFormData, SourcePolicyConfig } from '../types.js';
+import { buildAnalysisPolicyFromSourcePolicyConfig } from '../services/analysisPolicy.js';
+import { DEFAULT_TECH_SOLUTION_CONFIG, normalizeTechSolutionConfig } from '../services/techSolutionConfig.js';
+import { createAdminClient, rowToJob, setCors } from './_scheduledJobs.js';
 
 function isAuthorized(req: VercelRequest): boolean {
   const configuredSecret = process.env.CRON_SECRET;

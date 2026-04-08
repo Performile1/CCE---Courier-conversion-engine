@@ -5,7 +5,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireApiAuth } from './_scheduledJobs';
+import { requireApiAuth } from './_scheduledJobs.js';
 
 // Secure API key from environment variables (support both VITE_ and non-VITE_ names)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;

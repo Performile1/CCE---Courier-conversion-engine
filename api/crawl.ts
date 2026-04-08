@@ -6,7 +6,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
-import { requireApiAuth } from './_scheduledJobs';
+import { requireApiAuth } from './_scheduledJobs.js';
 
 const CRAWL4AI_API_URL = process.env.CRAWL4AI_API_URL || 'https://api.crawl4ai.com/crawl';
 

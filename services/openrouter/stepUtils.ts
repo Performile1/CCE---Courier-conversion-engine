@@ -8,17 +8,17 @@ import {
   AnalysisDiagnosticSourceType, VerifiedLeadField, AnalysisErrorCode,
   SourceCoverageEntry, SourceCoverageExtractionMethod, AnalysisPolicy,
   TechSolutionCategory, TechSolutionConfig, DecisionMaker
-} from '../../types';
-import { normalizeDomain } from './parseUtils';
+} from '../../types.js';
+import { normalizeDomain } from './parseUtils.js';
 import {
   DEFAULT_ANALYSIS_TRUSTED_DOMAINS,
   DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS
-} from '../analysisPolicy';
+} from '../analysisPolicy.js';
 import {
   getTechSolutionsByCategory,
   normalizeTechSolutionConfig,
   DEFAULT_TECH_SOLUTION_CONFIG
-} from '../techSolutionConfig';
+} from '../techSolutionConfig.js';
 
 // ── Tech solution pattern type ─────────────────────────────────────────────
 export type TechSolutionPattern = { label: string; keywords: string[] };

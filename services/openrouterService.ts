@@ -1,5 +1,5 @@
 ﻿import axiosBase from 'axios';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient.js';
 import {
   repairJson, parseJsonSafely, parseRevenueToTKR, parseRevenueToTKROptional,
   pickString, pickNumber, normalizeDomain, normalizeCompanyForComparison,
@@ -15,7 +15,7 @@ import {
   containsAnyKeyword, extractEmailsFromText, extractPhoneNumbersFromText,
   normalizeRoleToken, roleMatchesFocus, parseLabeledTkrValue, parseLabeledAddress,
   inferEmailPattern, dedupeMessages
-} from './openrouter/parseUtils';
+} from './openrouter/parseUtils.js';
 import {
   TechSolutionPattern,
   FINANCIAL_SOURCE_DOMAINS, ADDRESS_SOURCE_DOMAINS, CONTACT_SOURCE_DOMAINS,
@@ -27,15 +27,15 @@ import {
   getProcessingErrorCode, determineAnalysisCompleteness, getEffectiveTechSolutionConfig,
   getTechPatterns, getTechKeywords, roundCoverageScore, classifyCoverageWeight,
   getSourceCoverageExtractionMethod, buildSourceCoverageEntry
-} from './openrouter/stepUtils';
-import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions";
-import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis";
-import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting";
-import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings, SourceCoverageExtractionMethod, AnalysisDiagnosticEngine, AnalysisDiagnosticSourceType } from "../types";
-import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy';
-import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig';
-import { selectPricingProductForLead } from './pricingService';
+} from './openrouter/stepUtils.js';
+import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions.js";
+import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis.js";
+import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting.js";
+import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations.js";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings, SourceCoverageExtractionMethod, AnalysisDiagnosticEngine, AnalysisDiagnosticSourceType } from "../types.js";
+import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy.js';
+import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig.js';
+import { selectPricingProductForLead } from './pricingService.js';
 
 /**
  * Returns the current auth bearer token.

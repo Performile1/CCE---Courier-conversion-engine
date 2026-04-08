@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedUser, setCors } from './_scheduledJobs';
+import { requireAuthenticatedUser, setCors } from './_scheduledJobs.js';
 
 type CRMType = 'hubspot' | 'pipedrive' | 'salesforce';
 

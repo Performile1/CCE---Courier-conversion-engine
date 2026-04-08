@@ -1,4 +1,4 @@
-import { AnalysisPolicy, SourcePolicyConfig } from '../types';
+import { AnalysisPolicy, SourcePolicyConfig } from '../types.js';
 
 export const DEFAULT_ANALYSIS_TRUSTED_DOMAINS = [
   'allabolag.se',

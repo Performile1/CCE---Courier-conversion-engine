@@ -1,4 +1,4 @@
-import { CarrierPriceRule, CarrierProductMapping, CarrierSettings, LeadData, PricingProductSource, Segment } from '../types';
+import { CarrierPriceRule, CarrierProductMapping, CarrierSettings, LeadData, PricingProductSource, Segment } from '../types.js';
 
 export interface PricingScenario {
   productName: string;

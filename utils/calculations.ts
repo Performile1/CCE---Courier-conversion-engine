@@ -1,6 +1,6 @@
 
-import { CarrierSettings, Segment, SNIPercentage } from '../types';
-import { estimateAnnualPackagesFromBudget } from '../services/pricingService';
+import { CarrierSettings, Segment, SNIPercentage } from '../types.js';
+import { estimateAnnualPackagesFromBudget } from '../services/pricingService.js';
 
 interface PricingMetricsOptions {
   marketSettings?: CarrierSettings[];

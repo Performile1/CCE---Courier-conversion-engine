@@ -2,7 +2,7 @@
  * parseUtils.ts — Pure text / number / domain parsing utilities
  * Extracted from openrouterService.ts. No async, no axios, no LeadData construction.
  */
-import { FinancialYear, DecisionMaker } from '../../types';
+import { FinancialYear, DecisionMaker } from '../../types.js';
 
 // ── String / RegExp primitives ─────────────────────────────────────────────
 

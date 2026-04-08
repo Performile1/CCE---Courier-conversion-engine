@@ -1,4 +1,4 @@
-import { TechSolutionCategory, TechSolutionConfig, TechSolutionDefinition } from '../types';
+import { TechSolutionCategory, TechSolutionConfig, TechSolutionDefinition } from '../types.js';
 
 export const TECH_SOLUTION_CATEGORY_LABELS: Record<TechSolutionCategory, string> = {
   ecommercePlatforms: 'E-handelsplattformar',
