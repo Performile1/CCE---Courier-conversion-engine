@@ -8,7 +8,20 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
 import { requireApiAuth } from './_scheduledJobs.js';
 
-const CRAWL4AI_API_URL = process.env.CRAWL4AI_API_URL || 'https://api.crawl4ai.com/crawl';
+const DEFAULT_CRAWL4AI_API_URL = 'https://api.crawl4ai.com/v1/crawl';
+const CRAWL4AI_API_URL = process.env.CRAWL4AI_API_URL || DEFAULT_CRAWL4AI_API_URL;
+
+function buildCrawlApiCandidates(primaryUrl: string): string[] {
+  const candidates = new Set<string>();
+  const normalizedPrimary = String(primaryUrl || '').trim();
+  if (normalizedPrimary) {
+    candidates.add(normalizedPrimary);
+    // Legacy path fallback for older configs that still point to /crawl.
+    candidates.add(normalizedPrimary.replace(/\/crawl\/?$/i, '/v1/crawl'));
+  }
+  candidates.add(DEFAULT_CRAWL4AI_API_URL);
+  return Array.from(candidates).filter(Boolean);
+}
 
 interface Crawl4aiRequest {
   url: string;
@@ -83,28 +96,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     if (process.env.CRAWL4AI_API_KEY) {
-      crawlHeaders.Authorization = `Bearer ${process.env.CRAWL4AI_API_KEY}`;
+      crawlHeaders['X-API-Key'] = process.env.CRAWL4AI_API_KEY;
     }
 
+    const crawlPayload = {
+      url,
+      action_type: actionType,
+      include_links: includeLinks,
+      include_images: includeImages,
+      ignore_cookie_consent: ignoreCookieConsent,
+      max_depth: maxDepth,
+      word_count_threshold: 10,
+      remove_overlay: true,
+      cache_strategy: 'write',
+    };
+
     // Call Crawl4ai API from backend (secure, no API key exposed to frontend)
-    const crawlResponse = await axios.post(
-      CRAWL4AI_API_URL,
-      {
-        url,
-        action_type: actionType,
-        include_links: includeLinks,
-        include_images: includeImages,
-        ignore_cookie_consent: ignoreCookieConsent,
-        max_depth: maxDepth,
-        word_count_threshold: 10,
-        remove_overlay: true,
-        cache_strategy: 'write',
-      },
-      {
-        timeout: 30000,
-        headers: crawlHeaders
+    // and auto-retry legacy /crawl misconfiguration if upstream returns 405.
+    const crawlApiCandidates = buildCrawlApiCandidates(CRAWL4AI_API_URL);
+    let crawlResponse: any;
+    let lastCandidateError: any;
+
+    for (const endpoint of crawlApiCandidates) {
+      try {
+        crawlResponse = await axios.post(endpoint, crawlPayload, {
+          timeout: 30000,
+          headers: crawlHeaders
+        });
+        break;
+      } catch (candidateError: any) {
+        lastCandidateError = candidateError;
+        const candidateStatus = candidateError?.response?.status;
+        if (candidateStatus === 405) {
+          continue;
+        }
+        throw candidateError;
       }
-    );
+    }
+
+    if (!crawlResponse) {
+      throw lastCandidateError || new Error('Crawl4ai request failed for all candidate endpoints');
+    }
 
     // Extract useful content from response
     const content = crawlResponse.data.markdown_content || crawlResponse.data.content || '';
