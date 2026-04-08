@@ -899,16 +899,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
     return 'bg-dhl-gray-light border-red-100 text-red-700';
   };
 
-  const displayValue = (value?: string | number | null) => {
+  function displayValue(value?: string | number | null) {
     if (value === null || value === undefined) return '—';
     if (typeof value === 'string' && value.trim() === '') return '—';
     return String(value);
-  };
+  }
 
-  const displayNumber = (value?: number | null) => {
+  function displayNumber(value?: number | null) {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('sv-SE');
-  };
+  }
 
   function formatVerifiedFieldValue(field: VerifiedLeadField) {
     switch (field) {
