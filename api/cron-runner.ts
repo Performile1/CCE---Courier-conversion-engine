@@ -125,6 +125,16 @@ async function upsertLead(adminClient: any, userId: string, lead: LeadData, exis
     leadId = existing?.id;
   }
 
+  const resolvedHallucinationScore = lead.hallucinationScore ?? lead.halluccinationScore ?? 0;
+  const resolvedHallucinationAnalysis = lead.hallucinationAnalysis ?? lead.halluccinationAnalysis;
+  const normalizedLeadPayload: LeadData = {
+    ...lead,
+    halluccinationScore: resolvedHallucinationScore,
+    hallucinationScore: resolvedHallucinationScore,
+    halluccinationAnalysis: resolvedHallucinationAnalysis,
+    hallucinationAnalysis: resolvedHallucinationAnalysis
+  };
+
   const row = {
     id: leadId || lead.id,
     user_id: userId,
@@ -145,10 +155,10 @@ async function upsertLead(adminClient: any, userId: string, lead: LeadData, exis
     freight_budget: lead.freightBudget || null,
     annual_packages: lead.annualPackages || null,
     analysis_model: lead.aiModel || null,
-    hallucination_score: lead.halluccinationScore || 0,
-    hallucination_details: lead.halluccinationAnalysis || null,
+    hallucination_score: resolvedHallucinationScore,
+    hallucination_details: resolvedHallucinationAnalysis || null,
     lead_bucket: bucket,
-    lead_payload: lead,
+    lead_payload: normalizedLeadPayload,
     status: 'pending',
     source: lead.source || 'scheduled-job',
     analysis_date: new Date().toISOString(),

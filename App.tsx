@@ -59,8 +59,10 @@ import { ShieldAlert } from 'lucide-react';
 import { Language, translate } from './services/i18n';
 import { 
   SearchFormData, 
+  SearchSubmitOptions,
   LeadData, 
   AnalysisStep,
+  BatchLeadFilterDiagnostics,
   NewsSourceMapping, 
   SourcePolicyConfig,
   AnalysisPolicy,
@@ -160,14 +162,32 @@ const DEFAULT_ROLE_TOOL_ACCESS: Record<UserRole, string[]> = {
     'carrierSettings', 'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'backups', 'threePL', 'newsSources',
     'techSolutions',
     'modelSelector', 'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'customApi', 'customIntegration',
-    'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess', 'cronJobs'
+    'webhookManager', 'slackManager', 'crmManager', 'phase9', 'emailCampaign', 'eventTriggers', 'customReport', 'toolAccess', 'cronJobs',
+    'leadTabOverview', 'leadTabAnalysis', 'leadTabDiagnostics', 'leadTabPricing', 'leadTabMail'
   ],
   user: [
     'inclusions', 'cache', 'mailTemplate', 'sniSettings', 'exclusions', 'threePL', 'newsSources', 'techSolutions', 'modelSelector',
-    'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport', 'cronJobs'
+    'campaignAnalytics', 'campaignPerformance', 'costAnalysis', 'exportManager', 'emailCampaign', 'customReport', 'cronJobs',
+    'leadTabOverview', 'leadTabAnalysis', 'leadTabDiagnostics', 'leadTabPricing', 'leadTabMail'
   ],
-  viewer: ['cache', 'newsSources', 'campaignPerformance', 'exportManager']
+  viewer: [
+    'cache', 'newsSources', 'campaignPerformance', 'exportManager',
+    'leadTabOverview', 'leadTabAnalysis', 'leadTabDiagnostics', 'leadTabPricing', 'leadTabMail'
+  ]
 };
+
+const LEAD_TAB_TOOL_KEY_MAP = {
+  overview: 'leadTabOverview',
+  analysis: 'leadTabAnalysis',
+  diagnostics: 'leadTabDiagnostics',
+  pricing: 'leadTabPricing',
+  mail: 'leadTabMail'
+} as const;
+
+type LeadCardTabId = keyof typeof LEAD_TAB_TOOL_KEY_MAP;
+
+const LEAD_CARD_TAB_ORDER: LeadCardTabId[] = ['overview', 'analysis', 'diagnostics', 'pricing', 'mail'];
+const LEAD_TAB_TOOL_KEYS = Object.values(LEAD_TAB_TOOL_KEY_MAP);
 
 export const App: React.FC = () => {
   // Authentication state - MUST BE BEFORE ALL OTHER STATE
@@ -192,6 +212,7 @@ export const App: React.FC = () => {
   });
   const [backups, setBackups] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [batchDiagnostics, setBatchDiagnostics] = useState<BatchLeadFilterDiagnostics | null>(null);
 
   const [showRateLimit, setShowRateLimit] = useState(false);
   const [quotaSeconds, setQuotaSeconds] = useState<number | null>(null);
@@ -744,6 +765,12 @@ export const App: React.FC = () => {
     }
   }, [currentUserRole, roleTools.length]);
   const visibleTools = roleTools.includes('cronJobs') ? roleTools : [...roleTools, 'cronJobs'];
+  const hasConfiguredLeadTabRules = Object.values(toolAccessConfig.roleToolAccess).some((tools) =>
+    tools.some((toolKey) => LEAD_TAB_TOOL_KEYS.includes(toolKey as typeof LEAD_TAB_TOOL_KEYS[number]))
+  );
+  const leadCardVisibleTabs: LeadCardTabId[] = hasConfiguredLeadTabRules
+    ? LEAD_CARD_TAB_ORDER.filter((tabId) => roleTools.includes(LEAD_TAB_TOOL_KEY_MAP[tabId]))
+    : LEAD_CARD_TAB_ORDER;
 
   const sortLeadsByAnalysisDate = useCallback((leadList: LeadData[]) => {
     return [...leadList].sort((a, b) => (b.analysisDate || '').localeCompare(a.analysisDate || ''));
@@ -1188,6 +1215,26 @@ export const App: React.FC = () => {
     setAnalysisSteps([]);
   };
 
+  const clearCompletedAnalysisBanner = () => {
+    // Ensure late async updates from a finished run cannot mutate UI state again.
+    abortControllerRef.current = true;
+    activeAnalysisRunIdRef.current += 1;
+    setLoading(false);
+    setDeepDiveLoading(false);
+    setAnalyzingCompany(null);
+    setAnalysisSubStatus(null);
+    setAnalysisResult(null);
+  };
+
+  const openCompletedAnalysisResult = () => {
+    if (!analysisResult) return;
+    const finalResult = analysisResult;
+    clearCompletedAnalysisBanner();
+    setDeepDiveLead(finalResult);
+    setAnalysisSteps(finalResult.analysisSteps || []);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSelectLead = (lead: LeadData) => {
     setDeepDiveLead(lead);
     setAnalysisResult(null);
@@ -1306,11 +1353,13 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSearch = async (formData: SearchFormData) => {
+  const handleSearch = async (formData: SearchFormData, options?: SearchSubmitOptions) => {
     const runId = Date.now();
     const batchAnalysisPolicy: AnalysisPolicy = buildBatchAnalysisPolicyFromSourcePolicyConfig(sourcePolicies, activeSourceCountry);
+    const bypassExclusionsOnce = Boolean(options?.bypassExclusionsOnce);
     activeAnalysisRunIdRef.current = runId;
     setLoading(true); setError(null);
+    setBatchDiagnostics(null);
     setAnalysisSteps([]);
     abortControllerRef.current = false;
     try {
@@ -1319,7 +1368,8 @@ export const App: React.FC = () => {
         await handleDeepDive(formData.companyNameOrOrg);
       } else {
         // Batch sökning -> Kör generateLeads (QuickScan)
-        const exclusionList = [...existingCustomers, ...downloadedLeads, ...leads.map(l => l.companyName)];
+        const exclusionList = bypassExclusionsOnce ? [] : [...existingCustomers, ...downloadedLeads, ...leads.map(l => l.companyName)];
+        let diagnosticsFromRun: BatchLeadFilterDiagnostics | null = null;
         const newLeads = await generateLeads(
           formData, 
           handleWait, 
@@ -1332,10 +1382,24 @@ export const App: React.FC = () => {
           activeSourceCountry,
           techSolutionConfig,
           batchAnalysisPolicy,
-          marketSettings
+          marketSettings,
+          {
+            bypassExclusions: bypassExclusionsOnce,
+            includeUnknownSegmentWhenFiltering: true,
+            onDiagnostics: (diagnostics) => {
+              diagnosticsFromRun = diagnostics;
+            }
+          }
         );
+        if (diagnosticsFromRun) {
+          setBatchDiagnostics(diagnosticsFromRun);
+        }
+
         if (newLeads.length === 0) {
-          setError("Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.");
+          const diagnosticsMessage = diagnosticsFromRun
+            ? `Kandidater: ${diagnosticsFromRun.rawCandidateCount}, exkluderade: ${diagnosticsFromRun.removedByExclusion}, segmentfiltrerade: ${diagnosticsFromRun.removedBySegment}, kvar: ${diagnosticsFromRun.finalCount}.`
+            : 'Inga nya leads hittades för den valda orten/branschen. Prova att bredda sökningen.';
+          setError(`Inga leads kvar efter filtrering. ${diagnosticsMessage}`);
         } else {
           for (const lead of newLeads) {
             if (abortControllerRef.current || activeAnalysisRunIdRef.current !== runId) break;
@@ -1348,6 +1412,7 @@ export const App: React.FC = () => {
         return;
       }
       const errorMsg = typeof err === 'string' ? err : (err?.message || String(err));
+      setBatchDiagnostics(null);
       setError(errorMsg); 
     } finally { 
       if (activeAnalysisRunIdRef.current !== runId) return;
@@ -1845,6 +1910,25 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {batchDiagnostics && batchDiagnostics.finalCount === 0 && (
+          <div className="mb-6 rounded-sm border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 shadow-sm animate-fadeIn">
+            <div className="text-[11px] font-black uppercase tracking-wide text-amber-800">Batchdiagnostik: 0 resultat</div>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="rounded-sm border border-amber-200 bg-white px-3 py-2">Kandidater från modell: <strong>{batchDiagnostics.rawCandidateCount}</strong></div>
+              <div className="rounded-sm border border-amber-200 bg-white px-3 py-2">Validerade kandidater: <strong>{batchDiagnostics.objectCandidateCount}</strong></div>
+              <div className="rounded-sm border border-amber-200 bg-white px-3 py-2">Borttagna av exkludering: <strong>{batchDiagnostics.removedByExclusion}</strong></div>
+              <div className="rounded-sm border border-amber-200 bg-white px-3 py-2">Borttagna av segmentfilter: <strong>{batchDiagnostics.removedBySegment}</strong></div>
+              <div className="rounded-sm border border-amber-200 bg-white px-3 py-2 md:col-span-2">Kvar efter filter: <strong>{batchDiagnostics.finalCount}</strong></div>
+            </div>
+            <div className="mt-2 text-[11px] text-amber-800">
+              Exkludering: <strong>{batchDiagnostics.bypassedExclusions ? 'Bypassad för denna körning' : `Aktiv (${batchDiagnostics.exclusionCount} poster)`}</strong>
+              {batchDiagnostics.targetSegments.length > 0 && (
+                <span> • Segmentfilter: <strong>{batchDiagnostics.targetSegments.join(', ')}</strong> (UNKNOWN inkluderas: <strong>{batchDiagnostics.includesUnknownSegmentFallback ? 'Ja' : 'Nej'}</strong>)</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {cronJobs.length > 0 && (
           <div className="mb-6 rounded-sm border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1923,6 +2007,7 @@ export const App: React.FC = () => {
                    marketSettings={marketSettings}
                    threePLProviders={threePLProviders}
                    onSaveThreePL={handleSaveThreePL}
+                   visibleTabs={leadCardVisibleTabs}
                  />
                </div>
              )}
@@ -1935,14 +2020,9 @@ export const App: React.FC = () => {
                  subStatus={analysisSubStatus} 
                   analysisSteps={analysisSteps}
                  analysisResult={analysisResult} 
-                 onDismiss={() => setAnalysisResult(null)} 
+                 onDismiss={clearCompletedAnalysisBanner} 
                    onCancel={handleCancelProcessing}
-                  onOpenResult={() => {
-                    if (analysisResult) {
-                      setDeepDiveLead(analysisResult);
-                      setAnalysisResult(null);
-                    }
-                  }} 
+                  onOpenResult={openCompletedAnalysisResult} 
                />
              )}
              <ResultsTable 

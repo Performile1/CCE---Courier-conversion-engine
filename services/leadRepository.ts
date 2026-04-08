@@ -45,10 +45,25 @@ function sortLeadsByAnalysisDate(leads: LeadData[]): LeadData[] {
   return [...leads].sort((a, b) => (b.analysisDate || '').localeCompare(a.analysisDate || ''));
 }
 
+function normalizeLatestFinancialHistory(history: LeadData['financialHistory']): LeadData['financialHistory'] {
+  if (!Array.isArray(history)) return history;
+  return [...history]
+    .filter((entry) => /^20\d{2}$/.test(String(entry?.year || '').trim()))
+    .sort((a, b) => Number(b.year) - Number(a.year))
+    .slice(0, 3);
+}
+
 function normalizePersistedLead(row: PersistedLeadRow): LeadData {
   const payload = row.lead_payload && typeof row.lead_payload === 'object' && !Array.isArray(row.lead_payload)
     ? row.lead_payload
     : {};
+
+  const resolvedHallucinationScore = payload.hallucinationScore ?? payload.halluccinationScore ?? row.hallucination_score ?? undefined;
+  const resolvedHallucinationAnalysis = payload.hallucinationAnalysis
+    || payload.halluccinationAnalysis
+    || (row.hallucination_details as LeadData['hallucinationAnalysis'])
+    || undefined;
+  const normalizedFinancialHistory = normalizeLatestFinancialHistory(payload.financialHistory);
 
   return {
     id: String(payload.id || row.id),
@@ -69,7 +84,7 @@ function normalizePersistedLead(row: PersistedLeadRow): LeadData {
     revenue: payload.revenue || row.revenue || '',
     revenueYear: payload.revenueYear || row.revenue_year || undefined,
     profit: payload.profit || row.profit || undefined,
-    financialHistory: payload.financialHistory,
+    financialHistory: normalizedFinancialHistory,
     solidity: payload.solidity,
     liquidityRatio: payload.liquidityRatio,
     profitMargin: payload.profitMargin,
@@ -126,8 +141,10 @@ function normalizePersistedLead(row: PersistedLeadRow): LeadData {
     frictionAnalysis: payload.frictionAnalysis,
     dmtMatrix: payload.dmtMatrix,
     aiModel: payload.aiModel || (row.analysis_model as LeadData['aiModel']) || undefined,
-    halluccinationScore: payload.halluccinationScore ?? row.hallucination_score ?? undefined,
-    halluccinationAnalysis: payload.halluccinationAnalysis || (row.hallucination_details as LeadData['halluccinationAnalysis']) || undefined,
+    halluccinationScore: resolvedHallucinationScore,
+    halluccinationAnalysis: resolvedHallucinationAnalysis,
+    hallucinationScore: resolvedHallucinationScore,
+    hallucinationAnalysis: resolvedHallucinationAnalysis,
     sourceCoverage: payload.sourceCoverage,
     emailPattern: payload.emailPattern,
     dataConfidence: payload.dataConfidence,
@@ -194,10 +211,17 @@ export async function upsertPersistedLead(userId: string, lead: LeadData, existi
   const resolvedId = await findExistingLeadId(userId, lead, existingLeadId || lead.id);
   const leadId = resolvedId || (!lead.id || lead.id.startsWith('temp_') ? crypto.randomUUID() : lead.id);
   const analysisDate = lead.analysisDate || new Date().toISOString();
+  const resolvedHallucinationScore = lead.hallucinationScore ?? lead.halluccinationScore ?? 0;
+  const resolvedHallucinationAnalysis = lead.hallucinationAnalysis ?? lead.halluccinationAnalysis;
   const normalizedLead: LeadData = {
     ...lead,
     id: leadId,
-    analysisDate
+    analysisDate,
+    financialHistory: normalizeLatestFinancialHistory(lead.financialHistory),
+    halluccinationScore: resolvedHallucinationScore,
+    halluccinationAnalysis: resolvedHallucinationAnalysis,
+    hallucinationScore: resolvedHallucinationScore,
+    hallucinationAnalysis: resolvedHallucinationAnalysis
   };
 
   const row = {
@@ -220,8 +244,8 @@ export async function upsertPersistedLead(userId: string, lead: LeadData, existi
     freight_budget: normalizedLead.freightBudget || null,
     annual_packages: normalizedLead.annualPackages || null,
     analysis_model: normalizedLead.aiModel || null,
-    hallucination_score: normalizedLead.halluccinationScore || 0,
-    hallucination_details: normalizedLead.halluccinationAnalysis || null,
+    hallucination_score: resolvedHallucinationScore,
+    hallucination_details: resolvedHallucinationAnalysis || null,
     lead_bucket: bucket,
     lead_payload: normalizedLead,
     status: 'pending',

@@ -32,7 +32,7 @@ import { SYSTEM_INSTRUCTION } from "../prompts/systemInstructions.js";
 import { MASTER_DEEP_SCAN_PROMPT } from "../prompts/deepAnalysis.js";
 import { BATCH_PROSPECTING_INSTRUCTION } from "../prompts/batchProspecting.js";
 import { calculateRickardMetrics, determineSegmentByPotential } from "../utils/calculations.js";
-import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings, SourceCoverageExtractionMethod, AnalysisDiagnosticEngine, AnalysisDiagnosticSourceType } from "../types.js";
+import { SearchFormData, LeadData, SNIPercentage, ThreePLProvider, NewsSourceMapping, DecisionMaker, SourcePolicyConfig, SourceCoverageEntry, SourcePerformanceEntry, DataConfidence, FinancialYear, VerifiedRegistrySnapshot, VerifiedFieldEvidence, VerifiedLeadField, NewsItem, TechDetections, Segment, TechSolutionCategory, TechSolutionConfig, AnalysisPolicy, AnalysisStep, AnalysisStepName, AnalysisErrorCode, AnalysisStepProvider, CarrierSettings, SourceCoverageExtractionMethod, AnalysisDiagnosticEngine, AnalysisDiagnosticSourceType, BatchLeadFilterDiagnostics } from "../types.js";
 import { buildAnalysisPolicyFromSourcePolicyConfig, buildBatchAnalysisPolicyFromSourcePolicyConfig, DEFAULT_ANALYSIS_CATEGORY_PAGE_HINTS, DEFAULT_ANALYSIS_TRUSTED_DOMAINS, DEFAULT_BATCH_ENRICHMENT_LIMIT } from './analysisPolicy.js';
 import { DEFAULT_TECH_SOLUTION_CONFIG, getTechSolutionsByCategory, normalizeTechSolutionConfig, TECH_SOLUTION_CATEGORY_LABELS } from './techSolutionConfig.js';
 import { selectPricingProductForLead } from './pricingService.js';
@@ -166,6 +166,7 @@ function buildFailedBatchLead(rawLead: any, activeModel: ModelName, errorCode: A
     source: 'ai',
     aiModel: activeModel,
     halluccinationScore: 0,
+    hallucinationScore: 0,
     processingStatus: 'failed',
     processingErrorCode: errorCode,
     processingErrorMessage: errorMessage,
@@ -189,6 +190,65 @@ function buildFailedBatchLead(rawLead: any, activeModel: ModelName, errorCode: A
       summary
     })]
   } as LeadData;
+}
+
+function normalizeLatestFinancialHistory(history: FinancialYear[]): FinancialYear[] {
+  return [...(Array.isArray(history) ? history : [])]
+    .filter((entry) => /^20\d{2}$/.test(String(entry?.year || '').trim()))
+    .sort((a, b) => Number(b.year) - Number(a.year))
+    .slice(0, 3);
+}
+
+function buildBatchExclusionSets(exclusionList: string[]): { orgNumbers: Set<string>; companyNames: Set<string> } {
+  const orgNumbers = new Set<string>();
+  const companyNames = new Set<string>();
+
+  for (const entry of exclusionList || []) {
+    const value = String(entry || '').trim();
+    if (!value) continue;
+
+    const normalizedOrg = normalizeOrgNumber(value);
+    if (normalizedOrg.length >= 10) {
+      orgNumbers.add(normalizedOrg);
+    }
+
+    const normalizedName = normalizeCompanyForComparison(value);
+    if (normalizedName) {
+      companyNames.add(normalizedName);
+      for (const alias of buildCompanyAliases(value)) {
+        const aliasName = normalizeCompanyForComparison(alias);
+        if (aliasName) companyNames.add(aliasName);
+      }
+    }
+  }
+
+  return { orgNumbers, companyNames };
+}
+
+function isRawBatchLeadExcluded(rawLead: any, exclusionSets: { orgNumbers: Set<string>; companyNames: Set<string> }): boolean {
+  const orgNumber = normalizeOrgNumber(pickString(rawLead?.orgNumber, rawLead?.org_number, rawLead?.organizationNumber));
+  if (orgNumber && exclusionSets.orgNumbers.has(orgNumber)) {
+    return true;
+  }
+
+  const rawCompanyName = pickString(rawLead?.companyName, rawLead?.company_name, rawLead?.name);
+  if (!rawCompanyName) {
+    return false;
+  }
+
+  const candidates = new Set<string>();
+  candidates.add(normalizeCompanyForComparison(rawCompanyName));
+  for (const alias of buildCompanyAliases(rawCompanyName)) {
+    candidates.add(normalizeCompanyForComparison(alias));
+  }
+
+  for (const normalizedCandidate of candidates) {
+    if (normalizedCandidate && exclusionSets.companyNames.has(normalizedCandidate)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function buildDeepDivePreferredDomains(
@@ -652,9 +712,11 @@ function materializeLeadFromEvidence(input: {
 
   const registryFields = financialEvidence.parsed || {};
   const sniCode = pickString(companyData?.sni_code, companyData?.sniCode, companyData?.sni);
-  const verifiedFinancialHistory = registryFields.financialHistory?.length
-    ? registryFields.financialHistory
-    : normalizeFinancialHistoryEntries(financials?.history || [], financialEvidence.evidenceText);
+  const verifiedFinancialHistory = normalizeLatestFinancialHistory(
+    registryFields.financialHistory?.length
+      ? registryFields.financialHistory
+      : normalizeFinancialHistoryEntries(financials?.history || [], financialEvidence.evidenceText)
+  );
   const historyRevenueTKR = verifiedFinancialHistory[0]?.revenue ? parseRevenueToTKR(verifiedFinancialHistory[0].revenue) : undefined;
   const historyProfitTKR = verifiedFinancialHistory[0]?.profit ? parseRevenueToTKR(verifiedFinancialHistory[0].profit) : undefined;
   const modelRevenueValue = pickNumber(companyData?.revenue_tkr, companyData?.revenueTKR, companyData?.revenue);
@@ -861,6 +923,7 @@ function materializeLeadFromEvidence(input: {
     deepScanPerformed: false,
     aiModel: activeModel,
     halluccinationScore: 0,
+    hallucinationScore: 0,
     sourceCoverage: sourceBundle.coverage,
     processingStatus: analysisWarnings.length ? 'partial' : 'ready',
     emailPattern: detectedEmailPattern,
@@ -1074,6 +1137,7 @@ function materializeBatchLeadDraft(input: {
     analysisDate: '',
     aiModel: activeModel,
     halluccinationScore: 0,
+    hallucinationScore: 0,
     processingStatus: shouldEnrich ? (analysisWarnings.length ? 'partial' : 'ready') : 'partial',
     paymentProvider: paymentEvidence.paymentProvider || pickString(techProfile.paymentProviders[0], rawLead.paymentProvider, rawLead.payment_provider),
     checkoutSolution: paymentEvidence.checkoutSolution || pickString(techProfile.checkoutSolutions[0], rawLead.checkoutSolution, rawLead.checkout_solution),
@@ -1435,9 +1499,11 @@ async function buildBatchLeadEvidenceBundle(input: {
   }
 
   const registryFields = financialEvidence.parsed || {};
-  const verifiedFinancialHistory = registryFields.financialHistory?.length
-    ? registryFields.financialHistory
-    : normalizeFinancialHistoryEntries(rawLead.financialHistory || [], financialEvidence.evidenceText);
+  const verifiedFinancialHistory = normalizeLatestFinancialHistory(
+    registryFields.financialHistory?.length
+      ? registryFields.financialHistory
+      : normalizeFinancialHistoryEntries(rawLead.financialHistory || [], financialEvidence.evidenceText)
+  );
   const historyRevenueTKR = verifiedFinancialHistory[0]?.revenue
     ? parseRevenueToTKR(verifiedFinancialHistory[0].revenue)
     : undefined;
@@ -3119,7 +3185,8 @@ export async function runSurgicalDeepScan(
     frictionAnalysis: rawData.frictionAnalysis,
     dmtMatrix: rawData.dmtMatrix,
     aiModel: activeModel,
-    halluccinationScore: 0 // Will be updated by Tavily
+    halluccinationScore: 0, // Will be updated by Tavily
+    hallucinationScore: 0
   };
 }
 
@@ -3395,6 +3462,12 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
 /**
  * BATCH LEADS GENERATION
  */
+interface BatchGenerationRuntimeOptions {
+  bypassExclusions?: boolean;
+  includeUnknownSegmentWhenFiltering?: boolean;
+  onDiagnostics?: (diagnostics: BatchLeadFilterDiagnostics) => void;
+}
+
 export async function generateLeads(
   formData: SearchFormData,
   handleWait: (s: number, type: 'rate' | 'quota') => void,
@@ -3407,10 +3480,14 @@ export async function generateLeads(
   activeCountry?: string,
   techSolutionConfig?: TechSolutionConfig,
   analysisPolicy?: AnalysisPolicy,
-  marketSettings?: CarrierSettings[]
+  marketSettings?: CarrierSettings[],
+  runtimeOptions?: BatchGenerationRuntimeOptions
 ): Promise<LeadData[]> {
   const activeModel = model || selectedModel;
   try {
+    const bypassExclusions = Boolean(runtimeOptions?.bypassExclusions);
+    const includeUnknownSegmentWhenFiltering = runtimeOptions?.includeUnknownSegmentWhenFiltering !== false;
+    const effectiveExclusionList = bypassExclusions ? [] : exclusionList;
     const effectivePolicies = mergeSourcePolicies(sourcePolicies, activeCountry);
     const effectiveAnalysisPolicy = analysisPolicy || buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies, activeCountry);
     const batchEnrichmentLimit = getBatchEnrichmentLimit(effectivePolicies, effectiveAnalysisPolicy);
@@ -3425,14 +3502,18 @@ export async function generateLeads(
       ...customDomains
     ].map(normalizeDomain).filter(Boolean)));
 
-    const prompt = `Batch Scan: Ort: ${formData.geoArea}, Omsättningssegment: ${formData.financialScope}, Triggers: ${formData.triggers}, Antal: ${formData.leadCount}. 
-    EXKLUDERA DESSA BOLAG (Returnera dem INTE): ${exclusionList.slice(0, 50).join(', ')}`;
+    const prompt = `Batch Scan: Ort: ${formData.geoArea}, Omsättningssegment: ${formData.financialScope}, Triggers: ${formData.triggers}, Antal: ${formData.leadCount}.
+    ${effectiveExclusionList.length
+      ? `EXKLUDERA DESSA BOLAG (Returnera dem INTE): ${effectiveExclusionList.slice(0, 50).join(', ')}`
+      : 'EXKLUDERINGSLISTA: ingen (engångs-bypass aktiv).'} `;
+
+    const antiHallucinationInstruction = 'VIKTIGT: Gissa aldrig fakta. Om verifierbar data saknas ska fält lämnas tomma i stället för att uppskattas.';
 
     const responseText = await callOpenRouterWithRetry(
       activeModel, 
       prompt, 
       {
-        systemInstruction: BATCH_PROSPECTING_INSTRUCTION + "\n\nVIKTIGT: Returnera ALDRIG bolag som finns i exkluderingslistan.",
+        systemInstruction: `${BATCH_PROSPECTING_INSTRUCTION}\n\n${effectiveExclusionList.length ? 'VIKTIGT: Returnera ALDRIG bolag som finns i exkluderingslistan.\n' : ''}${antiHallucinationInstruction}`,
         responseMimeType: "application/json",
         temperature: 0.1 
       },
@@ -3454,12 +3535,17 @@ export async function generateLeads(
 
     const leadsArray = Array.isArray(data) ? data : (data.leads || data.results || []);
     const filteredLeads = leadsArray.filter((l: any) => l && typeof l === 'object');
+    const exclusionSets = buildBatchExclusionSets(effectiveExclusionList);
+    const leadsAfterExclusion = effectiveExclusionList.length
+      ? filteredLeads.filter((lead: any) => !isRawBatchLeadExcluded(lead, exclusionSets))
+      : filteredLeads;
+    const removedByExclusion = filteredLeads.length - leadsAfterExclusion.length;
 
     if (Array.isArray(leadsArray) && leadsArray.length > 0 && filteredLeads.length === 0) {
       throw createStructuredProcessingError('schema_invalid', 'Batchresultatet innehöll poster men inget lead följde förväntat schema.');
     }
 
-    const enrichedLeads = await Promise.all(filteredLeads.map(async (l: any, index: number) => {
+    const enrichedLeads = await Promise.all(leadsAfterExclusion.map(async (l: any, index: number) => {
       try {
       const evidenceBundle = await buildBatchLeadEvidenceBundle({
         rawLead: l,
@@ -3589,9 +3675,28 @@ export async function generateLeads(
 
     const targetSegments = formData.targetSegments || [];
     const persistedLeads = enrichedLeads.filter((lead): lead is LeadData => Boolean(lead));
-    return targetSegments.length
-      ? persistedLeads.filter((lead) => lead.processingStatus === 'failed' || targetSegments.includes(lead.segment))
+
+    const finalLeads = targetSegments.length
+      ? persistedLeads.filter((lead) => {
+          if (lead.processingStatus === 'failed') return true;
+          if (includeUnknownSegmentWhenFiltering && lead.segment === Segment.UNKNOWN) return true;
+          return targetSegments.includes(lead.segment);
+        })
       : persistedLeads;
+
+    runtimeOptions?.onDiagnostics?.({
+      rawCandidateCount: Array.isArray(leadsArray) ? leadsArray.length : 0,
+      objectCandidateCount: filteredLeads.length,
+      removedByExclusion,
+      removedBySegment: targetSegments.length ? (persistedLeads.length - finalLeads.length) : 0,
+      finalCount: finalLeads.length,
+      exclusionCount: effectiveExclusionList.length,
+      bypassedExclusions: bypassExclusions,
+      targetSegments,
+      includesUnknownSegmentFallback: targetSegments.length ? includeUnknownSegmentWhenFiltering : false
+    });
+
+    return finalLeads;
   } catch (error: any) {
     throw error;
   }

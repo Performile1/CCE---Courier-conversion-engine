@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SearchFormData } from '../types';
+import { SearchFormData, SearchSubmitOptions } from '../types';
 import { Search, Building2, MapPin, DollarSign, Users, Briefcase, Zap, X, UserSearch, HelpCircle, Activity, ChevronDown, Check } from 'lucide-react';
 
 interface InputFormProps {
-  onSubmit: (data: SearchFormData) => void;
+  onSubmit: (data: SearchFormData, options?: SearchSubmitOptions) => void;
   isLoading: boolean;
   protocolMode: 'quick' | 'deep' | 'batch_prospecting' | 'deep_pro';
   setProtocolMode: (mode: 'quick' | 'deep' | 'batch_prospecting' | 'deep_pro') => void;
@@ -288,8 +288,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildSubmissionData = (): SearchFormData => {
     const submissionData = { ...formData };
     if (activeTab === 'batch') {
       submissionData.companyNameOrOrg = '';
@@ -298,7 +297,17 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
       submissionData.geoArea = '';
       submissionData.financialScope = '';
     }
-    onSubmit(submissionData);
+    return submissionData;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(buildSubmissionData());
+  };
+
+  const handleSubmitWithoutExclusions = () => {
+    if (activeTab !== 'batch' || isLoading) return;
+    onSubmit(buildSubmissionData(), { bypassExclusionsOnce: true });
   };
 
   return (
@@ -559,6 +568,17 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, protocolMode
           >
             {isLoading ? 'Processing...' : 'Kör Protokoll'}
           </button>
+          {activeTab === 'batch' && (
+            <button
+              type="button"
+              onClick={handleSubmitWithoutExclusions}
+              disabled={isLoading}
+              className={`mt-2 w-full border border-dhl-gray-medium bg-white px-4 py-2 text-[11px] font-black uppercase tracking-wide text-dhl-black hover:border-red-600 hover:text-red-700 ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+              title="Kör en batch utan exkluderingslistan en gång för att felsöka 0-resultat"
+            >
+              Kör utan exkludering (1 körning)
+            </button>
+          )}
         </div>
       </form>
     </div>

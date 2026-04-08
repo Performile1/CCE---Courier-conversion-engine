@@ -38,7 +38,7 @@ export const ProcessingStatusBanner: React.FC<ProcessingStatusBannerProps> = ({
   
   if (analysisResult) {
     return (
-      <div className="bg-green-700 text-white shadow-2xl border-b-4 border-green-900 sticky top-0 z-banner animate-slideDown cursor-pointer ring-4 ring-green-400/30" onClick={onOpenResult}>
+      <div className="bg-green-700 text-white shadow-2xl border-b-4 border-green-900 sticky top-0 z-banner animate-slideDown ring-4 ring-green-400/30">
         <div className="max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <div className="bg-white p-2 rounded-full shadow-inner animate-bounce">

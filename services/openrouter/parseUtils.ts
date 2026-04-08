@@ -329,8 +329,8 @@ export function parseFinancialHistoryFromEvidence(text: string): FinancialYear[]
       if (revenueTkr === undefined && profitTkr === undefined) return null;
       return {
         year: match[1],
-        revenue: formatTkr(revenueTkr || 0),
-        profit: formatTkr(profitTkr || 0)
+        revenue: revenueTkr === undefined ? '' : formatTkr(revenueTkr),
+        profit: profitTkr === undefined ? '' : formatTkr(profitTkr)
       } as FinancialYear;
     })
     .filter(Boolean) as FinancialYear[];
@@ -397,10 +397,13 @@ export function normalizeFinancialHistoryEntries(history: any[], evidenceText?: 
     .map((entry: any) => {
       const year = pickString(entry?.year);
       if (!/^20\d{2}$/.test(year)) return null;
+      const parsedRevenue = parseRevenueToTKROptional(entry?.revenue);
+      const parsedProfit = parseRevenueToTKROptional(entry?.profit);
+      if (parsedRevenue === undefined && parsedProfit === undefined) return null;
       return {
         year,
-        revenue: `${parseRevenueToTKR(entry?.revenue || 0).toLocaleString('sv-SE')} tkr`,
-        profit: `${parseRevenueToTKR(entry?.profit || 0).toLocaleString('sv-SE')} tkr`
+        revenue: parsedRevenue === undefined ? '' : `${parsedRevenue.toLocaleString('sv-SE')} tkr`,
+        profit: parsedProfit === undefined ? '' : `${parsedProfit.toLocaleString('sv-SE')} tkr`
       } as FinancialYear;
     })
     .filter(Boolean) as FinancialYear[];

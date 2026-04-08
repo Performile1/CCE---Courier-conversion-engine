@@ -128,6 +128,22 @@ export interface SearchFormData {
   reanalysisLimit?: number;
 }
 
+export interface SearchSubmitOptions {
+  bypassExclusionsOnce?: boolean;
+}
+
+export interface BatchLeadFilterDiagnostics {
+  rawCandidateCount: number;
+  objectCandidateCount: number;
+  removedByExclusion: number;
+  removedBySegment: number;
+  finalCount: number;
+  exclusionCount: number;
+  bypassedExclusions: boolean;
+  targetSegments: Segment[];
+  includesUnknownSegmentFallback: boolean;
+}
+
 export interface DecisionMaker {
   name: string;
   title: string;
@@ -436,6 +452,13 @@ export interface FrictionAnalysis {
   frictionNote: string;
 }
 
+export interface HallucinationAnalysis {
+  verifiedFields?: string[];
+  unverifiedFields?: string[];
+  overallTrust?: 'high' | 'medium' | 'low';
+  recommendations?: string[];
+}
+
 export interface DataConfidence {
   financial: 'verified' | 'estimated' | 'missing';
   checkout: 'crawled' | 'estimated' | 'missing';
@@ -602,13 +625,10 @@ export interface LeadData {
     | 'gpt-4-turbo'
     | 'gpt-3.5-turbo'
     | 'mistral-7b';
-  halluccinationScore?: number; // 0-100, higher = more unverified claims
-  halluccinationAnalysis?: {
-    verifiedFields?: string[];
-    unverifiedFields?: string[];
-    overallTrust?: 'high' | 'medium' | 'low';
-    recommendations?: string[];
-  };
+  halluccinationScore?: number; // Legacy typo, kept for backwards compatibility
+  halluccinationAnalysis?: HallucinationAnalysis; // Legacy typo, kept for backwards compatibility
+  hallucinationScore?: number; // Preferred spelling
+  hallucinationAnalysis?: HallucinationAnalysis; // Preferred spelling
 
   sourceCoverage?: SourceCoverageEntry[];
   processingStatus?: LeadProcessingStatus;

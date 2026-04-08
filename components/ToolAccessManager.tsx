@@ -39,7 +39,12 @@ const TOOL_LABELS: Record<string, string> = {
   eventTriggers: 'Event Triggers',
   customReport: 'Custom Report Builder',
   cronJobs: 'Cron Job Manager',
-  toolAccess: 'Role and Tool Access'
+  toolAccess: 'Role and Tool Access',
+  leadTabOverview: 'Lead Workspace: Översikt',
+  leadTabAnalysis: 'Lead Workspace: Analysis',
+  leadTabDiagnostics: 'Lead Workspace: Diagnostik',
+  leadTabPricing: 'Lead Workspace: Offert',
+  leadTabMail: 'Lead Workspace: Mail'
 };
 
 const TOOL_KEYS = Object.keys(TOOL_LABELS);

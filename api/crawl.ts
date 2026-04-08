@@ -9,7 +9,41 @@ import axios from 'axios';
 import { requireApiAuth } from './_scheduledJobs.js';
 
 const DEFAULT_CRAWL4AI_API_URL = 'https://api.crawl4ai.com/v1/crawl';
-const CRAWL4AI_API_URL = process.env.CRAWL4AI_API_URL || DEFAULT_CRAWL4AI_API_URL;
+
+function resolveCrawl4aiApiUrl(rawUrl: string | undefined): { url: string; warning?: string } {
+  const configured = String(rawUrl || '').trim();
+  if (!configured) {
+    return { url: DEFAULT_CRAWL4AI_API_URL };
+  }
+
+  try {
+    const parsed = new URL(configured);
+    const basePath = parsed.pathname.replace(/\/+$/, '');
+
+    if (/\/crawl$/i.test(basePath)) {
+      const correctedPath = basePath.replace(/\/crawl$/i, '/v1/crawl');
+      parsed.pathname = correctedPath;
+      const corrected = parsed.toString();
+      return {
+        url: corrected,
+        warning: `CRAWL4AI_API_URL pointed to legacy /crawl path and was auto-corrected to ${corrected}`
+      };
+    }
+
+    return { url: configured };
+  } catch {
+    return {
+      url: DEFAULT_CRAWL4AI_API_URL,
+      warning: `CRAWL4AI_API_URL is invalid (${configured}). Falling back to ${DEFAULT_CRAWL4AI_API_URL}`
+    };
+  }
+}
+
+const crawlApiConfig = resolveCrawl4aiApiUrl(process.env.CRAWL4AI_API_URL);
+const CRAWL4AI_API_URL = crawlApiConfig.url;
+if (crawlApiConfig.warning) {
+  console.warn('Crawl4ai API config warning:', crawlApiConfig.warning);
+}
 
 function buildCrawlApiCandidates(primaryUrl: string): string[] {
   const candidates = new Set<string>();

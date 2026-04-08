@@ -95,7 +95,8 @@ export function mergeLeadData(
       }
     }
     merged.financialHistory = Array.from(yearMap.values())
-      .sort((a, b) => b.year.localeCompare(a.year));
+      .sort((a, b) => b.year.localeCompare(a.year))
+      .slice(0, 3);
   }
 
   // ── RISK & STATUS ──────────────────────────────────────────────────────────
@@ -290,8 +291,16 @@ export function mergeLeadData(
 
   // ── AI METADATA ────────────────────────────────────────────────────────────
   if (incoming.aiModel) merged.aiModel = incoming.aiModel;
-  if (incoming.halluccinationScore !== undefined) merged.halluccinationScore = incoming.halluccinationScore;
-  if (incoming.halluccinationAnalysis) merged.halluccinationAnalysis = incoming.halluccinationAnalysis;
+  const incomingHallucinationScore = incoming.hallucinationScore ?? incoming.halluccinationScore;
+  if (incomingHallucinationScore !== undefined) {
+    merged.halluccinationScore = incomingHallucinationScore;
+    merged.hallucinationScore = incomingHallucinationScore;
+  }
+  const incomingHallucinationAnalysis = incoming.hallucinationAnalysis ?? incoming.halluccinationAnalysis;
+  if (incomingHallucinationAnalysis) {
+    merged.halluccinationAnalysis = incomingHallucinationAnalysis;
+    merged.hallucinationAnalysis = incomingHallucinationAnalysis;
+  }
   if (incoming.processingStatus) merged.processingStatus = incoming.processingStatus;
   if (incoming.processingErrorCode) merged.processingErrorCode = incoming.processingErrorCode;
   if (incoming.processingErrorMessage?.trim()) merged.processingErrorMessage = incoming.processingErrorMessage;
