@@ -964,6 +964,23 @@ function materializeLeadFromEvidence(input: {
     toWebsiteUrl(effectiveDomain),
     toWebsiteUrl(pickString(companyData?.domain, companyData?.website, companyData?.url))
   );
+  const b2bDistribution = inferB2BDistributionFromEvidence({
+    companyName: strictCompanyName,
+    orgNumber: strictOrgNumber,
+    businessModel: pickString(companyData?.business_model, companyData?.businessModel),
+    evidenceText: [
+      sourceGroundingEvidence,
+      financialEvidence.evidenceText,
+      techProfile.evidenceSnippet,
+      paymentEvidence.evidenceSnippet,
+      checkoutCrawlResult.evidenceSnippet,
+      retailEvidence.evidenceSnippet,
+      addressEvidence.evidenceSnippet,
+      modelTechEvidence,
+      crawlTechEvidence,
+      effectiveDomain ? `domän: ${effectiveDomain}` : ''
+    ].filter(Boolean).join(' | ')
+  });
 
   const capturedAt = new Date().toISOString();
   const riskFieldEvidence = financialEvidence.confidence === 'verified'
@@ -1074,8 +1091,8 @@ function materializeLeadFromEvidence(input: {
     activeMarkets: verifiedActiveMarkets,
     marketCount: verifiedMarketCount,
     estimatedAOV: metrics?.estimatedAOV,
-    b2bPercentage: undefined,
-    b2cPercentage: undefined,
+    b2bPercentage: b2bDistribution.b2bPercentage,
+    b2cPercentage: b2bDistribution.b2cPercentage,
     financialHistory: verifiedFinancialHistory,
     solidity: verifiedSolidity,
     liquidityRatio: verifiedLiquidityRatio,
@@ -1294,6 +1311,20 @@ function materializeBatchLeadDraft(input: {
   } = input;
 
   const batchStepTimestamp = new Date().toISOString();
+  const batchB2BDistribution = inferB2BDistributionFromEvidence({
+    companyName: pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
+    orgNumber: pickString(registryFields.orgNumber, rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber),
+    businessModel: pickString(rawLead.businessModel, rawLead.business_model),
+    evidenceText: [
+      pickString(rawLead.techEvidence, rawLead.tech_evidence),
+      techProfile.evidenceSnippet,
+      paymentEvidence.evidenceSnippet,
+      checkoutEvidence.evidenceSnippet,
+      retailEvidence.evidenceSnippet,
+      emailPattern,
+      domain ? `domän: ${domain}` : ''
+    ].filter(Boolean).join(' | ')
+  });
 
   return {
     ...rawLead,
@@ -1323,6 +1354,8 @@ function materializeBatchLeadDraft(input: {
     newsItems: newsEvidence.items,
     marketCount: verifiedMarketCount,
     activeMarkets: verifiedActiveMarkets,
+    b2bPercentage: batchB2BDistribution.b2bPercentage,
+    b2cPercentage: batchB2BDistribution.b2cPercentage,
     storeCount: verifiedStoreCount,
     annualPackages: metrics ? annualPackages : undefined,
     annualPackageEstimateSource: pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages)
@@ -2465,6 +2498,131 @@ function detectTechSignals(content: string, config?: TechSolutionConfig): string
   return keywords.filter((k) => haystack.includes(k.toLowerCase()));
 }
 
+const B2B_SIGNAL_KEYWORDS = [
+  'företagskund',
+  'foretagskund',
+  'för företag',
+  'for business',
+  'business customer',
+  'b2b',
+  'wholesale',
+  'återförsäljare',
+  'aterforsaljare',
+  'reseller',
+  'proffskund',
+  'företagskonto',
+  'foretagskonto',
+  'organisationsnummer',
+  'org.nr',
+  'momsnummer',
+  'vat number',
+  'company name',
+  'invoice company'
+];
+
+const B2C_SIGNAL_KEYWORDS = [
+  'privatperson',
+  'for private',
+  'private customer',
+  'konsument',
+  'consumer',
+  'b2c',
+  'personnummer'
+];
+
+const B2B_CHECKOUT_PATTERNS = [
+  /organisationsnummer/i,
+  /\borg\.?\s?nr\b/i,
+  /momsnummer/i,
+  /vat\s?(?:no|number)?/i,
+  /företagsnamn|foretagsnamn|company\s+name/i,
+  /för\s+företag|for\s+business|business\s+checkout/i
+];
+
+function inferB2BDistributionFromEvidence(input: {
+  companyName?: string;
+  orgNumber?: string;
+  businessModel?: string;
+  evidenceText?: string;
+}): {
+  b2bPercentage: number;
+  b2cPercentage: number;
+  confidence: 'verified' | 'estimated';
+  evidenceSnippet: string;
+  reason: string;
+} {
+  const evidenceText = String(input.evidenceText || '').replace(/\s+/g, ' ').trim();
+  const loweredEvidence = evidenceText.toLowerCase();
+  const businessModel = pickString(input.businessModel).toLowerCase();
+  const companyAliases = buildCompanyAliases(pickString(input.companyName)).map((alias) => alias.toLowerCase()).filter(Boolean);
+  const orgNumber = normalizeOrgNumber(input.orgNumber || '');
+  const normalizedEvidenceOrg = normalizeOrgNumber(evidenceText);
+
+  const b2bHits = B2B_SIGNAL_KEYWORDS.filter((keyword) => loweredEvidence.includes(keyword));
+  const b2cHits = B2C_SIGNAL_KEYWORDS.filter((keyword) => loweredEvidence.includes(keyword));
+  let b2bScore = Math.min(6, b2bHits.length);
+  let b2cScore = Math.min(6, b2cHits.length);
+
+  const hasCheckoutCompanyPattern = B2B_CHECKOUT_PATTERNS.some((pattern) => pattern.test(evidenceText));
+  if (hasCheckoutCompanyPattern) b2bScore += 4;
+
+  const hasOrgNumberMatch = Boolean(orgNumber && normalizedEvidenceOrg.includes(orgNumber));
+  if (hasOrgNumberMatch) b2bScore += 4;
+
+  if (hasCheckoutCompanyPattern && companyAliases.some((alias) => loweredEvidence.includes(alias))) {
+    b2bScore += 2;
+  }
+
+  if (containsAnyKeyword(businessModel, ['b2b', 'företag', 'foretag', 'business'])) {
+    b2bScore += 2;
+  }
+  if (containsAnyKeyword(businessModel, ['b2c', 'privatperson', 'consumer', 'konsument'])) {
+    b2cScore += 2;
+  }
+
+  if (b2bScore <= 0) {
+    const fallbackSnippet = extractEvidenceSnippet(
+      evidenceText || businessModel || 'Ingen tydlig B2B/B2C-signal hittades i crawlunderlaget.',
+      b2cHits.length ? b2cHits : ['privatperson', 'consumer']
+    );
+    return {
+      b2bPercentage: 0,
+      b2cPercentage: 100,
+      confidence: b2cScore > 0 ? 'verified' : 'estimated',
+      evidenceSnippet: fallbackSnippet,
+      reason: 'Inga B2B-signaler hittades i domän/checkout-underlaget; defaultar till 100% B2C.'
+    };
+  }
+
+  if (b2cScore <= 0) {
+    const b2bPercentage = b2bScore >= 7 ? 100 : 85;
+    return {
+      b2bPercentage,
+      b2cPercentage: 100 - b2bPercentage,
+      confidence: (hasCheckoutCompanyPattern || hasOrgNumberMatch) ? 'verified' : 'estimated',
+      evidenceSnippet: extractEvidenceSnippet(evidenceText || businessModel, b2bHits.length ? b2bHits : ['organisationsnummer', 'for business']),
+      reason: 'B2B-signaler hittades utan konkurrerande B2C-signaler i crawlunderlaget.'
+    };
+  }
+
+  const totalScore = b2bScore + b2cScore;
+  const ratio = totalScore > 0 ? b2bScore / totalScore : 0;
+  const rawB2B = Math.round(ratio * 100);
+  const b2bPercentage = Math.max(10, Math.min(90, rawB2B));
+  const b2cPercentage = 100 - b2bPercentage;
+
+  return {
+    b2bPercentage,
+    b2cPercentage,
+    confidence: (hasCheckoutCompanyPattern || hasOrgNumberMatch) ? 'verified' : 'estimated',
+    evidenceSnippet: extractEvidenceSnippet(
+      evidenceText || businessModel,
+      [...b2bHits, ...b2cHits, 'organisationsnummer', 'privatperson', 'for business']
+    ),
+    reason: 'B2B/B2C-fördelning estimerades från verifierade domän- och checkout-signaler.'
+  };
+}
+
 async function fetchTechEvidenceFromCrawl(domain: string, config?: TechSolutionConfig): Promise<string> {
   const normalizedDomain = normalizeDomain(domain);
   if (!normalizedDomain) return '';
@@ -3196,6 +3354,27 @@ async function fetchRetailFootprint(domain: string): Promise<RetailFootprintEvid
   };
 }
 
+function hasLinkedInCurrentPositionEvidence(text: string, role: string, aliases: string[]): boolean {
+  const source = String(text || '');
+  const cleanRole = String(role || '').trim();
+  const cleanAliases = aliases.map((alias) => String(alias || '').trim()).filter(Boolean);
+  if (!source || !cleanRole || !cleanAliases.length) return false;
+
+  const rolePattern = escapeRegExp(cleanRole).replace(/\s+/g, '\\s+');
+  const currentTokenPattern = '(?:currently|current|nuvarande|idag|present)';
+  for (const alias of cleanAliases) {
+    const aliasPattern = escapeRegExp(alias).replace(/\s+/g, '\\s+');
+    const roleThenCompany = new RegExp(`${rolePattern}.{0,90}(?:at|på|hos|@|\\||-)\\s*${aliasPattern}`, 'i');
+    const companyThenRole = new RegExp(`${aliasPattern}.{0,90}${rolePattern}`, 'i');
+    const currentMarkerContext = new RegExp(`${currentTokenPattern}.{0,80}${rolePattern}.{0,120}${aliasPattern}`, 'i');
+    if (roleThenCompany.test(source) || companyThenRole.test(source) || currentMarkerContext.test(source)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // ── Phase 3: Role-Targeted Decision Maker Search ──────────────────────────
 async function fetchDecisionMakersTargeted(
   companyName: string,
@@ -3244,15 +3423,19 @@ async function fetchDecisionMakersTargeted(
         const nameMatches = text.match(/\b([A-ZÅÄÖ][a-zåäö-]+\s+[A-ZÅÄÖ][a-zåäö-]+)\b/g) || [];
         const roleMatches = text.match(/(VD|CEO|logistikchef|inköpschef|e-handelschef|CMO|CFO|COO|styrelseordförande|styrelseledamot|Supply Chain|Head of Logistics)/gi) || [];
         if (!nameMatches.length || !roleMatches.length) continue;
-        const aliasMatch = aliases.some(alias => lowered.includes(alias.toLowerCase()));
-        const orgMatch = orgNormalized ? normalizeOrgNumber(lowered).includes(orgNormalized) : false;
-        const linkedinVerified = onLinkedin && aliasMatch;
-        const companyVerified = aliasMatch || orgMatch;
-        if (!companyVerified) continue;
         const name = nameMatches[0] ?? '';
         const role = roleMatches[0] ?? '';
         if (!name || !role) continue;
         if (!roleMatchesFocus(role, roleSynonyms)) continue;
+        const aliasMatch = aliases.some(alias => lowered.includes(alias.toLowerCase()));
+        const orgMatch = orgNormalized ? normalizeOrgNumber(lowered).includes(orgNormalized) : false;
+        const linkedinVerified = onLinkedin && aliasMatch;
+        const currentPositionEvidence = onLinkedin
+          ? hasLinkedInCurrentPositionEvidence(`${pickString(r?.title)} ${pickString(r?.content)}`, role, aliases)
+          : true;
+        const companyVerified = aliasMatch || orgMatch;
+        if (!companyVerified) continue;
+        if (onLinkedin && !currentPositionEvidence) continue;
         if (/rickard|wigrund/i.test(name)) continue;
         if (isLikelyGenericPersonName(name)) continue;
         if (seenNames.has(name.toLowerCase())) continue;
@@ -3260,6 +3443,7 @@ async function fetchDecisionMakersTargeted(
         const verifiedEmails = extractEmailsFromText(text, companyDomain);
         const verifiedPhones = extractPhoneNumbersFromText(text);
         const score = (onLinkedin ? 3 : 0)
+          + (currentPositionEvidence ? 2 : 0)
           + (orgMatch ? 2 : 0)
           + (aliasMatch ? 1 : 0)
           + (verifiedEmails.length ? 1 : 0)
@@ -3271,7 +3455,9 @@ async function fetchDecisionMakersTargeted(
           email: verifiedEmails[0] || '',
           linkedin: onLinkedin ? url : '',
           directPhone: verifiedPhones[0] || '',
-          verificationNote: linkedinVerified
+          verificationNote: (linkedinVerified && currentPositionEvidence)
+            ? `Verifierad via LinkedIn + bolagsmatch + nuvarande roll (${normalizeDomain(url)})`
+            : linkedinVerified
             ? `Verifierad via LinkedIn + bolagsmatch (${normalizeDomain(url)})`
             : onLinkedin
               ? `Verifierad via LinkedIn (${normalizeDomain(url)})`
