@@ -102,12 +102,12 @@ const DEFAULT_DATAPART_SOURCES: Record<string, string[]> = {
   betalningsanmarkning: ['ratsit.se', 'allabolag.se', 'kronofogden.se'],
   skuldsaldo: ['kronofogden.se', 'ratsit.se', 'allabolag.se'],
   skuldsattningsgrad: ['allabolag.se', 'ratsit.se'],
-  adresser: ['allabolag.se', 'hitta.se', 'eniro.se'],
+  adresser: ['allabolag.se', 'ratsit.se', 'hitta.se', 'eniro.se'],
   plattform: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   tasystem: ['nshift.com', 'unifaun.com', 'centiro.com', 'ingrid.com'],
   betalning: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
   checkout: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
-  beslutsfattare: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+  beslutsfattare: ['linkedin.com'],
   epostmonster: ['company website', 'linkedin.com'],
   nyheter: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se']
 };

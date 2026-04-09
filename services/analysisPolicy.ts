@@ -6,6 +6,9 @@ export const DEFAULT_ANALYSIS_TRUSTED_DOMAINS = [
   'boolag.se',
   'ratsit.se',
   'bolagsverket.se',
+  'hitta.se',
+  'eniro.se',
+  'linkedin.com',
   'ehandel.se',
   'market.se',
   'breakit.se'
@@ -161,8 +164,8 @@ function buildAnalysisPolicy(
       },
       categories: {
         financial: normalizeDomains(effectivePolicies?.financial, ['allabolag.se', 'ratsit.se', 'kreditrapporten.se', 'boolag.se', 'bolagsverket.se']),
-        addresses: normalizeDomains(effectivePolicies?.addresses, ['hitta.se', 'eniro.se', 'allabolag.se', 'bolagsverket.se']),
-        decisionMakers: normalizeDomains(effectivePolicies?.decisionMakers, ['linkedin.com', 'allabolag.se', 'ratsit.se']),
+        addresses: normalizeDomains(effectivePolicies?.addresses, ['hitta.se', 'eniro.se', 'allabolag.se', 'ratsit.se', 'bolagsverket.se']),
+        decisionMakers: normalizeDomains(effectivePolicies?.decisionMakers, ['linkedin.com']),
         payment: normalizeDomains(effectivePolicies?.payment, ['klarna.com', 'stripe.com', 'adyen.com']),
         webSoftware: normalizeDomains(effectivePolicies?.webSoftware, ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com']),
         news: normalizeDomains(effectivePolicies?.news, ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se'])

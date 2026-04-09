@@ -100,8 +100,8 @@ const DEFAULT_NEWS_SOURCE_MAPPINGS: NewsSourceMapping[] = [
 ];
 const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
   financial: ['allabolag.se', 'ratsit.se', 'kreditrapporten.se', 'boolag.se', 'bolagsverket.se'],
-  addresses: ['hitta.se', 'eniro.se', 'allabolag.se', 'bolagsverket.se'],
-  decisionMakers: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+  addresses: ['hitta.se', 'eniro.se', 'allabolag.se', 'ratsit.se', 'bolagsverket.se'],
+  decisionMakers: ['linkedin.com'],
   payment: ['klarna.com', 'stripe.com', 'adyen.com'],
   webSoftware: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
   news: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se'],
@@ -128,7 +128,7 @@ const DEFAULT_SOURCE_POLICIES: SourcePolicyConfig = {
     plattform: ['shopify.com', 'woocommerce.com', 'norce.io', 'centra.com'],
     betalning: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
     checkout: ['klarna.com', 'stripe.com', 'adyen.com', 'checkout.com'],
-    beslutsfattare: ['linkedin.com', 'allabolag.se', 'ratsit.se'],
+    beslutsfattare: ['linkedin.com'],
     nyheter: ['ehandel.se', 'market.se', 'breakit.se', 'bolagsverket.se']
   },
   categoryFieldMappings: {

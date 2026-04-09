@@ -137,6 +137,172 @@ export function resetCostTracker(): void {
 
 const MIN_INTERVAL = 300; // Keep fast by default; rely on adaptive backoff on 429
 let lastCallTime = 0;
+
+const DIRECTORY_SOURCE_DOMAIN_HINTS = [
+  'allabolag.se',
+  'ratsit.se',
+  'bolagsverket.se',
+  'hitta.se',
+  'eniro.se',
+  'kreditrapporten.se',
+  'boolag.se',
+  'kronofogden.se',
+  'linkedin.com',
+  'ehandel.se',
+  'market.se',
+  'breakit.se',
+  'mynewsdesk.com'
+];
+
+type DomainResolution = {
+  domain: string;
+  websiteUrl: string;
+  sourceUrl?: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+  method: 'explicit' | 'source_coverage' | 'source_evidence' | 'tavily_search' | 'missing';
+};
+
+function toWebsiteUrl(domain?: string): string {
+  const normalized = normalizeDomain(domain || '');
+  return normalized ? `https://${normalized}` : '';
+}
+
+function isDirectoryLikeDomain(domain?: string): boolean {
+  const normalized = normalizeDomain(domain || '');
+  if (!normalized) return true;
+  return DIRECTORY_SOURCE_DOMAIN_HINTS.some((hint) => normalized === hint || normalized.endsWith(`.${hint}`));
+}
+
+function extractUrlsFromText(text?: string): string[] {
+  const raw = String(text || '');
+  if (!raw) return [];
+  const matches = raw.match(/https?:\/\/[^\s|)\]>]+/gi) || [];
+  return Array.from(new Set(matches.map((url) => url.replace(/[.,;!?]+$/g, '').trim()).filter(Boolean)));
+}
+
+function extractCrawlSignalText(payload: any): string {
+  const content = pickString(payload?.content, payload?.markdown_content, payload?.data?.content);
+  const linkList = Array.isArray(payload?.links)
+    ? payload.links
+        .map((link: any) => {
+          if (typeof link === 'string') return link;
+          return pickString(link?.url, link?.href);
+        })
+        .filter(Boolean)
+    : [];
+  const metadataBits = [
+    pickString(payload?.metadata?.title, payload?.title),
+    pickString(payload?.metadata?.description, payload?.description)
+  ].filter(Boolean);
+
+  return [content, ...linkList, ...metadataBits]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 5000);
+}
+
+function chooseCompanyDomainCandidate(urls: string[]): { domain: string; sourceUrl?: string } {
+  for (const url of urls) {
+    const domain = normalizeDomain(url);
+    if (!domain || isDirectoryLikeDomain(domain)) continue;
+    return { domain, sourceUrl: url };
+  }
+  return { domain: '' };
+}
+
+async function resolveCompanyDomainForCrawl(input: {
+  companyName: string;
+  orgNumber?: string;
+  explicitDomain?: string;
+  sourceCoverage?: SourceCoverageEntry[];
+  sourceGroundingEvidence?: string;
+}): Promise<DomainResolution> {
+  const explicit = normalizeDomain(input.explicitDomain || '');
+  if (explicit && !isDirectoryLikeDomain(explicit)) {
+    return {
+      domain: explicit,
+      websiteUrl: toWebsiteUrl(explicit),
+      confidence: 'verified',
+      method: 'explicit'
+    };
+  }
+
+  const coverageUrls = (input.sourceCoverage || [])
+    .map((entry) => pickString(entry.url))
+    .filter(Boolean);
+  const coverageCandidate = chooseCompanyDomainCandidate(coverageUrls);
+  if (coverageCandidate.domain) {
+    return {
+      domain: coverageCandidate.domain,
+      websiteUrl: toWebsiteUrl(coverageCandidate.domain),
+      sourceUrl: coverageCandidate.sourceUrl,
+      confidence: 'estimated',
+      method: 'source_coverage'
+    };
+  }
+
+  const evidenceCandidate = chooseCompanyDomainCandidate(extractUrlsFromText(input.sourceGroundingEvidence));
+  if (evidenceCandidate.domain) {
+    return {
+      domain: evidenceCandidate.domain,
+      websiteUrl: toWebsiteUrl(evidenceCandidate.domain),
+      sourceUrl: evidenceCandidate.sourceUrl,
+      confidence: 'estimated',
+      method: 'source_evidence'
+    };
+  }
+
+  const companyName = pickString(input.companyName);
+  if (!companyName) {
+    return {
+      domain: '',
+      websiteUrl: '',
+      confidence: 'missing',
+      method: 'missing'
+    };
+  }
+
+  try {
+    const orgToken = normalizeOrgNumber(input.orgNumber || '');
+    const query = orgToken
+      ? `"${companyName}" "${orgToken}" officiell webbplats OR official website OR ecommerce`
+      : `"${companyName}" officiell webbplats OR official website OR ecommerce`;
+
+    const response = await axios.post(
+      buildApiUrl('/api/tavily'),
+      {
+        query,
+        action: 'search',
+        maxResults: 8
+      },
+      { timeout: 12000 }
+    );
+
+    const resultUrls = (response.data?.results || [])
+      .map((item: any) => pickString(item?.url))
+      .filter(Boolean);
+    const resultCandidate = chooseCompanyDomainCandidate(resultUrls);
+    if (resultCandidate.domain) {
+      return {
+        domain: resultCandidate.domain,
+        websiteUrl: toWebsiteUrl(resultCandidate.domain),
+        sourceUrl: resultCandidate.sourceUrl,
+        confidence: 'verified',
+        method: 'tavily_search'
+      };
+    }
+  } catch {
+    // fall through to missing result
+  }
+
+  return {
+    domain: '',
+    websiteUrl: '',
+    confidence: 'missing',
+    method: 'missing'
+  };
+}
+
 function buildFailedBatchLead(rawLead: any, activeModel: ModelName, errorCode: AnalysisErrorCode, errorMessage: string): LeadData | null {
   const companyName = pickString(rawLead?.companyName, rawLead?.company_name, rawLead?.name);
   const orgNumber = pickString(rawLead?.orgNumber, rawLead?.org_number, rawLead?.organizationNumber);
@@ -386,12 +552,15 @@ async function fetchCommercialSignalsBundle(
   techSolutionConfig: TechSolutionConfig | undefined,
   analysisPolicy: AnalysisPolicy | undefined,
   sourceGroundingEvidence: string,
-  financialEvidenceText: string
+  financialEvidenceText: string,
+  sourcePolicies?: SourcePolicyConfig,
+  orgNumber?: string
 ): Promise<{
   checkoutCrawlResult: CheckoutEvidence;
   paymentEvidence: VerifiedPaymentEvidence;
   techProfile: StructuredTechProfile;
   retailEvidence: RetailFootprintEvidence;
+  addressEvidence: VerifiedAddressEvidence;
   detectedEmailPattern: string;
   telemetryMessages: string[];
   logisticsStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
@@ -400,11 +569,12 @@ async function fetchCommercialSignalsBundle(
   techStep: { status: AnalysisStep['status']; summary: string; data: Partial<AnalysisStep> };
 }> {
   const commercialSignalsStartedAt = Date.now();
-  const [checkoutCrawlResult, paymentEvidence, techProfile, retailFootprint, detectedEmailPattern] = await Promise.all([
+  const [checkoutCrawlResult, paymentEvidence, techProfile, retailFootprint, addressEvidence, detectedEmailPattern] = await Promise.all([
     fetchCheckoutPositions(domain, activeCarrier, techSolutionConfig),
     fetchVerifiedPaymentSetup(domain, techSolutionConfig),
     fetchStructuredTechProfile(domain, techSolutionConfig),
     fetchRetailFootprint(domain),
+    fetchVerifiedAddressDirectoryEvidence(companyName, orgNumber, sourcePolicies, analysisPolicy),
     detectEmailPattern(domain, `${sourceGroundingEvidence || ''} ${financialEvidenceText || ''}`.trim())
   ]);
 
@@ -435,11 +605,15 @@ async function fetchCommercialSignalsBundle(
     paymentEvidence,
     techProfile,
     retailEvidence,
+    addressEvidence,
     detectedEmailPattern,
     telemetryMessages: [
       retailEvidence.storeCount || retailEvidence.activeMarkets.length || retailEvidence.visitingAddress || retailEvidence.warehouseAddress
         ? (retailEvidence.fallbackUsed ? 'Logistiksignal kompletterades via relaxed fallback-sökning.' : 'Logistiksignal verifierad via officiell crawl.')
         : 'Logistikcrawl gav inga verifierade lager-, butiks- eller adressignaler.',
+      addressEvidence.confidence === 'verified'
+        ? `Adressunderlag verifierades via ${addressEvidence.sourceLabel || 'katalogkälla'}.`
+        : 'Adressunderlag kunde inte verifieras via katalogkällor eller Google/Tavily-fallback.',
       checkoutCrawlResult.positions.length
         ? `Checkout crawl verifierade ${checkoutCrawlResult.positions.length} checkout-positioner.`
         : checkoutFallbackUsed
@@ -652,6 +826,8 @@ function materializeLeadFromEvidence(input: {
   strictCompanyName: string;
   strictOrgNumber: string;
   strictCompanyMatchEnabled: boolean;
+  resolvedDomain: string;
+  resolvedWebsiteUrl: string;
   resolvedIdentity: { canonicalName: string; orgNumber: string; aliases: string[] };
   root: any;
   companyData: any;
@@ -665,6 +841,7 @@ function materializeLeadFromEvidence(input: {
   paymentEvidence: VerifiedPaymentEvidence;
   techProfile: StructuredTechProfile;
   retailEvidence: RetailFootprintEvidence;
+  addressEvidence: VerifiedAddressEvidence;
   detectedEmailPattern: string;
   dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }>;
   dmConfidence: 'verified' | 'estimated' | 'missing';
@@ -683,6 +860,8 @@ function materializeLeadFromEvidence(input: {
     strictCompanyName,
     strictOrgNumber,
     strictCompanyMatchEnabled,
+    resolvedDomain,
+    resolvedWebsiteUrl,
     resolvedIdentity,
     root,
     companyData,
@@ -696,6 +875,7 @@ function materializeLeadFromEvidence(input: {
     paymentEvidence,
     techProfile,
     retailEvidence,
+    addressEvidence,
     detectedEmailPattern,
     dmSupplement,
     dmConfidence,
@@ -774,6 +954,16 @@ function materializeLeadFromEvidence(input: {
     : latestNewsFromModelRaw;
 
   const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
+  const effectiveDomain = pickString(
+    normalizeDomain(resolvedDomain),
+    normalizeDomain(pickString(companyData?.domain, companyData?.website, companyData?.url)),
+    pickString(companyData?.domain, companyData?.website, companyData?.url).replace(/^https?:\/\//, '')
+  );
+  const effectiveWebsiteUrl = pickString(
+    resolvedWebsiteUrl,
+    toWebsiteUrl(effectiveDomain),
+    toWebsiteUrl(pickString(companyData?.domain, companyData?.website, companyData?.url))
+  );
 
   const capturedAt = new Date().toISOString();
   const riskFieldEvidence = financialEvidence.confidence === 'verified'
@@ -821,12 +1011,27 @@ function materializeLeadFromEvidence(input: {
     .find((contact) => contact.verificationNote?.includes('Källa: '))
     ?.verificationNote?.split('Källa: ')[1]?.split(' | ')[0];
   const decisionMakerEvidenceText = decisionMakers.map((contact) => contact.verificationNote || '').filter(Boolean).join(' | ');
-  const verifiedPrimaryAddress = pickVerifiedAddressValue(registryFields.registeredAddress, retailEvidence.visitingAddress);
-  const verifiedVisitingAddress = pickVerifiedAddressValue(retailEvidence.visitingAddress, registryFields.registeredAddress);
-  const verifiedWarehouseAddress = pickVerifiedAddressValue(retailEvidence.warehouseAddress);
+  const verifiedPrimaryAddress = pickVerifiedAddressValue(
+    registryFields.registeredAddress,
+    addressEvidence.registeredAddress,
+    addressEvidence.visitingAddress,
+    retailEvidence.visitingAddress
+  );
+  const verifiedVisitingAddress = pickVerifiedAddressValue(
+    addressEvidence.visitingAddress,
+    retailEvidence.visitingAddress,
+    registryFields.registeredAddress,
+    addressEvidence.registeredAddress
+  );
+  const verifiedWarehouseAddress = pickVerifiedAddressValue(addressEvidence.warehouseAddress, retailEvidence.warehouseAddress);
   const coverage = sourceBundle.coverage || [];
   const contactEvidence = dmSupplement.find((contact) => contact.linkedin || contact.verificationNote);
   const finalLatestNews = verifiedNews.summary || '';
+  const addressSourceUrl = addressEvidence.sourceUrl || financialEvidence.sourceUrl || retailEvidence.sourceUrl;
+  const addressEvidenceSnippet = [addressEvidence.evidenceSnippet, retailEvidence.evidenceSnippet, financialEvidence.evidenceText]
+    .filter(Boolean)
+    .join(' | ')
+    .slice(0, 2000);
 
   const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
     revenue: buildFieldEvidence(revenueTKR !== undefined ? `${revenueTKR.toLocaleString('sv-SE')} tkr` : '', financialEvidence.sourceUrl, financialEvidence.evidenceText, capturedAt),
@@ -839,9 +1044,9 @@ function materializeLeadFromEvidence(input: {
     paymentRemarks: riskFieldEvidence?.paymentRemarks,
     debtBalance: riskFieldEvidence?.debtBalance,
     debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
-    address: buildFieldEvidence(verifiedPrimaryAddress, financialEvidence.sourceUrl || retailEvidence.sourceUrl, financialEvidence.evidenceText || retailEvidence.evidenceSnippet, capturedAt),
-    visitingAddress: buildFieldEvidence(verifiedVisitingAddress, retailEvidence.sourceUrl || financialEvidence.sourceUrl, retailEvidence.evidenceSnippet || financialEvidence.evidenceText, capturedAt),
-    warehouseAddress: buildFieldEvidence(verifiedWarehouseAddress, retailEvidence.sourceUrl, retailEvidence.evidenceSnippet, capturedAt),
+    address: buildFieldEvidence(verifiedPrimaryAddress, addressSourceUrl, addressEvidenceSnippet, capturedAt),
+    visitingAddress: buildFieldEvidence(verifiedVisitingAddress, addressEvidence.sourceUrl || retailEvidence.sourceUrl || financialEvidence.sourceUrl, addressEvidenceSnippet, capturedAt),
+    warehouseAddress: buildFieldEvidence(verifiedWarehouseAddress, addressEvidence.sourceUrl || retailEvidence.sourceUrl, addressEvidenceSnippet, capturedAt),
     checkoutOptions: buildFieldEvidence(checkoutCrawlResult.positions, checkoutCrawlResult.sourceUrl || buildCoverageFieldEvidence(['checkoutOptions'], coverage, checkoutCrawlResult.positions, capturedAt)?.sourceUrl, checkoutCrawlResult.evidenceSnippet, capturedAt),
     ecommercePlatform: buildFieldEvidence(pickString(techProfile.platforms[0], logistics?.ecommerce_platform, logistics?.ecommercePlatform), techProfile.sourceUrl || buildCoverageFieldEvidence(['ecommercePlatform'], coverage, techProfile.platforms[0], capturedAt)?.sourceUrl, techProfile.evidenceSnippet, capturedAt),
     taSystem: buildFieldEvidence(pickString(techProfile.taSystems[0], logistics?.ta_system, logistics?.taSystem), techProfile.sourceUrl || buildCoverageFieldEvidence(['taSystem'], coverage, techProfile.taSystems[0], capturedAt)?.sourceUrl, techProfile.evidenceSnippet, capturedAt),
@@ -858,7 +1063,7 @@ function materializeLeadFromEvidence(input: {
     id: crypto.randomUUID(),
     companyName: pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,
     orgNumber: pickString(registryFields.orgNumber, companyData?.org_nr, companyData?.orgNumber, companyData?.organization_number, strictOrgNumber),
-    domain: pickString(companyData?.domain, companyData?.website, companyData?.url),
+    domain: effectiveDomain,
     sniCode,
     address: verifiedPrimaryAddress,
     visitingAddress: verifiedVisitingAddress,
@@ -913,7 +1118,7 @@ function materializeLeadFromEvidence(input: {
     financialTrend: derivedFinancialTrend,
     industry: pickString(companyData?.industry, companyData?.industry_name),
     industryDescription: pickString(companyData?.industry_description, companyData?.industryDescription),
-    websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url) ? `https://${pickString(companyData?.domain, companyData?.website, companyData?.url).replace(/^https?:\/\//, '')}` : '',
+    websiteUrl: effectiveWebsiteUrl,
     businessModel: pickString(companyData?.business_model, companyData?.businessModel),
     storeCount: verifiedStoreCount,
     checkoutOptions: checkoutCrawlResult.confidence === 'crawled' && checkoutCrawlResult.positions.length > 0
@@ -947,7 +1152,7 @@ function materializeLeadFromEvidence(input: {
     analysisSteps,
     analysisCompleteness: determineAnalysisCompleteness({
       revenue: revenueTKR !== undefined ? `${revenueTKR}` : '',
-      websiteUrl: pickString(companyData?.domain, companyData?.website, companyData?.url),
+      websiteUrl: effectiveWebsiteUrl,
       decisionMakers,
       latestNews: finalLatestNews || latestNewsFromModel || '',
       checkoutCount: checkoutCrawlResult.positions.length,
@@ -1411,9 +1616,22 @@ async function buildBatchLeadEvidenceBundle(input: {
   const pos2Volume = metrics?.pos2Volume || pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume);
   const strategicPitch = pickString(logisticsMetrics?.strategic_pitch, logisticsMetrics?.strategicPitch);
 
+  const companyName = pickString(rawLead.companyName, rawLead.company_name, rawLead.name);
+  const orgNumber = pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber);
   const domainRaw = pickString(rawLead.domain, rawLead.website, rawLead.websiteUrl, rawLead.url);
-  const domain = domainRaw.replace(/^https?:\/\//, '');
-  const websiteUrl = domain ? `https://${domain}` : '';
+  const domainResolution = await resolveCompanyDomainForCrawl({
+    companyName,
+    orgNumber,
+    explicitDomain: domainRaw,
+    sourceCoverage: [],
+    sourceGroundingEvidence: ''
+  });
+  const domain = domainResolution.domain;
+  const websiteUrl = domainResolution.websiteUrl || toWebsiteUrl(domain);
+  const batchAnalysisPolicy = buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies);
+  const decisionMakerDomains = Array.from(new Set((effectivePolicies.decisionMakers || ['linkedin.com'])
+    .map((domainName) => normalizeDomain(domainName))
+    .filter(Boolean)));
   const baseDecisionMakers = (rawLead.decisionMakers || rawLead.decision_makers || rawLead.contacts || []).map((contact: any) => ({
     name: pickString(contact?.name),
     title: pickString(contact?.title),
@@ -1432,6 +1650,7 @@ async function buildBatchLeadEvidenceBundle(input: {
   let newsEvidence: VerifiedNewsEvidence = { summary: '', confidence: 'missing', sources: [], items: [] };
   let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
   let retailEvidence: RetailFootprintEvidence = { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
+  let addressEvidence: VerifiedAddressEvidence = { evidenceSnippet: '', confidence: 'missing' };
   let emailPattern = '';
   let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
   let dmConfidence: 'verified' | 'estimated' | 'missing' = baseDecisionMakers.length ? 'estimated' : 'missing';
@@ -1439,24 +1658,26 @@ async function buildBatchLeadEvidenceBundle(input: {
   if (shouldEnrich) {
     try {
       const [financialBundle, commercialBundle, newsBundle] = await Promise.all([
-        fetchVerifiedFinancialBundle(pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber), pickString(rawLead.companyName, rawLead.company_name, rawLead.name)),
+        fetchVerifiedFinancialBundle(orgNumber, companyName),
         fetchCommercialSignalsBundle(
-          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
+          companyName,
           domain,
           activeCarrier,
           techSolutionConfig,
-          buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies),
-          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
-          pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber)
+          batchAnalysisPolicy,
+          '',
+          '',
+          effectivePolicies,
+          orgNumber
         ),
         fetchVerifiedNewsBundle(
-          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
+          companyName,
           effectivePolicies.news,
           {
-            orgNumber: pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber),
+            orgNumber,
             strictCompanyMatch: effectivePolicies.strictCompanyMatch !== false,
             earliestNewsYear: effectivePolicies.earliestNewsYear,
-            analysisPolicy: buildBatchAnalysisPolicyFromSourcePolicyConfig(effectivePolicies),
+            analysisPolicy: batchAnalysisPolicy,
             sourcePolicies: effectivePolicies
           }
         )
@@ -1466,6 +1687,7 @@ async function buildBatchLeadEvidenceBundle(input: {
       paymentEvidence = commercialBundle.paymentEvidence;
       techProfile = commercialBundle.techProfile;
       retailEvidence = commercialBundle.retailEvidence;
+      addressEvidence = commercialBundle.addressEvidence;
       emailPattern = commercialBundle.detectedEmailPattern;
       newsEvidence = newsBundle.verifiedNews;
       analysisTelemetry.push(financialBundle.telemetryMessage);
@@ -1479,10 +1701,10 @@ async function buildBatchLeadEvidenceBundle(input: {
     if (!baseDecisionMakers.length) {
       try {
         const contactsBundle = await fetchVerifiedContactsBundle(
-          pickString(rawLead.companyName, rawLead.company_name, rawLead.name),
-          pickString(rawLead.orgNumber, rawLead.org_number, rawLead.organizationNumber),
+          companyName,
+          orgNumber,
           focusRoles,
-          preferredDomains,
+          decisionMakerDomains,
           domain
         );
         dmSupplement = contactsBundle.contacts;
@@ -1577,9 +1799,24 @@ async function buildBatchLeadEvidenceBundle(input: {
     .filter(Boolean)
     .join(' | ');
 
-  const verifiedPrimaryAddress = pickVerifiedAddressValue(registryFields.registeredAddress, retailEvidence.visitingAddress);
-  const verifiedVisitingAddress = pickVerifiedAddressValue(retailEvidence.visitingAddress, registryFields.registeredAddress);
-  const verifiedWarehouseAddress = pickVerifiedAddressValue(retailEvidence.warehouseAddress);
+  const verifiedPrimaryAddress = pickVerifiedAddressValue(
+    registryFields.registeredAddress,
+    addressEvidence.registeredAddress,
+    addressEvidence.visitingAddress,
+    retailEvidence.visitingAddress
+  );
+  const verifiedVisitingAddress = pickVerifiedAddressValue(
+    addressEvidence.visitingAddress,
+    retailEvidence.visitingAddress,
+    registryFields.registeredAddress,
+    addressEvidence.registeredAddress
+  );
+  const verifiedWarehouseAddress = pickVerifiedAddressValue(addressEvidence.warehouseAddress, retailEvidence.warehouseAddress);
+  const addressSourceUrl = addressEvidence.sourceUrl || financialEvidence.sourceUrl || retailEvidence.sourceUrl;
+  const addressEvidenceSnippet = [addressEvidence.evidenceSnippet, retailEvidence.evidenceSnippet, financialEvidence.evidenceText]
+    .filter(Boolean)
+    .join(' | ')
+    .slice(0, 2000);
 
   const verifiedFieldEvidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> | undefined = (() => {
     const evidence: Partial<Record<VerifiedLeadField, VerifiedFieldEvidence>> = {
@@ -1633,22 +1870,22 @@ async function buildBatchLeadEvidenceBundle(input: {
       debtEquityRatio: riskFieldEvidence?.debtEquityRatio,
       address: buildFieldEvidence(
         verifiedPrimaryAddress,
-        financialEvidence.sourceUrl || retailEvidence.sourceUrl,
-        retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
+        addressSourceUrl,
+        addressEvidenceSnippet,
         capturedAt,
         verifiedPrimaryAddress ? 'verified' : 'missing'
       ),
       visitingAddress: buildFieldEvidence(
         verifiedVisitingAddress,
-        retailEvidence.sourceUrl || financialEvidence.sourceUrl,
-        retailEvidence.evidenceSnippet || financialEvidence.evidenceText,
+        addressEvidence.sourceUrl || retailEvidence.sourceUrl || financialEvidence.sourceUrl,
+        addressEvidenceSnippet,
         capturedAt,
         verifiedVisitingAddress ? 'verified' : 'missing'
       ),
       warehouseAddress: buildFieldEvidence(
         verifiedWarehouseAddress,
-        retailEvidence.sourceUrl,
-        retailEvidence.evidenceSnippet,
+        addressEvidence.sourceUrl || retailEvidence.sourceUrl,
+        addressEvidenceSnippet,
         capturedAt,
         verifiedWarehouseAddress ? 'verified' : 'missing'
       ),
@@ -2092,7 +2329,7 @@ async function fetchCategoryExactPageEvidenceBundle(
     Object.values(categoryDomains).flat().map(normalizeDomain).filter(Boolean)
   );
 
-  const categories = Object.keys(categoryDomains).slice(0, 6);
+  const categories = Object.keys(categoryDomains);
   const configuredPageHints = getConfiguredCategoryPageHints(sourcePolicies, analysisPolicy);
   for (const category of categories) {
     const domains = (categoryDomains[category] || []).map(normalizeDomain).filter(Boolean).slice(0, 4);
@@ -2305,6 +2542,17 @@ type VerifiedNewsEvidence = {
   failureContext?: { code: string; message: string; url?: string };
 };
 
+type VerifiedAddressEvidence = {
+  registeredAddress?: string;
+  visitingAddress?: string;
+  warehouseAddress?: string;
+  sourceUrl?: string;
+  sourceLabel?: string;
+  evidenceSnippet: string;
+  confidence: 'verified' | 'estimated' | 'missing';
+  failureContext?: { code: string; message: string; url?: string };
+};
+
 type RetailFootprintEvidence = {
   storeCount?: number;
   activeMarkets: string[];
@@ -2348,6 +2596,157 @@ function buildFailureContext(error: any, attemptedUrl?: string, emptyMessage?: s
     code,
     message: rawMessage || 'No data returned',
     url: attemptedUrl
+  };
+}
+
+function getAddressDirectoryDomains(sourcePolicies?: SourcePolicyConfig, analysisPolicy?: AnalysisPolicy): string[] {
+  const configured = analysisPolicy?.sources?.categories?.addresses?.length
+    ? analysisPolicy.sources.categories.addresses
+    : (sourcePolicies?.addresses?.length ? sourcePolicies.addresses : ADDRESS_SOURCE_DOMAINS);
+
+  return Array.from(new Set([
+    ...configured,
+    'hitta.se',
+    'eniro.se',
+    'allabolag.se',
+    'ratsit.se'
+  ].map((domain) => normalizeDomain(domain)).filter(Boolean)));
+}
+
+async function fetchVerifiedAddressDirectoryEvidence(
+  companyName: string,
+  orgNumber?: string,
+  sourcePolicies?: SourcePolicyConfig,
+  analysisPolicy?: AnalysisPolicy
+): Promise<VerifiedAddressEvidence> {
+  const cleanCompany = pickString(companyName);
+  if (!cleanCompany) {
+    return {
+      evidenceSnippet: '',
+      confidence: 'missing',
+      failureContext: buildFailureContext(null, undefined, 'Address crawl skipped because company name was missing.')
+    };
+  }
+
+  const addressDomains = getAddressDirectoryDomains(sourcePolicies, analysisPolicy);
+  const siteClause = addressDomains.map((domain) => `site:${domain}`).join(' OR ');
+  const normalizedOrg = normalizeOrgNumber(orgNumber || '');
+  const scopedQuery = normalizedOrg
+    ? `"${cleanCompany}" "${normalizedOrg}" (${siteClause}) (adress OR besoksadress OR postadress OR lageradress OR warehouse)`
+    : `"${cleanCompany}" (${siteClause}) (adress OR besoksadress OR postadress OR lageradress OR warehouse)`;
+  const broadQuery = normalizedOrg
+    ? `"${cleanCompany}" "${normalizedOrg}" adress`
+    : `"${cleanCompany}" adress`;
+
+  let results: any[] = [];
+  try {
+    const scopedResponse = await axios.post(
+      buildApiUrl('/api/tavily'),
+      {
+        query: scopedQuery,
+        action: 'search',
+        maxResults: 6
+      },
+      { timeout: 12000 }
+    );
+    results = scopedResponse.data?.results || [];
+
+    if (!results.length) {
+      const broadResponse = await axios.post(
+        buildApiUrl('/api/tavily'),
+        {
+          query: broadQuery,
+          action: 'search',
+          maxResults: 6
+        },
+        { timeout: 12000 }
+      );
+      results = broadResponse.data?.results || [];
+    }
+  } catch (error) {
+    return {
+      evidenceSnippet: '',
+      confidence: 'missing',
+      failureContext: buildFailureContext(error, undefined, 'Address search failed for configured directory sources.')
+    };
+  }
+
+  if (!results.length) {
+    return {
+      evidenceSnippet: '',
+      confidence: 'missing',
+      failureContext: buildFailureContext(null, undefined, 'Address search returned no directory or Google/Tavily sources.')
+    };
+  }
+
+  const normalizedResults = results.map((result: any) => ({
+    url: pickString(result?.url),
+    title: pickString(result?.title),
+    content: pickString(result?.content),
+    domain: normalizeDomain(pickString(result?.url))
+  }));
+
+  const preferredResults = normalizedResults.filter((item) => item.domain && addressDomains.includes(item.domain));
+  const rankedResults = preferredResults.length ? preferredResults : normalizedResults;
+  let sourceUrl = pickString(rankedResults[0]?.url);
+
+  const snippetEvidence = rankedResults
+    .slice(0, 4)
+    .map((item) => `${item.title}\n${item.content}`)
+    .filter(Boolean)
+    .join('\n\n');
+
+  const crawlEvidenceParts: string[] = [];
+  for (const item of rankedResults.slice(0, 2)) {
+    const url = pickString(item.url);
+    if (!url) continue;
+    try {
+      const crawlResponse = await axios.post(
+        buildApiUrl('/api/crawl'),
+        {
+          url,
+          actionType: 'crawl',
+          includeLinks: false,
+          includeImages: false,
+          maxDepth: 1
+        },
+        { timeout: 15000 }
+      );
+
+      const crawlText = extractCrawlSignalText(crawlResponse.data);
+      if (crawlText) {
+        if (!sourceUrl) sourceUrl = url;
+        crawlEvidenceParts.push(crawlText);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  const evidenceText = [snippetEvidence, ...crawlEvidenceParts].filter(Boolean).join('\n\n---\n\n');
+  const registeredAddress = normalizeAddressCandidate(
+    parseLabeledAddress(evidenceText, ['registrerad adress', 'postadress', 'adress'])
+  );
+  const visitingAddress = normalizeAddressCandidate(
+    parseLabeledAddress(evidenceText, ['besoksadress', 'besöksadress', 'visiting address', 'huvudkontor'])
+  );
+  const warehouseAddress = normalizeAddressCandidate(
+    parseLabeledAddress(evidenceText, ['lageradress', 'centrallager', 'warehouse', 'distributionscenter', 'logistikcenter'])
+  );
+
+  const hasAddressEvidence = Boolean(registeredAddress || visitingAddress || warehouseAddress);
+
+  return {
+    registeredAddress: pickString(registeredAddress, visitingAddress),
+    visitingAddress: pickString(visitingAddress, registeredAddress),
+    warehouseAddress,
+    sourceUrl: sourceUrl || undefined,
+    sourceLabel: sourceUrl ? normalizeDomain(sourceUrl) : undefined,
+    evidenceSnippet: evidenceText.slice(0, 1200),
+    confidence: hasAddressEvidence ? 'verified' : 'missing',
+    failureContext: hasAddressEvidence
+      ? undefined
+      : buildFailureContext(null, sourceUrl || undefined, 'Address sources were found but no parsable address fields were extracted.')
   };
 }
 
@@ -2810,22 +3209,24 @@ async function fetchDecisionMakersTargeted(
 }> {
   if (!companyName) return { contacts: [], confidence: 'missing' };
   const aliases = buildCompanyAliases(companyName);
-  const roleSynonyms = [...focusRoles.filter(Boolean), 'VD', 'logistikchef', 'inköpschef', 'e-handelschef', 'COO'];
-  const roleClause = roleSynonyms.slice(0, 5).map(r => `"${r}"`).join(' OR ');
+  const roleSynonyms = Array.from(new Set([...focusRoles.filter(Boolean), 'VD', 'logistikchef', 'inköpschef', 'e-handelschef', 'COO']));
+  const roleClause = roleSynonyms.slice(0, 6).map(r => `"${r}"`).join(' OR ');
   const orgNormalized = normalizeOrgNumber(orgNumber);
+  const normalizedPreferredDomains = Array.from(new Set((preferredDomains || [])
+    .map((domain) => normalizeDomain(domain))
+    .filter(Boolean)));
+  const allowedDomains = new Set(
+    (normalizedPreferredDomains.length ? normalizedPreferredDomains : ['linkedin.com'])
+      .concat('linkedin.com')
+  );
+  const linkedinOnlySearch = allowedDomains.size === 1 && allowedDomains.has('linkedin.com');
   const queries = [
-    `"${companyName}" (${roleClause}) site:linkedin.com`,
-    `"${companyName}" (styrelse OR ledning OR vd) site:allabolag.se`,
-    orgNormalized ? `"${orgNormalized}" (VD OR styrelseledamot OR logistikchef) site:ratsit.se` : null,
-    `"${companyName}" (${roleClause}) LinkedIn`,
-    `"${companyName}" (${roleClause})`
+    `"${companyName}" (${roleClause}) site:linkedin.com/in`,
+    `"${companyName}" (${roleClause}) site:linkedin.com/company`,
+    orgNormalized ? `"${companyName}" "${orgNormalized}" (${roleClause}) site:linkedin.com` : null,
+    !linkedinOnlySearch ? `"${companyName}" (${roleClause})` : null
   ].filter(Boolean) as string[];
 
-  const allowedDomains = new Set(
-    ['linkedin.com', 'allabolag.se', 'ratsit.se', 'hitta.se', 'eniro.se', ...preferredDomains]
-      .map(normalizeDomain)
-      .filter(Boolean)
-  );
   const found: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string; score: number }> = [];
   const seenNames = new Set<string>();
   for (const query of queries) {
@@ -2837,13 +3238,15 @@ async function fetchDecisionMakersTargeted(
         const url = pickString(r?.url);
         const domain = normalizeDomain(url);
         if (domain && !allowedDomains.has(domain)) continue;
+        const onLinkedin = domain.includes('linkedin.com');
+        if (linkedinOnlySearch && !onLinkedin) continue;
         const lowered = `${text} ${url}`.toLowerCase();
         const nameMatches = text.match(/\b([A-ZÅÄÖ][a-zåäö-]+\s+[A-ZÅÄÖ][a-zåäö-]+)\b/g) || [];
         const roleMatches = text.match(/(VD|CEO|logistikchef|inköpschef|e-handelschef|CMO|CFO|COO|styrelseordförande|styrelseledamot|Supply Chain|Head of Logistics)/gi) || [];
         if (!nameMatches.length || !roleMatches.length) continue;
         const aliasMatch = aliases.some(alias => lowered.includes(alias.toLowerCase()));
         const orgMatch = orgNormalized ? normalizeOrgNumber(lowered).includes(orgNormalized) : false;
-        const linkedinVerified = url.includes('linkedin.com') && aliasMatch;
+        const linkedinVerified = onLinkedin && aliasMatch;
         const companyVerified = aliasMatch || orgMatch;
         if (!companyVerified) continue;
         const name = nameMatches[0] ?? '';
@@ -2856,7 +3259,7 @@ async function fetchDecisionMakersTargeted(
         seenNames.add(name.toLowerCase());
         const verifiedEmails = extractEmailsFromText(text, companyDomain);
         const verifiedPhones = extractPhoneNumbersFromText(text);
-        const score = (linkedinVerified ? 2 : 0)
+        const score = (onLinkedin ? 3 : 0)
           + (orgMatch ? 2 : 0)
           + (aliasMatch ? 1 : 0)
           + (verifiedEmails.length ? 1 : 0)
@@ -2866,10 +3269,12 @@ async function fetchDecisionMakersTargeted(
           name,
           title: role,
           email: verifiedEmails[0] || '',
-          linkedin: url.includes('linkedin.com') ? url : '',
+          linkedin: onLinkedin ? url : '',
           directPhone: verifiedPhones[0] || '',
           verificationNote: linkedinVerified
             ? `Verifierad via LinkedIn + bolagsmatch (${normalizeDomain(url)})`
+            : onLinkedin
+              ? `Verifierad via LinkedIn (${normalizeDomain(url)})`
             : `Verifierad via bolagsmatch (${normalizeDomain(url)})`,
           score
         });
@@ -3336,13 +3741,34 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     const { root, companyData, financials, logistics, contactsRaw } = extractModelDraft(rawData);
 
     // ── Phase 2 + 4: Checkout crawl + email pattern (non-critical, parallel) ─
-    const parsedDomain = normalizeDomain(
-      pickString(companyData?.domain, companyData?.website, companyData?.url)
-    );
+    const domainResolution = await resolveCompanyDomainForCrawl({
+      companyName: strictCompanyName,
+      orgNumber: strictOrgNumber,
+      explicitDomain: pickString(companyData?.domain, companyData?.website, companyData?.url),
+      sourceCoverage: sourceBundle.coverage,
+      sourceGroundingEvidence
+    });
+    const parsedDomain = domainResolution.domain;
+    const resolvedWebsiteUrl = domainResolution.websiteUrl;
+    if (parsedDomain) {
+      const methodLabel = domainResolution.method === 'explicit'
+        ? 'modellens domänfält'
+        : domainResolution.method === 'source_coverage'
+          ? 'source coverage'
+          : domainResolution.method === 'source_evidence'
+            ? 'source evidence'
+            : 'Tavily-sökning';
+      pushTelemetry(`Domän verifierad för techcrawl: ${parsedDomain} (${methodLabel}).`);
+      onUpdate({}, `Domän verifierad för techcrawl: ${parsedDomain}`);
+    } else {
+      pushWarning('Kunde inte verifiera bolagsdomän för techcrawl. Tech/payment/checkout kan bli ofullständigt.');
+      pushTelemetry('Domänupplösning misslyckades före techcrawl.');
+    }
     let checkoutCrawlResult: CheckoutEvidence = { positions: [], evidenceSnippet: '', confidence: 'missing' };
     let paymentEvidence: VerifiedPaymentEvidence = { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing' };
     let techProfile: StructuredTechProfile = { platforms: [], taSystems: [], paymentProviders: [], checkoutSolutions: [], evidenceSnippet: '', confidence: 'missing' };
     let retailEvidence: RetailFootprintEvidence = { activeMarkets: [], evidenceSnippet: '', confidence: 'missing' };
+    let addressEvidence: VerifiedAddressEvidence = { evidenceSnippet: '', confidence: 'missing' };
     let detectedEmailPattern = '';
     try {
       onUpdate({}, 'Crawlar checkoutpositioner & detekterar e-postmönster...');
@@ -3350,11 +3776,22 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       publishStep('checkout', 'running', 'Crawlar checkoutflöden...');
       publishStep('payment', 'running', 'Detekterar verifierad betalsetup...');
       publishStep('tech_stack', 'running', 'Bygger verifierad tech-profil...');
-      const commercialBundle = await fetchCommercialSignalsBundle(strictCompanyName, parsedDomain, activeCarrier, techSolutionConfig, effectiveAnalysisPolicy, sourceGroundingEvidence, financialEvidence.evidenceText || '');
+      const commercialBundle = await fetchCommercialSignalsBundle(
+        strictCompanyName,
+        parsedDomain,
+        activeCarrier,
+        techSolutionConfig,
+        effectiveAnalysisPolicy,
+        sourceGroundingEvidence,
+        financialEvidence.evidenceText || '',
+        effectivePolicies,
+        strictOrgNumber
+      );
       checkoutCrawlResult = commercialBundle.checkoutCrawlResult;
       paymentEvidence = commercialBundle.paymentEvidence;
       techProfile = commercialBundle.techProfile;
       retailEvidence = commercialBundle.retailEvidence;
+      addressEvidence = commercialBundle.addressEvidence;
       detectedEmailPattern = commercialBundle.detectedEmailPattern;
       commercialBundle.telemetryMessages.forEach(pushTelemetry);
       publishStep('logistics', commercialBundle.logisticsStep.status, commercialBundle.logisticsStep.summary, commercialBundle.logisticsStep.data);
@@ -3372,6 +3809,9 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
     const llmContactCount = Array.isArray(contactsRaw) ? contactsRaw.length : 0;
+    const decisionMakerDomains = Array.from(new Set((effectivePolicies.decisionMakers || ['linkedin.com'])
+      .map((domain) => normalizeDomain(domain))
+      .filter(Boolean)));
     let dmSupplement: Array<{ name: string; title: string; email: string; linkedin: string; directPhone: string; verificationNote: string }> = [];
     let dmConfidence: 'verified' | 'estimated' | 'missing' = 'estimated';
     try {
@@ -3382,7 +3822,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
           pickString(companyData?.name, companyData?.company_name) || strictCompanyName,
           pickString(companyData?.org_nr, companyData?.organization_number) || strictOrgNumber,
           [formData.focusRole1, formData.focusRole2, formData.focusRole3],
-          preferredDomains,
+          decisionMakerDomains,
           parsedDomain
         );
         dmSupplement = contactsBundle.contacts;
@@ -3415,15 +3855,14 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     pushTelemetry(newsBundle.telemetryMessage);
     publishStep('news', newsBundle.stepStatus, newsBundle.stepSummary, newsBundle.stepData);
     const modelTechEvidence = pickString(logistics?.tech_evidence, logistics?.techEvidence);
-    const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(
-      pickString(companyData?.domain, companyData?.website, companyData?.url),
-      techSolutionConfig
-    );
+    const crawlTechEvidence = modelTechEvidence ? '' : await fetchTechEvidenceFromCrawl(parsedDomain, techSolutionConfig);
     const lead = materializeLeadFromEvidence({
       activeModel,
       strictCompanyName,
       strictOrgNumber,
       strictCompanyMatchEnabled,
+      resolvedDomain: parsedDomain,
+      resolvedWebsiteUrl,
       resolvedIdentity,
       root,
       companyData,
@@ -3437,6 +3876,7 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       paymentEvidence,
       techProfile,
       retailEvidence,
+      addressEvidence,
       detectedEmailPattern,
       dmSupplement,
       dmConfidence,
