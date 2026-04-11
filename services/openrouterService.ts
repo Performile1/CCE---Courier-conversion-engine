@@ -637,6 +637,10 @@ async function fetchCommercialSignalsBundle(
         failureContext: retailFallback.failureContext || retailFootprint.failureContext
       }
     : retailFootprint;
+  const paymentHasSignals = Boolean(paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution);
+  const paymentFallbackUsed = paymentHasSignals && paymentEvidence.confidence === 'estimated';
+  const techHasSignals = Boolean(techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length);
+  const techFallbackUsed = techHasSignals && techProfile.confidence === 'estimated';
 
   return {
     checkoutCrawlResult,
@@ -657,11 +661,11 @@ async function fetchCommercialSignalsBundle(
         : checkoutFallbackUsed
           ? 'Checkoutsignal räddades via script/head-detektion trots missad varukorgscrawl.'
         : 'Checkout crawl gav inga verifierade checkout-positioner.',
-      paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution
-        ? 'Payment-detection hittade verifierad betalsetup.'
+      paymentHasSignals
+        ? (paymentFallbackUsed ? 'Payment-signal kompletterades via Tavily-fallback.' : 'Payment-detection hittade verifierad betalsetup.')
         : 'Payment-detection hittade ingen verifierad betalsetup.',
-      techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length
-        ? 'Tech-profil verifierad via crawl.'
+      techHasSignals
+        ? (techFallbackUsed ? 'Tech-profil kompletterades via Tavily-fallback.' : 'Tech-profil verifierad via crawl.')
         : 'Tech-profil gav inga verifierade träffar.',
       detectedEmailPattern
         ? 'E-postmönster identifierat.'
@@ -742,46 +746,70 @@ async function fetchCommercialSignalsBundle(
       }
     },
     paymentStep: {
-      status: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 'success' : 'partial',
-      summary: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 'Payment-detection hittade verifierad betalsetup.' : 'Payment-detection hittade ingen verifierad betalsetup.',
+      status: paymentHasSignals ? (paymentFallbackUsed ? 'fallback_used' : 'success') : 'partial',
+      summary: paymentHasSignals
+        ? (paymentFallbackUsed ? 'Payment-signal kompletterades via Tavily-fallback.' : 'Payment-detection hittade verifierad betalsetup.')
+        : 'Payment-detection hittade ingen verifierad betalsetup.',
       data: {
         durationMs: Date.now() - commercialSignalsStartedAt,
         evidenceCount: countEvidence(paymentEvidence.paymentProvider, paymentEvidence.checkoutSolution),
-        confidence: paymentEvidence.paymentProvider || paymentEvidence.checkoutSolution ? 0.85 : 0.25,
+        confidence: paymentHasSignals ? (paymentFallbackUsed ? 0.5 : 0.85) : 0.25,
         sourceDomains: paymentEvidence.sourceUrl ? [normalizeDomain(paymentEvidence.sourceUrl)] : [],
         sourceUrls: paymentEvidence.sourceUrl ? [paymentEvidence.sourceUrl] : [],
         diagnostics: paymentEvidence.failureContext
           ? {
-              engine: 'crawl',
+              engine: paymentFallbackUsed ? 'llm_inference' : 'crawl',
               durationMs: Date.now() - commercialSignalsStartedAt,
-              sources: paymentEvidence.sourceUrl ? [{ url: paymentEvidence.sourceUrl, weight: 0.8, type: 'primary' }] : [],
+              sources: paymentEvidence.sourceUrl ? [{ url: paymentEvidence.sourceUrl, weight: paymentFallbackUsed ? 0.45 : 0.8, type: paymentFallbackUsed ? 'secondary' : 'primary' }] : [],
               errorContext: {
                 code: paymentEvidence.failureContext.code,
                 message: paymentEvidence.failureContext.message
               }
             }
+          : paymentFallbackUsed
+            ? {
+                engine: 'llm_inference',
+                durationMs: Date.now() - commercialSignalsStartedAt,
+                sources: paymentEvidence.sourceUrl ? [{ url: paymentEvidence.sourceUrl, weight: 0.45, type: 'secondary' }] : [],
+                errorContext: {
+                  code: 'PAYMENT_FALLBACK_TAVILY',
+                  message: 'Crawl-signaler saknades. Betalsetup estimerades från Tavily source snippets.'
+                }
+              }
           : undefined
       }
     },
     techStep: {
-      status: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 'success' : 'partial',
-      summary: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 'Tech-profil verifierad via crawl.' : 'Tech-profil gav inga verifierade träffar.',
+      status: techHasSignals ? (techFallbackUsed ? 'fallback_used' : 'success') : 'partial',
+      summary: techHasSignals
+        ? (techFallbackUsed ? 'Tech-profil kompletterades via Tavily-fallback.' : 'Tech-profil verifierad via crawl.')
+        : 'Tech-profil gav inga verifierade träffar.',
       data: {
         durationMs: Date.now() - commercialSignalsStartedAt,
         evidenceCount: countEvidence(techProfile.platforms, techProfile.taSystems, techProfile.paymentProviders, techProfile.checkoutSolutions),
-        confidence: techProfile.platforms.length || techProfile.taSystems.length || techProfile.paymentProviders.length || techProfile.checkoutSolutions.length ? 0.8 : 0.2,
+        confidence: techHasSignals ? (techFallbackUsed ? 0.5 : 0.8) : 0.2,
         sourceDomains: techProfile.sourceUrl ? [normalizeDomain(techProfile.sourceUrl)] : [],
         sourceUrls: techProfile.sourceUrl ? [techProfile.sourceUrl] : [],
         diagnostics: techProfile.failureContext
           ? {
-              engine: 'crawl',
+              engine: techFallbackUsed ? 'llm_inference' : 'crawl',
               durationMs: Date.now() - commercialSignalsStartedAt,
-              sources: techProfile.sourceUrl ? [{ url: techProfile.sourceUrl, weight: 0.8, type: 'primary' }] : [],
+              sources: techProfile.sourceUrl ? [{ url: techProfile.sourceUrl, weight: techFallbackUsed ? 0.45 : 0.8, type: techFallbackUsed ? 'secondary' : 'primary' }] : [],
               errorContext: {
                 code: techProfile.failureContext.code,
                 message: techProfile.failureContext.message
               }
             }
+          : techFallbackUsed
+            ? {
+                engine: 'llm_inference',
+                durationMs: Date.now() - commercialSignalsStartedAt,
+                sources: techProfile.sourceUrl ? [{ url: techProfile.sourceUrl, weight: 0.45, type: 'secondary' }] : [],
+                errorContext: {
+                  code: 'TECH_FALLBACK_TAVILY',
+                  message: 'Crawl-signaler saknades. Tech-profil estimerades från Tavily source snippets.'
+                }
+              }
           : undefined
       }
     }
@@ -2778,13 +2806,6 @@ function buildFailureContext(error: any, attemptedUrl?: string, emptyMessage?: s
   if (error?.code === 'ECONNABORTED' || lowered.includes('timeout') || lowered.includes('timed out') || lowered.includes('navigation')) {
     code = 'NAVIGATION_TIMEOUT';
   } else if (
-    status >= 500
-    || lowered.includes('temporarily unavailable')
-    || lowered.includes('service unavailable')
-    || lowered.includes('upstream')
-  ) {
-    code = 'SERVICE_UNAVAILABLE';
-  } else if (
     lowered.includes('name not resolved')
     || lowered.includes('dns')
     || lowered.includes('eai_again')
@@ -2798,6 +2819,13 @@ function buildFailureContext(error: any, attemptedUrl?: string, emptyMessage?: s
     || lowered.includes('failed to fetch')
   ) {
     code = 'UPSTREAM_UNREACHABLE';
+  } else if (
+    status >= 500
+    || lowered.includes('temporarily unavailable')
+    || lowered.includes('service unavailable')
+    || lowered.includes('upstream')
+  ) {
+    code = 'SERVICE_UNAVAILABLE';
   } else if (status === 403 || status === 401 || lowered.includes('cloudflare') || lowered.includes('forbidden') || lowered.includes('access denied') || lowered.includes('bot')) {
     code = 'BOT_CHALLENGE';
   } else if (status === 404 || lowered.includes('404')) {
@@ -2829,6 +2857,54 @@ function getAddressDirectoryDomains(sourcePolicies?: SourcePolicyConfig, analysi
     'allabolag.se',
     'ratsit.se'
   ].map((domain) => normalizeDomain(domain)).filter(Boolean)));
+}
+
+async function fetchDomainSnippetFallbackEvidence(
+  normalizedDomain: string,
+  queryHints: string[],
+  maxResults = 6
+): Promise<{ content: string; sourceUrl?: string; failureContext?: { code: string; message: string; url?: string } }> {
+  if (!normalizedDomain) {
+    return { content: '' };
+  }
+
+  const hints = Array.from(new Set(queryHints.map((hint) => pickString(hint)).filter(Boolean))).slice(0, 8);
+  const hintClause = hints.length
+    ? hints.map((hint) => `"${hint}"`).join(' OR ')
+    : '"checkout" OR "payment" OR "kassa"';
+  const query = `site:${normalizedDomain} (${hintClause})`;
+
+  try {
+    const response = await axios.post(
+      buildApiUrl('/api/tavily'),
+      { query, action: 'search', maxResults },
+      { timeout: 12000 }
+    );
+
+    const results: any[] = response.data?.results || [];
+    if (!results.length) {
+      return {
+        content: '',
+        failureContext: buildFailureContext(null, `https://${normalizedDomain}`, `Snippet fallback returned no sources for ${normalizedDomain}.`)
+      };
+    }
+
+    const content = results
+      .slice(0, maxResults)
+      .map((result: any) => `${pickString(result?.title)}\n${pickString(result?.content)}`)
+      .filter(Boolean)
+      .join('\n\n');
+
+    return {
+      content,
+      sourceUrl: pickString(results[0]?.url)
+    };
+  } catch (error) {
+    return {
+      content: '',
+      failureContext: buildFailureContext(error, `https://${normalizedDomain}`, 'Snippet fallback search failed.')
+    };
+  }
 }
 
 async function fetchVerifiedAddressDirectoryEvidence(
@@ -3286,32 +3362,66 @@ async function fetchVerifiedPaymentSetup(domain: string, techSolutionConfig?: Te
     }
   }
 
-  const haystack = combinedContent.toLowerCase();
-  if (!haystack.trim()) {
-    return { paymentProvider: '', checkoutSolution: '', evidenceSnippet: '', confidence: 'missing', failureContext: lastFailure };
+  const detectPaymentSignals = (rawContent: string) => {
+    const haystack = rawContent.toLowerCase();
+    if (!haystack.trim()) {
+      return {
+        paymentProvider: '',
+        checkoutSolution: '',
+        keywords: [] as string[]
+      };
+    }
+
+    const paymentMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'paymentProviders'));
+    const checkoutMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
+    return {
+      paymentProvider: paymentMatch.label || checkoutMatch.label?.replace(/\s+Checkout$/i, '') || '',
+      checkoutSolution: checkoutMatch.label || '',
+      keywords: [paymentMatch.keyword, checkoutMatch.keyword].filter(Boolean) as string[]
+    };
+  };
+
+  let selectedContent = combinedContent;
+  let selectedUrl = bestUrl;
+  let confidence: 'verified' | 'estimated' = 'verified';
+  let detectedSignals = detectPaymentSignals(selectedContent);
+  let fallbackFailure: { code: string; message: string; url?: string } | undefined;
+
+  if (!detectedSignals.paymentProvider && !detectedSignals.checkoutSolution) {
+    const fallbackEvidence = await fetchDomainSnippetFallbackEvidence(normalizedDomain, [
+      'checkout', 'kassa', 'cart', 'betalning', 'payment', 'klarna', 'swish', 'invoice', 'faktura'
+    ]);
+
+    if (fallbackEvidence.content.trim()) {
+      const fallbackSignals = detectPaymentSignals(fallbackEvidence.content);
+      if (fallbackSignals.paymentProvider || fallbackSignals.checkoutSolution) {
+        selectedContent = fallbackEvidence.content;
+        selectedUrl = pickString(fallbackEvidence.sourceUrl, selectedUrl);
+        confidence = 'estimated';
+        detectedSignals = fallbackSignals;
+      }
+    }
+
+    fallbackFailure = fallbackEvidence.failureContext;
   }
 
-  const paymentMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'paymentProviders'));
-  const checkoutMatch = findPatternMatch(haystack, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
-  const keywords = [paymentMatch.keyword, checkoutMatch.keyword].filter(Boolean) as string[];
-
-  if (!paymentMatch.label && !checkoutMatch.label) {
+  if (!detectedSignals.paymentProvider && !detectedSignals.checkoutSolution) {
     return {
       paymentProvider: '',
       checkoutSolution: '',
       evidenceSnippet: '',
       confidence: 'missing',
-      sourceUrl: bestUrl || undefined,
-      failureContext: lastFailure || buildFailureContext(null, bestUrl || undefined, 'Payment signals were not found in crawled content.')
+      sourceUrl: selectedUrl || undefined,
+      failureContext: lastFailure || fallbackFailure || buildFailureContext(null, selectedUrl || undefined, 'Payment signals were not found in crawled or fallback content.')
     };
   }
 
   return {
-    paymentProvider: paymentMatch.label || checkoutMatch.label?.replace(/\s+Checkout$/i, '') || '',
-    checkoutSolution: checkoutMatch.label || '',
-    evidenceSnippet: extractEvidenceSnippet(combinedContent, keywords),
-    confidence: 'verified',
-    sourceUrl: bestUrl || undefined
+    paymentProvider: detectedSignals.paymentProvider,
+    checkoutSolution: detectedSignals.checkoutSolution,
+    evidenceSnippet: detectedSignals.keywords.length ? extractEvidenceSnippet(selectedContent, detectedSignals.keywords) : selectedContent.slice(0, 280),
+    confidence,
+    sourceUrl: selectedUrl || undefined
   };
 }
 
@@ -3344,21 +3454,55 @@ async function fetchStructuredTechProfile(domain: string, techSolutionConfig?: T
     }
   }
 
-  const platforms = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'ecommercePlatforms'));
-  const taSystems = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'taSystems'));
-  const paymentProviders = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'paymentProviders'));
-  const checkoutSolutions = detectStructuredLabels(combinedContent, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
-  const keywords = [...platforms, ...taSystems, ...paymentProviders, ...checkoutSolutions].slice(0, 6);
+  const detectTechSignalsFromText = (rawContent: string) => {
+    const platforms = detectStructuredLabels(rawContent, getTechPatterns(techSolutionConfig, 'ecommercePlatforms'));
+    const taSystems = detectStructuredLabels(rawContent, getTechPatterns(techSolutionConfig, 'taSystems'));
+    const paymentProviders = detectStructuredLabels(rawContent, getTechPatterns(techSolutionConfig, 'paymentProviders'));
+    const checkoutSolutions = detectStructuredLabels(rawContent, getTechPatterns(techSolutionConfig, 'checkoutSolutions'));
+    return {
+      platforms,
+      taSystems,
+      paymentProviders,
+      checkoutSolutions
+    };
+  };
+
+  let selectedContent = combinedContent;
+  let selectedUrl = sourceUrl;
+  let confidence: 'verified' | 'estimated' = 'verified';
+  let detected = detectTechSignalsFromText(selectedContent);
+  let fallbackFailure: { code: string; message: string; url?: string } | undefined;
+
+  if (!detected.platforms.length && !detected.taSystems.length && !detected.paymentProviders.length && !detected.checkoutSolutions.length) {
+    const fallbackEvidence = await fetchDomainSnippetFallbackEvidence(normalizedDomain, [
+      'e-handel', 'plattform', 'checkout', 'betalning', 'payment', 'ta-system', 'leverans', 'shipping'
+    ]);
+
+    if (fallbackEvidence.content.trim()) {
+      const fallbackDetected = detectTechSignalsFromText(fallbackEvidence.content);
+      if (fallbackDetected.platforms.length || fallbackDetected.taSystems.length || fallbackDetected.paymentProviders.length || fallbackDetected.checkoutSolutions.length) {
+        selectedContent = fallbackEvidence.content;
+        selectedUrl = pickString(fallbackEvidence.sourceUrl, selectedUrl);
+        confidence = 'estimated';
+        detected = fallbackDetected;
+      }
+    }
+
+    fallbackFailure = fallbackEvidence.failureContext;
+  }
+
+  const hasSignals = Boolean(detected.platforms.length || detected.taSystems.length || detected.paymentProviders.length || detected.checkoutSolutions.length);
+  const keywords = [...detected.platforms, ...detected.taSystems, ...detected.paymentProviders, ...detected.checkoutSolutions].slice(0, 6);
 
   return {
-    platforms,
-    taSystems,
-    paymentProviders,
-    checkoutSolutions,
-    evidenceSnippet: keywords.length ? extractEvidenceSnippet(combinedContent, keywords) : '',
-    confidence: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? 'verified' : 'missing',
-    sourceUrl: sourceUrl || undefined,
-    failureContext: (platforms.length || taSystems.length || paymentProviders.length || checkoutSolutions.length) ? undefined : lastFailure || buildFailureContext(null, sourceUrl || undefined, 'Tech crawl found no structured tech signals.')
+    platforms: detected.platforms,
+    taSystems: detected.taSystems,
+    paymentProviders: detected.paymentProviders,
+    checkoutSolutions: detected.checkoutSolutions,
+    evidenceSnippet: keywords.length ? extractEvidenceSnippet(selectedContent, keywords) : '',
+    confidence: hasSignals ? confidence : 'missing',
+    sourceUrl: selectedUrl || undefined,
+    failureContext: hasSignals ? undefined : (lastFailure || fallbackFailure || buildFailureContext(null, selectedUrl || undefined, 'Tech crawl found no structured tech signals.'))
   };
 }
 

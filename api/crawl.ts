@@ -233,6 +233,53 @@ function normalizeHostFromUrl(value?: string): string {
   }
 }
 
+function isLikelyVercelRuntime(): boolean {
+  const vercelFlag = String(process.env.VERCEL || '').trim();
+  const vercelEnv = String(process.env.VERCEL_ENV || '').trim();
+  const vercelUrl = String(process.env.VERCEL_URL || '').trim();
+  return vercelFlag === '1' || Boolean(vercelEnv || vercelUrl);
+}
+
+function isLoopbackLikeHost(hostname: string): boolean {
+  const normalized = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  return (
+    normalized === 'localhost'
+    || normalized === '127.0.0.1'
+    || normalized === '::1'
+    || normalized === '0.0.0.0'
+    || normalized.endsWith('.localhost')
+  );
+}
+
+type Crawl4aiConfigIssue = {
+  envKey: 'CRAWL4AI_API_URL' | 'CRAWL4AI_AUTH_TOKEN_URL';
+  value: string;
+};
+
+function detectUnreachableCrawl4aiConfig(): Crawl4aiConfigIssue | null {
+  if (!isLikelyVercelRuntime()) {
+    return null;
+  }
+
+  const checks: Crawl4aiConfigIssue[] = [
+    { envKey: 'CRAWL4AI_API_URL' as const, value: CRAWL4AI_API_URL },
+    { envKey: 'CRAWL4AI_AUTH_TOKEN_URL' as const, value: CRAWL4AI_AUTH_TOKEN_URL }
+  ].filter((entry) => Boolean(String(entry.value || '').trim()));
+
+  for (const check of checks) {
+    try {
+      const parsed = new URL(check.value);
+      if (isLoopbackLikeHost(parsed.hostname)) {
+        return check;
+      }
+    } catch {
+      // Ignore malformed URL here; input validation happens in existing flow.
+    }
+  }
+
+  return null;
+}
+
 function isTrustedFrontendRequest(req: VercelRequest): boolean {
   const origin = String(req.headers.origin || '').trim();
   const referer = String(req.headers.referer || '').trim();
@@ -273,6 +320,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+
+  const crawlConfigIssue = detectUnreachableCrawl4aiConfig();
+  if (crawlConfigIssue) {
+    return res.status(503).json({
+      success: false,
+      content: '',
+      metadata: {},
+      error: 'Crawl4ai runtime configuration unreachable',
+      code: 'CRAWL4AI_CONFIG_UNREACHABLE',
+      message: `${crawlConfigIssue.envKey} points to ${crawlConfigIssue.value}. In Vercel runtime this resolves inside the serverless container and cannot reach your local Docker host. Use a network-reachable Crawl4AI URL and redeploy.`,
+      fallback: true
+    });
+  }
 
   try {
     await requireApiAuth(req);
@@ -463,6 +523,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: any) {
     const upstreamStatus = error?.response?.status;
     const upstreamData = error?.response?.data;
+    const upstreamCode = String(error?.code || '').trim();
     const upstreamMessage = typeof upstreamData?.error === 'string'
       ? upstreamData.error
       : (typeof upstreamData?.message === 'string' ? upstreamData.message : error.message);
@@ -490,12 +551,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Return graceful error response
-    return res.status(500).json({
+    return res.status(503).json({
       success: false,
       content: '',
       metadata: {},
       error: 'Web crawling service temporarily unavailable',
-      message: 'Failed to crawl the requested URL. Please try again or check the URL.',
+      message: upstreamMessage || 'Failed to crawl the requested URL. Please try again or check the URL.',
+      upstreamCode: upstreamCode || undefined,
       fallback: true
     });
   }

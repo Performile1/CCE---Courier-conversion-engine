@@ -41,6 +41,17 @@ OPENROUTER_BUDGET_LIMIT=100  # Monthly budget in USD
 TAVILY_API_KEY=...
 TAVILY_SEARCH_DEPTH=advanced  # Options: basic, advanced
 
+# Crawl4AI (Self-host or cloud)
+# Local dev on same machine as Docker:
+# CRAWL4AI_API_URL=http://localhost:11235/crawl
+# CRAWL4AI_AUTH_TOKEN_URL=http://localhost:11235/token
+# Vercel/Cloud runtime must use a network-reachable URL (NOT localhost)
+CRAWL4AI_API_URL=https://your-crawl4ai-host.example/crawl
+CRAWL4AI_AUTH_MODE=auto
+CRAWL4AI_AUTH_EMAIL=admin@your-company.com
+CRAWL4AI_AUTH_TOKEN_URL=https://your-crawl4ai-host.example/token
+CRAWL4AI_AUTH_STRICT=true
+
 # Email Service (for Phase 7)
 SENDGRID_API_KEY=SG.xxxxx_yyyyy_...
 # OR
@@ -66,10 +77,20 @@ SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 OPENROUTER_API_KEY
 TAVILY_API_KEY
+CRAWL4AI_API_URL
+CRAWL4AI_AUTH_MODE
+CRAWL4AI_AUTH_EMAIL
+CRAWL4AI_AUTH_TOKEN_URL
+CRAWL4AI_AUTH_STRICT
 SENDGRID_API_KEY
 MAILGUN_API_KEY
 (CRM tokens added by users at runtime)
 ```
+
+Important:
+- In Vercel/Preview/Production, never set Crawl4AI URLs to localhost or 127.0.0.1.
+- localhost in serverless runtime points to the runtime container itself, not your local Docker host.
+- If Crawl4AI runs on your machine, expose it via a reachable host/domain before using it from cloud runtime.
 
 ## Step-by-Step Setup
 
