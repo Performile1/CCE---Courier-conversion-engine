@@ -210,6 +210,44 @@ function chooseCompanyDomainCandidate(urls: string[]): { domain: string; sourceU
   return { domain: '' };
 }
 
+const PLACEHOLDER_DECISION_MAKER_TITLES = new Set([
+  'title',
+  'titel',
+  'role',
+  'roll',
+  'kontaktperson',
+  'person',
+  'unknown',
+  'okand',
+  'n a',
+  'na'
+]);
+
+function sanitizeDecisionMakerSeedList(rawContacts: any[]): DecisionMaker[] {
+  if (!Array.isArray(rawContacts)) return [];
+
+  return rawContacts
+    .map((contact: any) => {
+      const name = pickString(contact?.name);
+      const title = pickString(contact?.title);
+      const normalizedTitle = normalizeDecisionMakerTitle(title);
+
+      if (!name || !title) return null;
+      if (isLikelyGenericPersonName(name)) return null;
+      if (PLACEHOLDER_DECISION_MAKER_TITLES.has(normalizedTitle)) return null;
+
+      return {
+        name,
+        title,
+        email: pickString(contact?.email),
+        linkedin: pickString(contact?.linkedin),
+        directPhone: pickString(contact?.direct_phone, contact?.directPhone, contact?.phone),
+        verificationNote: ''
+      } as DecisionMaker;
+    })
+    .filter((contact): contact is DecisionMaker => Boolean(contact));
+}
+
 async function resolveCompanyDomainForCrawl(input: {
   companyName: string;
   orgNumber?: string;
@@ -1005,14 +1043,7 @@ function materializeLeadFromEvidence(input: {
       }
     : undefined;
 
-  const llmContacts: DecisionMaker[] = (Array.isArray(contactsRaw) ? contactsRaw : []).map((contact: any) => ({
-    name: contact.name || '',
-    title: contact.title || '',
-    email: contact.email || '',
-    linkedin: contact.linkedin || '',
-    directPhone: contact.direct_phone || contact.directPhone || '',
-    verificationNote: ''
-  }));
+  const llmContacts: DecisionMaker[] = sanitizeDecisionMakerSeedList(contactsRaw);
   const decisionMakers: DecisionMaker[] = dedupeDecisionMakers([
     ...llmContacts,
     ...dmSupplement.map((contact) => ({
@@ -1636,17 +1667,22 @@ async function buildBatchLeadEvidenceBundle(input: {
 
   const logisticsMetrics = rawLead.logisticsMetrics || rawLead.logistics_metrics || {};
   const revenueRaw = pickString(rawLead.revenue, rawLead.revenue_tkr, rawLead.revenueTKR);
-  const rev = parseRevenueToTKR(revenueRaw);
+  const rev = parseRevenueToTKROptional(revenueRaw);
   const marketCount = pickNumber(rawLead.marketCount, rawLead.market_count) || 1;
   const sniCode = pickString(rawLead.sniCode, rawLead.sni_code, rawLead.sni);
-  let metrics: ReturnType<typeof calculateRickardMetrics> | undefined = calculateRickardMetrics(rev, sniCode, sniPercentages, marketCount, {
-    marketSettings,
-    activeCarrier
-  });
+  let metrics: ReturnType<typeof calculateRickardMetrics> | undefined = rev !== undefined
+    ? calculateRickardMetrics(rev, sniCode, sniPercentages, marketCount, {
+        marketSettings,
+        activeCarrier
+      })
+    : undefined;
 
-  const annualPackages = metrics?.annualPackages || pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages);
-  const pos1Volume = metrics?.pos1Volume || pickNumber(logisticsMetrics?.pos1_volume, logisticsMetrics?.pos1Volume);
-  const pos2Volume = metrics?.pos2Volume || pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume);
+  let annualPackages = pickNumber(logisticsMetrics?.estimatedAnnualPackages, logisticsMetrics?.estimated_annual_packages);
+  let pos1Volume = pickNumber(logisticsMetrics?.pos1_volume, logisticsMetrics?.pos1Volume);
+  let pos2Volume = pickNumber(logisticsMetrics?.pos2_volume, logisticsMetrics?.pos2Volume);
+  if (metrics?.annualPackages) annualPackages = metrics.annualPackages;
+  if (metrics?.pos1Volume !== undefined) pos1Volume = metrics.pos1Volume;
+  if (metrics?.pos2Volume !== undefined) pos2Volume = metrics.pos2Volume;
   const strategicPitch = pickString(logisticsMetrics?.strategic_pitch, logisticsMetrics?.strategicPitch);
 
   const companyName = pickString(rawLead.companyName, rawLead.company_name, rawLead.name);
@@ -1665,14 +1701,7 @@ async function buildBatchLeadEvidenceBundle(input: {
   const decisionMakerDomains = Array.from(new Set((effectivePolicies.decisionMakers || ['linkedin.com'])
     .map((domainName) => normalizeDomain(domainName))
     .filter(Boolean)));
-  const baseDecisionMakers = (rawLead.decisionMakers || rawLead.decision_makers || rawLead.contacts || []).map((contact: any) => ({
-    name: pickString(contact?.name),
-    title: pickString(contact?.title),
-    email: pickString(contact?.email),
-    linkedin: pickString(contact?.linkedin),
-    directPhone: pickString(contact?.direct_phone, contact?.directPhone),
-    verificationNote: ''
-  }));
+  const baseDecisionMakers = sanitizeDecisionMakerSeedList(rawLead.decisionMakers || rawLead.decision_makers || rawLead.contacts || []);
 
   const shouldEnrich = index < batchEnrichmentLimit;
   const analysisWarnings: string[] = [];
@@ -1773,6 +1802,9 @@ async function buildBatchLeadEvidenceBundle(input: {
         activeCarrier
       })
     : undefined;
+  if (metrics?.annualPackages) annualPackages = metrics.annualPackages;
+  if (metrics?.pos1Volume !== undefined) pos1Volume = metrics.pos1Volume;
+  if (metrics?.pos2Volume !== undefined) pos2Volume = metrics.pos2Volume;
   const verifiedSolidity = pickString(registryFields.solidity, rawLead.solidity, rawLead.equity_ratio);
   const verifiedLiquidityRatio = pickString(registryFields.liquidityRatio, rawLead.liquidityRatio, rawLead.liquidity_ratio);
   const verifiedDebtBalance = pickString(registryFields.debtBalance, rawLead.debtBalance, rawLead.debt_balance_tkr);
@@ -2731,13 +2763,41 @@ type StructuredTechProfile = TechDetections & {
 };
 
 function buildFailureContext(error: any, attemptedUrl?: string, emptyMessage?: string): { code: string; message: string; url?: string } {
-  const rawMessage = String(error?.response?.data?.error || error?.message || emptyMessage || 'No data returned').trim();
+  const upstreamError = pickString(error?.response?.data?.error);
+  const upstreamMessage = pickString(error?.response?.data?.message);
+  const rawMessage = String(
+    [upstreamError, upstreamMessage].filter(Boolean).join(': ')
+    || error?.message
+    || emptyMessage
+    || 'No data returned'
+  ).trim();
   const lowered = rawMessage.toLowerCase();
   const status = Number(error?.response?.status || 0);
 
   let code = 'UNKNOWN_FAILURE';
   if (error?.code === 'ECONNABORTED' || lowered.includes('timeout') || lowered.includes('timed out') || lowered.includes('navigation')) {
     code = 'NAVIGATION_TIMEOUT';
+  } else if (
+    status >= 500
+    || lowered.includes('temporarily unavailable')
+    || lowered.includes('service unavailable')
+    || lowered.includes('upstream')
+  ) {
+    code = 'SERVICE_UNAVAILABLE';
+  } else if (
+    lowered.includes('name not resolved')
+    || lowered.includes('dns')
+    || lowered.includes('eai_again')
+    || lowered.includes('enotfound')
+  ) {
+    code = 'DNS_RESOLUTION_FAILED';
+  } else if (
+    lowered.includes('econnrefused')
+    || lowered.includes('connection refused')
+    || lowered.includes('socket hang up')
+    || lowered.includes('failed to fetch')
+  ) {
+    code = 'UPSTREAM_UNREACHABLE';
   } else if (status === 403 || status === 401 || lowered.includes('cloudflare') || lowered.includes('forbidden') || lowered.includes('access denied') || lowered.includes('bot')) {
     code = 'BOT_CHALLENGE';
   } else if (status === 404 || lowered.includes('404')) {
@@ -3994,7 +4054,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
     }
 
     // ── Phase 3: Targeted decision makers (non-critical, only if LLM sparse) ─
-    const llmContactCount = Array.isArray(contactsRaw) ? contactsRaw.length : 0;
+    const llmSeedContacts = sanitizeDecisionMakerSeedList(Array.isArray(contactsRaw) ? contactsRaw : []);
+    const llmContactCount = llmSeedContacts.length;
     const decisionMakerDomains = Array.from(new Set((effectivePolicies.decisionMakers || ['linkedin.com'])
       .map((domain) => normalizeDomain(domain))
       .filter(Boolean)));
@@ -4022,8 +4083,8 @@ Använd source evidence och registerdata ovan när du fyller fälten. Om ett fä
       onUpdate({}, 'Varning: beslutsfattarsökning gav inga verifierade kompletteringar.');
       publishStep('contacts', 'failed', 'Beslutsfattarsökning misslyckades och föll tillbaka till befintliga kontaktfält.', { errorCode: 'no_source_hits' });
     }
-    const contactNames = (Array.isArray(contactsRaw) ? contactsRaw : [])
-      .map((c: any) => pickString(c?.name))
+    const contactNames = llmSeedContacts
+      .map((contact) => pickString(contact.name))
       .filter(Boolean);
     const newsBundle = await fetchVerifiedNewsBundle(
       pickString(companyData?.name, companyData?.companyName, companyData?.company_name) || strictCompanyName,

@@ -151,6 +151,25 @@ export function isLikelyGenericPersonName(name: string): boolean {
   const parts = compact.split(' ').filter(Boolean);
   if (parts.length < 2) return true;
 
+  const loweredParts = parts.map((part) => part.toLowerCase());
+  const placeholderTokens = new Set([
+    'john', 'jane', 'doe', 'test', 'demo', 'example', 'user', 'person',
+    'unknown', 'okand', 'namn', 'fornamn', 'efternamn', 'kontaktperson',
+    'contact', 'admin', 'support', 'info', 'team'
+  ]);
+
+  if ((loweredParts[0] === 'john' || loweredParts[0] === 'jane') && loweredParts[1] === 'doe') {
+    return true;
+  }
+
+  if (loweredParts.every((part) => placeholderTokens.has(part))) {
+    return true;
+  }
+
+  if (/^(test|demo|example)\b/i.test(compact)) {
+    return true;
+  }
+
   const blacklist = new Set([
     'anna', 'anders', 'johan', 'maria', 'erik', 'john', 'jane', 'peter', 'michael',
     'sales', 'support', 'kundservice', 'team', 'info', 'admin', 'kontakt'
@@ -463,8 +482,16 @@ export function scoreDecisionMaker(contact: DecisionMaker): number {
 }
 
 export function dedupeDecisionMakers(contacts: DecisionMaker[], maxResults = 6): DecisionMaker[] {
+  const placeholderTitles = new Set(['title', 'titel', 'role', 'roll', 'kontaktperson', 'person', 'okand', 'unknown', 'n a', 'na']);
   const ranked = [...contacts]
+    .map((contact) => ({
+      ...contact,
+      name: String(contact.name || '').trim(),
+      title: String(contact.title || '').trim()
+    }))
     .filter((contact) => contact.name && contact.title)
+    .filter((contact) => !isLikelyGenericPersonName(contact.name))
+    .filter((contact) => !placeholderTitles.has(normalizeDecisionMakerTitle(contact.title)))
     .sort((a, b) => scoreDecisionMaker(b) - scoreDecisionMaker(a));
 
   const seenNames = new Set<string>();

@@ -20,6 +20,12 @@ import type {
 
 // Legal statuses that require a confirmed registry source to remove.
 const PROTECTED_LEGAL_STATUSES = ['Konkurs', 'Likvidation', 'Avregistrerad'];
+const PLACEHOLDER_DECISION_MAKER_TITLES = new Set(['title', 'titel', 'role', 'roll', 'kontaktperson', 'person', 'unknown', 'okand', 'n/a', 'na']);
+const PLACEHOLDER_DECISION_MAKER_NAME_TOKENS = new Set([
+  'john', 'jane', 'doe', 'test', 'demo', 'example', 'user', 'person',
+  'unknown', 'okand', 'namn', 'fornamn', 'efternamn', 'kontaktperson',
+  'contact', 'admin', 'support', 'info', 'team', 'sales'
+]);
 
 // ---------------------------------------------------------------------------
 // mergeLeadData
@@ -52,6 +58,10 @@ export function mergeLeadData(
   incoming: Partial<LeadData>
 ): LeadData {
   const merged: LeadData = { ...existing };
+  const sanitizedExistingDecisionMakers = sanitizeDecisionMakers(existing.decisionMakers || []);
+  if (sanitizedExistingDecisionMakers.length !== (existing.decisionMakers || []).length) {
+    merged.decisionMakers = sanitizedExistingDecisionMakers;
+  }
 
   // ── IDENTITY ───────────────────────────────────────────────────────────────
   if (incoming.companyName?.trim()) merged.companyName = incoming.companyName;
@@ -220,15 +230,16 @@ export function mergeLeadData(
   //  - Keys: email (primary), name (secondary, lowercased).
   //  - Existing contacts NOT present in incoming are preserved (historical truth).
   //  - For the same key, incoming wins (more recent fetch = more current info).
-  if (incoming.decisionMakers && incoming.decisionMakers.length > 0) {
+  const sanitizedIncomingDecisionMakers = sanitizeDecisionMakers(incoming.decisionMakers || []);
+  if (sanitizedIncomingDecisionMakers.length > 0) {
     const dmMap = new Map<string, DecisionMaker>(
-      (existing.decisionMakers || []).map(dm => [
-        dm.email?.toLowerCase() || dm.name.toLowerCase(),
+      sanitizedExistingDecisionMakers.map(dm => [
+        normalizeDecisionMakerMergeKey(dm),
         dm,
       ])
     );
-    for (const dm of incoming.decisionMakers) {
-      dmMap.set(dm.email?.toLowerCase() || dm.name.toLowerCase(), dm);
+    for (const dm of sanitizedIncomingDecisionMakers) {
+      dmMap.set(normalizeDecisionMakerMergeKey(dm), dm);
     }
     merged.decisionMakers = Array.from(dmMap.values());
   }
@@ -379,7 +390,20 @@ export function buildVerifiedFieldEvidenceUpdate(
 function isMeaningfulValue(v: string | null | undefined): boolean {
   if (v == null) return false;
   const trimmed = v.trim();
-  return trimmed.length > 2 && trimmed !== '—' && trimmed !== '0' && trimmed !== '-';
+  if (!trimmed) return false;
+
+  const lowered = trimmed.toLowerCase();
+  const placeholders = new Set([
+    '—', '-', 'n/a', 'na', 'okänd', 'okand', 'unknown',
+    'ej tillgänglig', 'ej tillganglig', 'saknas', 'null', 'undefined'
+  ]);
+  if (placeholders.has(lowered)) return false;
+
+  // Guard against synthetic zero placeholders like "0", "0%", "0 tkr".
+  if (/^0+(?:[.,]0+)?$/.test(trimmed)) return false;
+  if (/^0+(?:[.,]0+)?\s*(tkr|kr|sek|mkr|msek|%)$/i.test(trimmed)) return false;
+
+  return true;
 }
 
 /**
@@ -406,4 +430,72 @@ function mergeUniqueCommaValues(
   }
 
   return result.join(', ');
+}
+
+function normalizeDecisionMakerMergeKey(contact: DecisionMaker): string {
+  const email = (contact.email || '').trim().toLowerCase();
+  if (email) return email;
+  return normalizeDecisionMakerNameForFiltering(contact.name);
+}
+
+function normalizeDecisionMakerNameForFiltering(name: string): string {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9åäö\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isLikelyPlaceholderDecisionMakerName(name: string): boolean {
+  const normalized = normalizeDecisionMakerNameForFiltering(name);
+  if (!normalized) return true;
+
+  const parts = normalized.split(' ').filter(Boolean);
+  if (parts.length < 2) return true;
+
+  if ((parts[0] === 'john' || parts[0] === 'jane') && parts[1] === 'doe') {
+    return true;
+  }
+
+  if (parts.every((part) => PLACEHOLDER_DECISION_MAKER_NAME_TOKENS.has(part))) {
+    return true;
+  }
+
+  return /^(test|demo|example)\b/i.test(normalized);
+}
+
+function isLikelyPlaceholderDecisionMakerTitle(title: string): boolean {
+  const normalized = String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9åäö/\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return !normalized || PLACEHOLDER_DECISION_MAKER_TITLES.has(normalized);
+}
+
+function sanitizeDecisionMakers(contacts: DecisionMaker[]): DecisionMaker[] {
+  if (!Array.isArray(contacts)) return [];
+
+  const deduped = new Map<string, DecisionMaker>();
+  for (const contact of contacts) {
+    const name = String(contact?.name || '').trim();
+    const title = String(contact?.title || '').trim();
+    if (!name || !title) continue;
+    if (isLikelyPlaceholderDecisionMakerName(name)) continue;
+    if (isLikelyPlaceholderDecisionMakerTitle(title)) continue;
+
+    const sanitized: DecisionMaker = {
+      ...contact,
+      name,
+      title,
+      email: String(contact?.email || '').trim(),
+      linkedin: String(contact?.linkedin || '').trim(),
+      directPhone: String(contact?.directPhone || '').trim(),
+      verificationNote: String(contact?.verificationNote || '').trim()
+    };
+
+    deduped.set(normalizeDecisionMakerMergeKey(sanitized), sanitized);
+  }
+
+  return Array.from(deduped.values());
 }
